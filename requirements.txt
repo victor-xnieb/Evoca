@@ -1,0 +1,10 @@
+# Perfil reproducible para el equipo.
+# Python 3.12-3.14 usa exactamente la versión solicitada por el equipo.
+# Python 3.10-3.11 usa Django 5.2 LTS, porque Django 6.1 no soporta esas versiones.
+Django==6.1.1; python_version >= "3.12"
+Django==5.2.18; python_version < "3.12"
+djangorestframework==3.18.3
+dj-database-url==3.1.2
+python-dotenv==1.2.4
+psycopg[binary]==3.3.6
+

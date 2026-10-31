@@ -1,0 +1,13 @@
+[project]
+name = "evoca-backend"
+version = "0.1.0"
+description = "API base del MVP de Evoca"
+requires-python = ">=3.10,<3.15"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+

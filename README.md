@@ -142,6 +142,28 @@ python manage.py makemigrations --check --dry-run
 python manage.py test --settings=config.settings_test
 ```
 
+## Migraciones automáticas al integrar en `dev`
+
+El workflow `.github/workflows/ci.yml` ejecuta las pruebas en cada push y pull request. Cuando
+el commit llega a `dev` y todas las pruebas pasan, también aplica las migraciones pendientes a
+la rama `development` de Neon.
+
+Configuración única en GitHub:
+
+1. Abre **Settings > Secrets and variables > Actions** en el repositorio.
+2. Selecciona **New repository secret**.
+3. Usa el nombre `NEON_DEVELOPMENT_DATABASE_URL_UNPOOLED`.
+4. Como valor, pega la cadena directa de la rama `development` de Neon, con
+   **Connection pooling desactivado**.
+
+No agregues comillas ni guardes esta URL en el workflow. Después de configurar el secreto, un
+merge en `dev` seguirá el flujo `pruebas -> migración`. Si no hay migraciones pendientes,
+Django termina correctamente sin modificar el esquema.
+
+Las ramas de funcionalidad no migran la base compartida: solo ejecutan pruebas aisladas. Para
+producción se debe crear otro entorno y otro secreto; nunca se debe reutilizar la credencial de
+`development`.
+
 Consulta [docs/SPRINT1.md](docs/SPRINT1.md) para el alcance y los criterios de aceptación, y
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para las decisiones técnicas.
 

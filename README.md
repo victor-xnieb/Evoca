@@ -1,11 +1,19 @@
-# Evoca - backend base del Sprint 1
+# Evoca
 
-API en Django para iniciar el MVP de Evoca. Este repositorio cubre la base técnica del
-primer sprint: cuentas de personas adultas, consentimientos versionados, autenticación por
-token y CRUD privado de huellas sensoriales.
+Evoca es una app web instalable (PWA) para que personas adultas en Colombia registren
+huellas sensoriales (un aroma, un color, una canción, un sabor, una textura o un lugar) con
+una emoción y una intensidad, y vean cómo evoluciona su ánimo. Es una herramienta de
+autoconocimiento, no clínica.
 
-La app móvil Android/iOS no se construye con Django. Django es el backend; una app Flutter
-u otro cliente móvil consumirá esta API en los siguientes sprints.
+El repositorio tiene dos partes:
+
+| Carpeta | Qué es | Tecnología |
+| --- | --- | --- |
+| raíz (`apps/`, `config/`) | API REST en `/api/v1/` | Django + Django REST Framework, PostgreSQL (Neon) |
+| `frontend/` | Cliente web instalable en el celular | React + TypeScript (Vite), Tailwind CSS, shadcn/ui, Motion, Recharts, PWA |
+
+Django es solo el backend. El uso en Android e iOS se cubre con la PWA (responsive e
+instalable desde el navegador); no se construye una app nativa.
 
 ## Compatibilidad del equipo
 
@@ -25,7 +33,12 @@ por Git; ningún integrante debe borrarlas y regenerarlas por su cuenta.
 > aplicación en Internet se debe planear el paso a un parche de seguridad vigente de la
 > misma serie.
 
-## Inicio rápido en Windows (PowerShell)
+## Requisitos
+
+- Python 3.10 a 3.14 (backend).
+- Node.js 22.12 o superior y npm (frontend). El CI usa Node 24.
+
+## Inicio rápido del backend en Windows (PowerShell)
 
 Desde la raíz del repositorio:
 
@@ -100,6 +113,43 @@ Rutas útiles:
 Si `DATABASE_URL` está vacía, el proyecto usa SQLite solo para facilitar el arranque local.
 No representa el entorno compartido del equipo.
 
+## Levantar el frontend
+
+Con el backend corriendo en `http://127.0.0.1:8000`, en otra terminal:
+
+```powershell
+cd frontend
+npm ci
+Copy-Item .env.example .env
+npm run dev
+```
+
+Abre `http://localhost:5173`. La variable `VITE_API_URL` de `frontend/.env` indica dónde
+está la API (por defecto `http://127.0.0.1:8000/api/v1`).
+
+El backend solo acepta peticiones del navegador desde los orígenes de
+`DJANGO_CORS_ALLOWED_ORIGINS` (por defecto `http://localhost:5173` y
+`http://127.0.0.1:5173`). Si cambias el puerto del frontend, agrega el origen en el `.env`
+del backend separado por comas; nunca uses `*`.
+
+Catálogo de componentes (Storybook), solo para desarrollo:
+
+```powershell
+cd frontend
+npm run storybook
+```
+
+Abre `http://localhost:6006`. Desde la barra superior se cambia entre modo claro y oscuro y
+se prueba el movimiento reducido.
+
+Para probar la PWA instalable se usa el paquete de producción:
+
+```powershell
+cd frontend
+npm run build
+npm run preview
+```
+
 ## API del Sprint 1
 
 | Método | Ruta | Función |
@@ -142,9 +192,21 @@ python manage.py makemigrations --check --dry-run
 python manage.py test --settings=config.settings_test
 ```
 
+Y en el frontend:
+
+```powershell
+cd frontend
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run build-storybook
+```
+
 ## Migraciones automáticas al integrar en `dev`
 
-El workflow `.github/workflows/ci.yml` ejecuta las pruebas en cada push y pull request. Cuando
+El workflow `.github/workflows/ci.yml` ejecuta las pruebas del backend (Python 3.10 y 3.14) y
+el job del frontend (lint, tipos, pruebas, build y Storybook) en cada push y pull request. Cuando
 el commit llega a `dev` y todas las pruebas pasan, también aplica las migraciones pendientes a
 la rama `development` de Neon.
 
@@ -164,6 +226,8 @@ Las ramas de funcionalidad no migran la base compartida: solo ejecutan pruebas a
 producción se debe crear otro entorno y otro secreto; nunca se debe reutilizar la credencial de
 `development`.
 
-Consulta [docs/SPRINT1.md](docs/SPRINT1.md) para el alcance y los criterios de aceptación, y
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para las decisiones técnicas.
+Consulta [docs/SPRINT1.md](docs/SPRINT1.md) para el alcance, los criterios de aceptación y la
+evidencia por historia, [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para las decisiones
+técnicas, [frontend/README.md](frontend/README.md) para la estructura del cliente y
+[CREDITS.md](CREDITS.md) para las piezas externas usadas.
 

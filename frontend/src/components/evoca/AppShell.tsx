@@ -52,14 +52,14 @@ export function AppShell({ children, accentEmotion, className }: AppShellProps) 
       >
         Saltar al contenido
       </a>
-      <header className="mx-auto flex w-full max-w-2xl items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-2">
+      <header className="mx-auto flex w-full max-w-2xl items-center lg:max-w-5xl justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-2">
         <NavLink to="/" className="flex min-h-11 items-center font-display text-2xl font-semibold tracking-tight" aria-label="Evoca, inicio">
           evoca<span className="text-(--accent-emotion)">.</span>
         </NavLink>
         <ThemeSwitch />
       </header>
 
-      <main id="contenido" className={cn("mx-auto w-full max-w-2xl flex-1 px-5 pt-2 pb-36", className)}>
+      <main id="contenido" className={cn("mx-auto w-full max-w-2xl flex-1 lg:max-w-5xl px-5 pt-2 pb-36", className)}>
         {children}
       </main>
 

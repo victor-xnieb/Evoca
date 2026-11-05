@@ -52,8 +52,8 @@ No es una HU: prepara el terreno para todas.
 | CI de frontend (lint, tipos, pruebas, build, Storybook) | `.github/workflows/ci.yml` (job `frontend`) | GitHub Actions |
 | Créditos de piezas externas | `CREDITS.md` | — |
 
-Capturas de la pantalla de inicio: [modo claro](capturas/base-inicio-claro.jpg) y
-[modo oscuro](capturas/base-inicio-oscuro.jpg).
+Capturas de la pantalla de inicio: [móvil, modo claro](capturas/base-inicio-claro.jpg),
+[móvil, modo oscuro](capturas/base-inicio-oscuro.jpg) y [escritorio](capturas/base-inicio-escritorio.png).
 
 ---
 

@@ -12,7 +12,7 @@ interface ComingSoonPageProps {
 /** Sección que todavía no está construida en este sprint (se completa en su HU). */
 export function ComingSoonPage({ title, description }: ComingSoonPageProps) {
   return (
-    <PageTransition className="gap-6">
+    <PageTransition className="mx-auto w-full max-w-2xl gap-6">
       <h1 className="text-3xl font-semibold">{title}</h1>
       <div className="rounded-3xl border bg-card/80 shadow-soft">
         <EmptyState

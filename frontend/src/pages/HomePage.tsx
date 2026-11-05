@@ -35,27 +35,30 @@ export function HomePage() {
 
   return (
     <PageTransition className="gap-8">
-      <section className="relative isolate -mx-5 flex min-h-64 flex-col items-center justify-center overflow-hidden px-5 py-10 text-center">
-        <Ripple className="-z-10" />
-        <p className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">{greeting()}</p>
-        <h1 className="mt-2 font-display text-6xl font-semibold tracking-tight sm:text-7xl">
-          <AuroraText>Evoca</AuroraText>
-        </h1>
-        <p className="mt-3 max-w-sm text-lg text-pretty text-muted-foreground">
-          Tu memoria sensorial, un camino para conocerte y cuidar cómo te sientes.
-        </p>
-      </section>
+      {/* En escritorio la bienvenida y el estado vacío van lado a lado. */}
+      <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-12">
+        <section className="relative isolate flex min-h-[22rem] flex-col items-center justify-center px-4 py-10 text-center sm:min-h-[27rem]">
+          <Ripple className="-z-10" />
+          <p className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">{greeting()}</p>
+          <h1 className="mt-2 font-display text-6xl font-semibold tracking-tight sm:text-7xl">
+            <AuroraText>Evoca</AuroraText>
+          </h1>
+          <p className="mt-3 max-w-sm text-lg text-pretty text-muted-foreground">
+            Tu memoria sensorial, un camino para conocerte y cuidar cómo te sientes.
+          </p>
+        </section>
 
-      <div className="rounded-3xl border bg-card/80 shadow-soft backdrop-blur-sm">
-        <EmptyState
-          title="Aún no tienes huellas"
-          description="Cuando registres la primera, aquí verás tus recuerdos más recientes y cómo ha estado tu ánimo."
-          action={
-            <Button asChild size="lg" className="h-12 rounded-full px-6 text-base">
-              <Link to="/nueva-huella">Registrar mi primera huella</Link>
-            </Button>
-          }
-        />
+        <div className="rounded-3xl border bg-card/80 shadow-soft backdrop-blur-sm">
+          <EmptyState
+            title="Aún no tienes huellas"
+            description="Cuando registres la primera, aquí verás tus recuerdos más recientes y cómo ha estado tu ánimo."
+            action={
+              <Button asChild size="lg" className="h-12 rounded-full px-6 text-base">
+                <Link to="/nueva-huella">Registrar mi primera huella</Link>
+              </Button>
+            }
+          />
+        </div>
       </div>
 
       <motion.ol

@@ -16,7 +16,7 @@ export function SettingsPage() {
   const reduced = useReducedMotion()
 
   return (
-    <PageTransition className="gap-6">
+    <PageTransition className="mx-auto w-full max-w-2xl gap-6">
       <h1 className="text-3xl font-semibold">Ajustes</h1>
 
       <section aria-labelledby="apariencia" className="flex flex-col gap-3 rounded-3xl border bg-card/80 p-5 shadow-soft">

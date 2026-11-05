@@ -43,11 +43,26 @@ por Git; ningún integrante debe borrarlas y regenerarlas por su cuenta.
 Desde la raíz del repositorio:
 
 ```powershell
-python -m venv .venv
+py -3.14 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
+
+`py -3.14` usa el lanzador oficial de Python para Windows; cambia la versión por la que
+tengas instalada (3.10 a 3.14, `py -0` las lista).
+
+> **Si `python` o `pip` apuntan a otra instalación** (por ejemplo MSYS2 o un Python global),
+> o si PowerShell no deja ejecutar `Activate.ps1`, no actives el entorno: llama directamente
+> al intérprete de `.venv`. Así nunca se instala nada en el Python global.
+>
+> ```powershell
+> .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+> .\.venv\Scripts\python.exe manage.py migrate
+> .\.venv\Scripts\python.exe manage.py runserver
+> ```
+>
+> Nunca ejecutes `pip install` suelto sin el entorno activo: modificaría tu Python global.
 
 También se puede ejecutar `scripts\bootstrap.ps1`, que realiza esos pasos sin tocar otras
 instalaciones de Python o Django.

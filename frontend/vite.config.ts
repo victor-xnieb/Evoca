@@ -1,0 +1,68 @@
+/// <reference types="vitest/config" />
+import path from "node:path"
+import tailwindcss from "@tailwindcss/vite"
+import react from "@vitejs/plugin-react"
+import { defineConfig } from "vite"
+import { VitePWA } from "vite-plugin-pwa"
+
+export default defineConfig({
+  plugins: [
+    react(),
+    tailwindcss(),
+    VitePWA({
+      registerType: "autoUpdate",
+      includeAssets: ["favicon.svg", "apple-touch-icon.png"],
+      manifest: {
+        name: "Evoca",
+        short_name: "Evoca",
+        description: "Registra huellas sensoriales y conoce cómo evoluciona tu ánimo.",
+        lang: "es-CO",
+        start_url: "/",
+        scope: "/",
+        display: "standalone",
+        orientation: "portrait",
+        background_color: "#fff8ee",
+        theme_color: "#fff8ee",
+        icons: [
+          { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },
+          { src: "pwa-512x512.png", sizes: "512x512", type: "image/png" },
+          { src: "maskable-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        ],
+      },
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        // Las fuentes vietnamitas solo se descargan si hacen falta; no se precargan.
+        globIgnores: ["**/*vietnamese*"],
+        navigateFallback: "/index.html",
+        // La API nunca se guarda en caché: son datos personales y deben ser frescos.
+        navigateFallbackDenylist: [/^\/api\//, /^\/admin\//],
+      },
+      devOptions: { enabled: false },
+    }),
+  ],
+  resolve: {
+    alias: { "@": path.resolve(import.meta.dirname, "./src") },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Separa librerías grandes para que la carga inicial siga siendo liviana.
+        manualChunks(id) {
+          const normalized = id.replaceAll("\\", "/")
+          if (/node_modules\/(react|react-dom|scheduler|react-router)\//.test(normalized)) return "react"
+          if (/node_modules\/(motion|framer-motion|motion-dom|motion-utils)\//.test(normalized)) return "motion"
+          if (/node_modules\/(recharts|d3-[a-z-]+|victory-vendor)\//.test(normalized)) return "charts"
+          if (normalized.includes("node_modules/lottie-web/")) return "lottie"
+          return undefined
+        },
+      },
+    },
+  },
+  test: {
+    environment: "jsdom",
+    globals: false,
+    setupFiles: ["./src/test/setup.ts"],
+    css: false,
+    include: ["src/**/*.test.{ts,tsx}"],
+  },
+})

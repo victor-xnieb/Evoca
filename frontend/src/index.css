@@ -1,0 +1,181 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./styles/shadcn-variants.css";
+@import "@fontsource-variable/fraunces";
+@import "@fontsource-variable/figtree";
+@import "./styles/tokens.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Expone los tokens como utilidades de Tailwind (bg-emotion-calma, font-display, ...). */
+@theme inline {
+  --font-sans: var(--font-body);
+  --font-heading: var(--font-display);
+  --font-display: var(--font-display);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-cream: var(--evoca-cream);
+  --color-sand: var(--evoca-sand);
+  --color-ink: var(--evoca-ink);
+  --color-ink-soft: var(--evoca-ink-soft);
+  --color-day-empty: var(--evoca-day-empty);
+  --color-day-empty-ink: var(--evoca-day-empty-ink);
+  --color-support: var(--evoca-support);
+  --color-support-ink: var(--evoca-support-ink);
+
+  --color-emotion-alegria: var(--emotion-alegria);
+  --color-emotion-alegria-ink: var(--emotion-alegria-ink);
+  --color-emotion-calma: var(--emotion-calma);
+  --color-emotion-calma-ink: var(--emotion-calma-ink);
+  --color-emotion-gratitud: var(--emotion-gratitud);
+  --color-emotion-gratitud-ink: var(--emotion-gratitud-ink);
+  --color-emotion-nostalgia: var(--emotion-nostalgia);
+  --color-emotion-nostalgia-ink: var(--emotion-nostalgia-ink);
+  --color-emotion-tristeza: var(--emotion-tristeza);
+  --color-emotion-tristeza-ink: var(--emotion-tristeza-ink);
+  --color-emotion-ansiedad: var(--emotion-ansiedad);
+  --color-emotion-ansiedad-ink: var(--emotion-ansiedad-ink);
+  --color-emotion-enojo: var(--emotion-enojo);
+  --color-emotion-enojo-ink: var(--emotion-enojo-ink);
+  --color-emotion-miedo: var(--emotion-miedo);
+  --color-emotion-miedo-ink: var(--emotion-miedo-ink);
+
+  --radius-sm: calc(var(--radius) * 0.45);
+  --radius-md: calc(var(--radius) * 0.7);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.35);
+  --radius-2xl: calc(var(--radius) * 1.7);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  --shadow-soft: var(--shadow-soft);
+  --shadow-lifted: var(--shadow-lifted);
+
+  --ease-out-soft: var(--ease-out-soft);
+  --ease-spring: var(--ease-spring);
+
+  --animate-ripple: ripple var(--duration, 3.4s) var(--ease-in-out-soft) calc(var(--i, 0) * 0.2s) infinite;
+  --animate-dot-bounce: dot-bounce 1s var(--ease-in-out-soft) infinite;
+  --animate-aurora-drift: aurora-drift 9s var(--ease-in-out-soft) infinite alternate;
+}
+
+/* Fondo envolvente: degradado sutil con la emoción reciente. */
+.evoca-backdrop {
+  background:
+    radial-gradient(120% 70% at 85% -10%, color-mix(in oklab, var(--accent-emotion) 28%, transparent), transparent 62%),
+    radial-gradient(90% 60% at -10% 110%, color-mix(in oklab, var(--emotion-gratitud) 14%, transparent), transparent 60%),
+    var(--background);
+}
+
+@keyframes ripple {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(0.92);
+  }
+}
+
+@keyframes dot-bounce {
+  0%,
+  100% {
+    transform: translateY(-40%);
+  }
+  50% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes aurora-fade {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  30%,
+  50% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 0;
+  }
+}
+
+@keyframes aurora-drift {
+  0% {
+    transform: rotate(-2deg) scale(0.98);
+  }
+  50% {
+    transform: rotate(2deg) scale(1.02);
+  }
+  100% {
+    transform: rotate(-1deg) scale(1);
+  }
+}
+
+/*
+ * Movimiento reducido: por preferencia del sistema o forzado desde la app/Storybook
+ * (MotionPreferenceProvider pone data-motion="reduce" | "full" en <html>).
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) *,
+  :root:not([data-motion="full"]) *::before,
+  :root:not([data-motion="full"]) *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+:root[data-motion="reduce"] *,
+:root[data-motion="reduce"] *::before,
+:root[data-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    min-height: 100dvh;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    letter-spacing: -0.01em;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}

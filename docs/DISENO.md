@@ -211,5 +211,5 @@ Preparado y documentado; **no implementado en esta rama**.
 | HU4 | **Hecho.** La leyenda de la gráfica usa esferas pequeñas (`EmotionChip`); las líneas y los puntos siguen usando los tokens de color, no las imágenes |
 | HU5 | La ilustración del recordatorio puede usar una esfera con animación suave (`animated`) |
 | HU6 | Fondo estático y calmado: `AppShell background="static"` (o `AnimatedBackground variant="static"`), sin video ni esferas en movimiento |
-| HU7 | El calendario usa colores de los tokens, no imágenes; las esferas solo aparecen en el detalle del día, en tamaño pequeño |
+| HU7 | **Hecho.** El calendario (`MoodCalendar` con `DayCell`) usa colores de los tokens, no imágenes; las esferas solo aparecen en el detalle del día, en tamaño pequeño |
 | HU8 | La emoción sugerida por la IA aparece con su esfera pequeña, con una entrada animada breve |

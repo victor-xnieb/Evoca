@@ -26,9 +26,9 @@ Cada HU tiene tres subtareas en Jira: **Desarrollo** (backend), **Interfaz** (pa
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | HU1 · Crear cuenta y proteger mi acceso | SCRUM-10 | 8 | Highest | Cuenta y privacidad | SCRUM-27 | SCRUM-28 | SCRUM-29 | `feature/hu1-cuenta-y-pin` | En dev (parcial: biometría) |
 | 2 | HU2 · Registrar una huella sensorial | SCRUM-15 | 5 | Highest | Registro de huellas | SCRUM-30 | SCRUM-31 | SCRUM-32 | `feature/hu2-registrar-huella` | En dev |
-| 3 | HU3 · Ver y editar mis huellas | SCRUM-12 | 5 | High | Registro de huellas | SCRUM-33 | SCRUM-34 | SCRUM-35 | `feature/hu3-ver-editar-huellas` | En dev (parcial: calendario) |
-| 4 | HU4 · Ver mi gráfica de ánimo | SCRUM-13 | 3 | High | Seguimiento del ánimo | SCRUM-36 | SCRUM-37 | SCRUM-38 | `feature/hu4-grafica-animo` | En revisión |
-| 5 | HU7 · Ver mi calendario de ánimo por colores | SCRUM-17 | 3 | High | Seguimiento del ánimo | SCRUM-45 | SCRUM-46 | SCRUM-47 | `feature/hu7-calendario-animo` | Pendiente |
+| 3 | HU3 · Ver y editar mis huellas | SCRUM-12 | 5 | High | Registro de huellas | SCRUM-33 | SCRUM-34 | SCRUM-35 | `feature/hu3-ver-editar-huellas` | En dev (completa con HU7) |
+| 4 | HU4 · Ver mi gráfica de ánimo | SCRUM-13 | 3 | High | Seguimiento del ánimo | SCRUM-36 | SCRUM-37 | SCRUM-38 | `feature/hu4-grafica-animo` | En dev |
+| 5 | HU7 · Ver mi calendario de ánimo por colores | SCRUM-17 | 3 | High | Seguimiento del ánimo | SCRUM-45 | SCRUM-46 | SCRUM-47 | `feature/hu7-calendario-animo` | En revisión |
 | 6 | HU5 · Recibir un recordatorio diario | SCRUM-14 | 2 | Medium | Registro de huellas | SCRUM-39 | SCRUM-40 | SCRUM-41 | `feature/hu5-recordatorio-diario` | Pendiente |
 | 7 | HU6 · Recibir orientación hacia ayuda profesional | SCRUM-16 | 5 | High | Seguimiento del ánimo | SCRUM-42 | SCRUM-43 | SCRUM-44 | `feature/hu6-orientacion-ayuda` | Pendiente |
 | 8 | HU8 · Sugerir la emoción con IA desde mi nota | SCRUM-18 | 5 | Medium | Registro de huellas | SCRUM-48 | SCRUM-49 | SCRUM-50 | `feature/hu8-sugerencia-emocion-ia` | Pendiente |
@@ -150,7 +150,7 @@ emoción, y editar o borrar una, para mantener mi registro al día y corregir er
 | --- | --- | --- | --- | --- |
 | 1 · Filtro por tipo o emoción y veo solo las que coinciden, de la más reciente a la más antigua | Orden por `created_at` descendente; `?sensory_type=` y `?emotion=` combinables | `apps/traces/tests.py` (`ManageTracesTests`: `test_lists_only_my_traces_newest_first`, `test_filters_by_sensory_type_newest_first`, `test_filters_by_emotion_newest_first`, `test_combines_type_and_emotion`, `test_filter_without_matches_returns_empty_list`, `test_rejects_unknown_filter_values`); `frontend/src/app/hu3.test.tsx` (escenario 1) | `/mis-huellas` ([lista](capturas/hu3-lista.jpg), [filtros](capturas/hu3-filtros.jpg)) | Cumplido |
 | 2 · Cambio la nota, la emoción o la intensidad y guardo | Se guarda y la lista ya trae el cambio | `test_edits_note_emotion_and_intensity`, `test_edit_validates_like_create`, `test_cannot_edit_or_delete_another_persons_trace`; `hu3.test.tsx` (escenario 2) | `/mis-huellas/:id` ([captura](capturas/hu3-editar.jpg)) | Cumplido |
-| 2 · El cambio se refleja en mi gráfica y en mi calendario | — | Gráfica: `MoodChartTests.test_editing_a_trace_is_reflected_in_the_chart` y el recorrido de HU4 (el punto editado cambia). El calendario (HU7) todavía no existe | `/animo` | **Parcial** (gráfica cumplida; calendario en HU7) |
+| 2 · El cambio se refleja en mi gráfica y en mi calendario | — | Gráfica: `MoodChartTests.test_editing_a_trace_is_reflected_in_the_chart` y el recorrido de HU4 (el punto editado cambia). Calendario: `MoodCalendarTests.test_editing_a_trace_changes_the_color_of_its_day` y el recorrido de HU7 (tras editar desde el detalle del día, el día pasa de Calma a Nostalgia) | `/animo` | Cumplido (completado en HU4 y HU7) |
 | 3 · Confirmo borrar y la huella desaparece de mi lista y de los recuerdos que la incluían | Confirmación previa; borrado en el servidor; la relación con las memorias se elimina | `test_delete_removes_it_from_my_list_and_from_memories`; `hu3.test.tsx`: «cancelar no borra nada», «al confirmar, la huella desaparece de mi lista» | Diálogo de confirmación ([captura](capturas/hu3-borrar.jpg)) | Cumplido |
 
 Recorrido completo contra el backend real con Playwright:
@@ -244,7 +244,21 @@ emoción dominante, para reconocer de un vistazo cómo ha sido mi mes.
 
 **Subtareas:** Desarrollo SCRUM-45 · Interfaz SCRUM-46 · Pruebas SCRUM-47.
 
-**Evidencia:** pendiente.
+**Evidencia** (rama `feature/hu7-calendario-animo`):
+
+| Escenario | Medida | Prueba automática | Pantalla | Estado |
+| --- | --- | --- | --- | --- |
+| 1 · Cada día tiene el color de mi emoción dominante | Emoción más frecuente; en empate, la de mayor intensidad sumada y luego la más reciente; días en hora de Bogotá | `apps/traces/tests.py` (`MoodCalendarTests`: `test_each_day_takes_its_dominant_emotion`, `test_tie_goes_to_higher_total_intensity_then_most_recent`, `test_month_limits_use_local_time`, `test_never_includes_other_peoples_traces`); `frontend/src/app/hu7.test.tsx` («pinta cada día…») | `/animo`, «Tu calendario» ([celular](capturas/hu7-mes.jpg), [oscuro](capturas/hu7-oscuro.jpg)) | Cumplido |
+| 1 · …y puedo pasar a meses anteriores | Hasta el primer mes con datos o el mes en que se creó la cuenta; no más allá del mes actual | `test_previous_months_can_be_opened`, `test_rejects_bad_month`; `hu7.test.tsx` («se puede pasar al mes anterior…») | Botones «Mes anterior» y «Mes siguiente» | Cumplido |
+| 2 · Al tocar un día veo la emoción, la intensidad promedio y las huellas de ese día | Intensidad promedio con un decimal | `test_list_filters_the_traces_of_a_day`; `hu7.test.tsx` (escenario 2) | Detalle del día ([captura](capturas/hu7-detalle.jpg)) | Cumplido |
+| 3 · Un día sin registros se ve en un color neutro, sin juicio ni alertas | Tono `--evoca-day-empty`, sin ícono ni alertas | `test_days_without_records_are_not_sent`, `test_deleting_the_only_trace_leaves_the_day_neutral`; `hu7.test.tsx` (escenario 3: sin `role="alert"`) | Días beige; al tocarlos: «Este día no tiene registros.» | Cumplido |
+
+Recorrido completo con Playwright contra el backend real:
+
+- Este mes: el día 1 es Calma (2 de sus 3 huellas, intensidad promedio 4,0), el 2 es Tristeza y el 4 es Gratitud; los otros 27 días son neutros.
+- Al tocar el día 1 aparecen sus 3 huellas.
+- En el mes anterior, el 10 es Alegría y el 20 es Enojo. «Mes anterior» se desactiva en el primer mes y «Mes siguiente» en el mes actual.
+- Al tocar un día sin registros, no aparece ninguna alerta.
 
 ## HU8 · Sugerir la emoción con IA desde mi nota (SCRUM-18)
 
@@ -286,11 +300,11 @@ Se completa al cerrar la HU8.
 | --- | --- | --- | --- |
 | HU1 | 3 de 3 con PIN; huella o rostro parcial | SCRUM-27, SCRUM-28 y SCRUM-29 cubiertas | Huella o rostro: verificación local, sin prueba en un dispositivo real |
 | HU2 | 3 de 3 | SCRUM-30, SCRUM-31 y SCRUM-32 cubiertas | — |
-| HU3 | 1 y 3 completos; 2 parcial | SCRUM-33, SCRUM-34 y SCRUM-35 cubiertas | Escenario 2: la gráfica ya refleja la edición (verificado en HU4); falta el calendario (HU7) |
+| HU3 | 3 de 3 | SCRUM-33, SCRUM-34 y SCRUM-35 cubiertas | — (el escenario 2 se completó con HU4 y HU7) |
 | HU4 | 3 de 3 | SCRUM-36, SCRUM-37 y SCRUM-38 cubiertas | — |
 | HU5 | — | — | — |
 | HU6 | — | — | — |
-| HU7 | — | — | — |
+| HU7 | 3 de 3 | SCRUM-45, SCRUM-46 y SCRUM-47 cubiertas | — |
 | HU8 | — | — | — |
 
 ## Fuera del Sprint 1

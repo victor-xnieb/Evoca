@@ -28,8 +28,8 @@ Cada HU tiene tres subtareas en Jira: **Desarrollo** (backend), **Interfaz** (pa
 | 2 | HU2 · Registrar una huella sensorial | SCRUM-15 | 5 | Highest | Registro de huellas | SCRUM-30 | SCRUM-31 | SCRUM-32 | `feature/hu2-registrar-huella` | En dev |
 | 3 | HU3 · Ver y editar mis huellas | SCRUM-12 | 5 | High | Registro de huellas | SCRUM-33 | SCRUM-34 | SCRUM-35 | `feature/hu3-ver-editar-huellas` | En dev (completa con HU7) |
 | 4 | HU4 · Ver mi gráfica de ánimo | SCRUM-13 | 3 | High | Seguimiento del ánimo | SCRUM-36 | SCRUM-37 | SCRUM-38 | `feature/hu4-grafica-animo` | En dev |
-| 5 | HU7 · Ver mi calendario de ánimo por colores | SCRUM-17 | 3 | High | Seguimiento del ánimo | SCRUM-45 | SCRUM-46 | SCRUM-47 | `feature/hu7-calendario-animo` | En revisión |
-| 6 | HU5 · Recibir un recordatorio diario | SCRUM-14 | 2 | Medium | Registro de huellas | SCRUM-39 | SCRUM-40 | SCRUM-41 | `feature/hu5-recordatorio-diario` | Pendiente |
+| 5 | HU7 · Ver mi calendario de ánimo por colores | SCRUM-17 | 3 | High | Seguimiento del ánimo | SCRUM-45 | SCRUM-46 | SCRUM-47 | `feature/hu7-calendario-animo` | En dev |
+| 6 | HU5 · Recibir un recordatorio diario | SCRUM-14 | 2 | Medium | Registro de huellas | SCRUM-39 | SCRUM-40 | SCRUM-41 | `feature/hu5-recordatorio-diario` | En revisión (parcial: app cerrada) |
 | 7 | HU6 · Recibir orientación hacia ayuda profesional | SCRUM-16 | 5 | High | Seguimiento del ánimo | SCRUM-42 | SCRUM-43 | SCRUM-44 | `feature/hu6-orientacion-ayuda` | Pendiente |
 | 8 | HU8 · Sugerir la emoción con IA desde mi nota | SCRUM-18 | 5 | Medium | Registro de huellas | SCRUM-48 | SCRUM-49 | SCRUM-50 | `feature/hu8-sugerencia-emocion-ia` | Pendiente |
 
@@ -206,7 +206,31 @@ el hábito de registrar mi ánimo sin tener que acordarme.
 
 **Subtareas:** Desarrollo SCRUM-39 · Interfaz SCRUM-40 · Pruebas SCRUM-41.
 
-**Evidencia:** pendiente.
+**Evidencia** (rama `feature/hu5-recordatorio-diario`):
+
+| Escenario | Medida | Prueba automática | Pantalla | Estado |
+| --- | --- | --- | --- | --- |
+| 1 · En ajustes activo el recordatorio, elijo una hora y la app la guarda; puedo desactivarlo | Hora `HH:MM` (por defecto 20:00) | `apps/accounts/tests.py` (`DailyReminderTests`: `test_starts_disabled_at_eight_pm`, `test_saves_the_chosen_time_and_can_be_disabled`, `test_rejects_invalid_time`); `frontend/src/app/hu5.test.tsx` (escenario 1: pide permiso, guarda, cambia la hora y desactiva) | `/ajustes`, «Recordatorio diario» ([captura](capturas/hu5-ajustes.jpg)) | Cumplido |
+| 2 · Activo y sin huella hoy: al llegar la hora recibo la notificación | Exacta: a las 19:59:59 todavía no, a las 20:00 sí; una vez al día | `test_is_due_exactly_when_the_chosen_time_arrives`, `test_only_once_per_day_after_the_app_shows_it`, `test_a_trace_from_yesterday_does_not_stop_todays_reminder`; `hu5.test.tsx`: `msUntil` exacto y notificación al llegar la hora | Notificación «Evoca · ¿Cómo te sentiste hoy?…» | **Parcial** (ver nota) |
+| 2 · …y al tocarla se abre «Nueva huella» | — | `hu5.test.tsx`: «al tocar la notificación se abre Nueva huella» y el manejador del service worker (`public/notification-click.js`) abre `/nueva-huella` | — | Cumplido |
+| 3 · Si ya registré una huella hoy, no recibo la notificación | Huella del mismo día, en hora de Bogotá | `test_not_due_if_a_trace_was_registered_today`; `hu5.test.tsx` (escenario 3: no se muestra ni se marca) | — | Cumplido |
+
+Recorrido completo con Playwright, con el build de producción y su service worker:
+
+- Desde Ajustes se activó el recordatorio para un minuto después, y la hora quedó guardada en el servidor.
+- A esa hora, la cuenta sin huellas hoy recibió la notificación (`tag: evoca-recordatorio`, con enlace a `/nueva-huella`), y el servidor la marcó como avisada.
+- Otra cuenta con la misma hora, pero con una huella hoy, no recibió ninguna.
+
+> **Nota sobre el escenario 2 (parcial).** La notificación la lanza la app mientras Evoca está
+> abierta o en segundo plano en el dispositivo (también como PWA instalada en segundo plano).
+> Con la app totalmente cerrada no llega. Para eso hace falta Web Push:
+>
+> - un proceso del servidor que envíe a la hora elegida (cron);
+> - claves VAPID, que son secretos y no se agregan desde esta rama;
+> - la dependencia `pywebpush`.
+>
+> El backend ya decide quién debe recibirla (`DailyReminder.status`), así que ese envío se
+> puede agregar sin cambiar la regla.
 
 ## HU6 · Recibir orientación hacia ayuda profesional (SCRUM-16)
 
@@ -302,7 +326,7 @@ Se completa al cerrar la HU8.
 | HU2 | 3 de 3 | SCRUM-30, SCRUM-31 y SCRUM-32 cubiertas | — |
 | HU3 | 3 de 3 | SCRUM-33, SCRUM-34 y SCRUM-35 cubiertas | — (el escenario 2 se completó con HU4 y HU7) |
 | HU4 | 3 de 3 | SCRUM-36, SCRUM-37 y SCRUM-38 cubiertas | — |
-| HU5 | — | — | — |
+| HU5 | 1 y 3 completos; 2 parcial | SCRUM-39, SCRUM-40 y SCRUM-41 cubiertas | Escenario 2: la notificación llega con la app abierta o en segundo plano; con la app cerrada requiere Web Push |
 | HU6 | — | — | — |
 | HU7 | 3 de 3 | SCRUM-45, SCRUM-46 y SCRUM-47 cubiertas | — |
 | HU8 | — | — | — |

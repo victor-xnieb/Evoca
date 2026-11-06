@@ -145,6 +145,8 @@ describe("AnimatedBackground", () => {
     mockOrientation("portrait")
     renderWithProviders(<AnimatedBackground />, { reducedMotion: false })
     await waitFor(() => expect(background().querySelector("video")).not.toBeNull())
+    // Deja que React registre los efectos del video (el listener de visibilidad) antes de simular.
+    await act(async () => {})
     const video = background().querySelector("video")!
     const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true)
     const pause = vi.spyOn(video, "pause")

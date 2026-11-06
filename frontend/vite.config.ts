@@ -38,6 +38,8 @@ export default defineConfig({
         navigateFallback: "/index.html",
         // La API nunca se guarda en caché: son datos personales y deben ser frescos.
         navigateFallbackDenylist: [/^\/api\//, /^\/admin\//],
+        // Al tocar la notificación del recordatorio diario se abre «Nueva huella» (HU5).
+        importScripts: ["notification-click.js"],
       },
       devOptions: { enabled: false },
     }),

@@ -7,6 +7,7 @@ import { useReducedMotion } from "@/hooks/use-reduced-motion"
 import { useTheme, type ThemePreference } from "@/hooks/use-theme"
 
 import { DataSection } from "./settings/DataSection"
+import { ReminderSection } from "./settings/ReminderSection"
 import { SecuritySection } from "./settings/SecuritySection"
 
 const THEME_OPTIONS: Array<{ value: ThemePreference; label: string; icon: typeof Sun }> = [
@@ -46,6 +47,7 @@ export function SettingsPage() {
         </p>
       </GlassCard>
 
+      <ReminderSection />
       <SecuritySection />
       <DataSection />
     </PageTransition>

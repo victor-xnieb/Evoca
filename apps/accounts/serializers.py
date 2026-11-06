@@ -5,7 +5,7 @@ from django.contrib.auth import authenticate, password_validation
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import AccessPin, ConsentRecord, User
+from .models import AccessPin, ConsentRecord, DailyReminder, User
 
 
 def calculate_age(date_of_birth, on_date=None):
@@ -165,3 +165,20 @@ class PasswordConfirmSerializer(serializers.Serializer):
         if not self.context["request"].user.check_password(value):
             raise serializers.ValidationError("La contraseña no es correcta.")
         return value
+
+
+class DailyReminderSerializer(serializers.ModelSerializer):
+    time = serializers.TimeField(
+        format="%H:%M",
+        input_formats=["%H:%M", "%H:%M:%S"],
+        error_messages={"invalid": "Elige una hora válida, por ejemplo 20:00."},
+    )
+    frequency = serializers.ChoiceField(
+        choices=DailyReminder.Frequency.choices,
+        error_messages={"invalid_choice": "Elige «una vez al día» o «cada hora»."},
+    )
+
+    class Meta:
+        model = DailyReminder
+        fields = ("enabled", "time", "frequency", "last_notified_on")
+        read_only_fields = ("last_notified_on",)

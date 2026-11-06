@@ -24,8 +24,8 @@ Cada HU tiene tres subtareas en Jira: **Desarrollo** (backend), **Interfaz** (pa
 
 | Orden | HU | Jira | Pts | Prioridad | Épica | Desarrollo | Interfaz | Pruebas | Rama | Estado en el repo |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | HU1 · Crear cuenta y proteger mi acceso | SCRUM-10 | 8 | Highest | Cuenta y privacidad | SCRUM-27 | SCRUM-28 | SCRUM-29 | `feature/hu1-cuenta-y-pin` | En revisión (parcial: biometría) |
-| 2 | HU2 · Registrar una huella sensorial | SCRUM-15 | 5 | Highest | Registro de huellas | SCRUM-30 | SCRUM-31 | SCRUM-32 | `feature/hu2-registrar-huella` | Pendiente |
+| 1 | HU1 · Crear cuenta y proteger mi acceso | SCRUM-10 | 8 | Highest | Cuenta y privacidad | SCRUM-27 | SCRUM-28 | SCRUM-29 | `feature/hu1-cuenta-y-pin` | En dev (parcial: biometría) |
+| 2 | HU2 · Registrar una huella sensorial | SCRUM-15 | 5 | Highest | Registro de huellas | SCRUM-30 | SCRUM-31 | SCRUM-32 | `feature/hu2-registrar-huella` | En revisión |
 | 3 | HU3 · Ver y editar mis huellas | SCRUM-12 | 5 | High | Registro de huellas | SCRUM-33 | SCRUM-34 | SCRUM-35 | `feature/hu3-ver-editar-huellas` | Pendiente |
 | 4 | HU4 · Ver mi gráfica de ánimo | SCRUM-13 | 3 | High | Seguimiento del ánimo | SCRUM-36 | SCRUM-37 | SCRUM-38 | `feature/hu4-grafica-animo` | Pendiente |
 | 5 | HU7 · Ver mi calendario de ánimo por colores | SCRUM-17 | 3 | High | Seguimiento del ánimo | SCRUM-45 | SCRUM-46 | SCRUM-47 | `feature/hu7-calendario-animo` | Pendiente |
@@ -118,7 +118,15 @@ vez la app me guíe con un ejemplo, para guardar en segundos lo que hace valioso
 
 **Subtareas:** Desarrollo SCRUM-30 · Interfaz SCRUM-31 · Pruebas SCRUM-32.
 
-**Evidencia:** pendiente.
+**Evidencia** (rama `feature/hu2-registrar-huella`):
+
+| Escenario | Medida | Prueba automática | Pantalla | Estado |
+| --- | --- | --- | --- | --- |
+| 1 · Elijo uno de los 6 tipos y escribo una nota corta: la app los acepta | 6 tipos; nota de hasta 500 caracteres | `apps/traces/tests.py` (`RegisterTraceTests`: `test_accepts_each_of_the_six_sensory_types`, `test_note_is_required_and_short`, `test_catalog_lists_six_types_and_eight_emotions`); `frontend/src/app/hu2.test.tsx` («ofrece los 6 tipos…») | `/nueva-huella` ([captura](capturas/hu2-formulario.jpg)) | Cumplido |
+| 1 · La primera vez veo un ejemplo guiado que puedo omitir | Sin huellas y sin haberlo visto en el dispositivo | `hu2.test.tsx`: «la primera vez muestra un ejemplo guiado que se puede omitir», «…hasta el final», «si ya tiene huellas no muestra el ejemplo» | Ejemplo guiado ([captura](capturas/hu2-ejemplo.jpg)) | Cumplido |
+| 2 · Sin emoción o intensidad: la app dice qué falta y no guarda | Cada campo que falta, con su mensaje | `test_without_emotion_says_what_is_missing_and_does_not_save`, `test_without_intensity_…`, `test_reports_both_missing_fields_at_once`; `hu2.test.tsx` (escenario 2: no se envía nada) | Resumen «Para guardar falta» ([captura](capturas/hu2-falta.jpg)) | Cumplido |
+| 3 · Guardo tipo, emoción e intensidad de 1 a 5 y la huella aparece en mi lista | Intensidad 1 a 5; la más reciente primero | `test_intensity_goes_from_one_to_five`, `test_emotion_must_be_one_of_the_eight`, `test_saved_trace_appears_first_in_my_list`; `hu2.test.tsx`: «guarda… y la huella aparece en mi lista» | Inicio, «Tus huellas recientes» ([captura](capturas/hu2-lista.jpg)) | Cumplido |
+| 3 · Todo el registro tomó menos de 30 segundos | < 30 s | `hu2.test.tsx`: una sola pantalla con 4 decisiones (tipo, nota, emoción, intensidad). Recorrido con Playwright contra el backend real, a ritmo humano de celular (300 ms por letra y 1,5 s para decidir cada elección): **23,1 s** la primera vez (incluye omitir el ejemplo) y **17,4 s** las siguientes | — | Cumplido |
 
 ## HU3 · Ver y editar mis huellas (SCRUM-12)
 
@@ -251,7 +259,7 @@ Se completa al cerrar la HU8.
 | HU | Escenarios cumplidos | Subtareas cubiertas | Parciales |
 | --- | --- | --- | --- |
 | HU1 | 3 de 3 con PIN; huella o rostro parcial | SCRUM-27, SCRUM-28 y SCRUM-29 cubiertas | Huella o rostro: verificación local, sin prueba en un dispositivo real |
-| HU2 | — | — | — |
+| HU2 | 3 de 3 | SCRUM-30, SCRUM-31 y SCRUM-32 cubiertas | — |
 | HU3 | — | — | — |
 | HU4 | — | — | — |
 | HU5 | — | — | — |

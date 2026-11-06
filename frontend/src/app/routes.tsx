@@ -6,7 +6,7 @@ import { HomePage } from "@/pages/HomePage"
 import { NotFoundPage } from "@/pages/NotFoundPage"
 
 import { AuthLayout } from "./AuthLayout"
-import { CreatePinPage, Deferred, RegisterPage, SettingsPage } from "./deferred"
+import { CreatePinPage, Deferred, NewTracePage, RegisterPage, SettingsPage } from "./deferred"
 import { PublicOnly, RequireAuth, RequireSession } from "./guards"
 import { RootLayout } from "./RootLayout"
 
@@ -60,10 +60,9 @@ export const routes: RouteObject[] = [
       {
         path: "nueva-huella",
         element: (
-          <ComingSoonPage
-            title="Nueva huella"
-            description="Aquí registrarás un aroma, un color, una canción, un sabor, una textura o un lugar con lo que sentiste."
-          />
+          <Deferred>
+            <NewTracePage />
+          </Deferred>
         ),
       },
       {

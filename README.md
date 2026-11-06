@@ -178,7 +178,8 @@ npm run preview
 | GET | `/api/v1/auth/consents/` | Autorizaciones dadas, con versión y fecha |
 | GET | `/api/v1/auth/export/` | Descarga un archivo JSON con todos los datos propios |
 | DELETE | `/api/v1/auth/account/` | Elimina la cuenta y todos sus datos (pide `password`) |
-| GET/POST | `/api/v1/traces/` | Lista o crea huellas del usuario |
+| GET/POST | `/api/v1/traces/` | Lista (la más reciente primero) o crea huellas del usuario |
+| GET | `/api/v1/traces/catalog/` | Tipos sensoriales y emociones válidos, con su etiqueta |
 | GET/PATCH/DELETE | `/api/v1/traces/{id}/` | Consulta, modifica o elimina una huella propia |
 
 Para rutas privadas, envía:
@@ -199,7 +200,9 @@ Ejemplo de una huella:
 }
 ```
 
-Los valores de `sensory_type` son `aroma`, `color`, `song`, `flavor`, `texture` y `place`.
+Los valores de `sensory_type` son `aroma`, `color`, `song`, `flavor`, `texture` y `place`; los de
+`emotion`, `alegria`, `calma`, `gratitud`, `nostalgia`, `tristeza`, `ansiedad`, `enojo` y `miedo`.
+`mood_intensity` va de 1 a 5.
 
 ## Verificación antes de subir cambios
 

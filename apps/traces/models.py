@@ -15,6 +15,16 @@ class Trace(models.Model):
         TEXTURE = "texture", "Textura"
         PLACE = "place", "Lugar"
 
+    class Emotion(models.TextChoices):
+        ALEGRIA = "alegria", "Alegría"
+        CALMA = "calma", "Calma"
+        GRATITUD = "gratitud", "Gratitud"
+        NOSTALGIA = "nostalgia", "Nostalgia"
+        TRISTEZA = "tristeza", "Tristeza"
+        ANSIEDAD = "ansiedad", "Ansiedad"
+        ENOJO = "enojo", "Enojo"
+        MIEDO = "miedo", "Miedo"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -23,7 +33,7 @@ class Trace(models.Model):
     )
     sensory_type = models.CharField(max_length=12, choices=SensoryType.choices)
     note = models.CharField(max_length=500)
-    emotion = models.CharField(max_length=50)
+    emotion = models.CharField(max_length=50, choices=Emotion.choices)
     mood_intensity = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(5)]
     )

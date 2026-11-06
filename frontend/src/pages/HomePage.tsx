@@ -1,18 +1,26 @@
 import { CalendarHeart, Flower2, PenLine, type LucideIcon } from "lucide-react"
 import { motion } from "motion/react"
-import { Link } from "react-router"
+import { useEffect, useState } from "react"
+import { Link, useLocation } from "react-router"
 
 import { EmotionOrbCluster } from "@/components/evoca/EmotionOrbCluster"
 import { EmptyState } from "@/components/evoca/EmptyState"
 import { EvocaWordmark } from "@/components/evoca/EvocaWordmark"
 import { GlassCard } from "@/components/evoca/GlassCard"
 import { PageTransition } from "@/components/evoca/PageTransition"
+import { TraceCardSkeleton } from "@/components/evoca/TraceCard"
 import { Ripple } from "@/components/evoca/Ripple"
 import { Button } from "@/components/ui/button"
+import { useCatalog } from "@/hooks/use-catalog"
 import { useReducedMotion } from "@/hooks/use-reduced-motion"
+import type { Paginated } from "@/lib/api"
 import { EMOTION_VISUALS, type EmotionSlug } from "@/lib/emotions"
 import { greeting } from "@/lib/format"
 import { fadeIn, riseIn, staggerContainer } from "@/lib/motion"
+import { tracesApi } from "@/lib/traces"
+import type { Trace } from "@/lib/types"
+
+import { RecentTraces } from "./home/RecentTraces"
 
 const STEPS: Array<{ icon: LucideIcon; title: string; text: string; accent: EmotionSlug }> = [
   {
@@ -35,9 +43,30 @@ const STEPS: Array<{ icon: LucideIcon; title: string; text: string; accent: Emot
   },
 ]
 
+type Recent = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; page: Paginated<Trace> }
+
 export function HomePage() {
   const reduced = useReducedMotion()
   const item = reduced ? fadeIn : riseIn
+  const savedTraceId = (useLocation().state as { savedTraceId?: string } | null)?.savedTraceId
+  const { catalog } = useCatalog()
+  const [recent, setRecent] = useState<Recent>({ status: "loading" })
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    tracesApi
+      .recent()
+      .then((page) => {
+        if (!cancelled) setRecent({ status: "ready", page })
+      })
+      .catch((error: Error) => {
+        if (!cancelled) setRecent({ status: "error", message: error.message })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [attempt])
 
   return (
     <PageTransition className="gap-14 sm:gap-20">
@@ -56,22 +85,58 @@ export function HomePage() {
           </GlassCard>
         </section>
 
-        <GlassCard accent="calma" cursorLabel="Registrar">
-          <EmptyState
-            visual={
-              <div className="evoca-parallax">
-                <EmotionOrbCluster />
-              </div>
-            }
-            title="Aún no tienes huellas"
-            description="Cuando registres la primera, aquí verás tus recuerdos más recientes y cómo ha estado tu ánimo."
-            action={
-              <Button asChild size="lg" className="h-12 rounded-full px-6 text-base">
-                <Link to="/nueva-huella">Registrar mi primera huella</Link>
-              </Button>
-            }
+        {recent.status === "loading" && (
+          <div className="flex flex-col gap-3" role="status" aria-label="Cargando tus huellas">
+            <TraceCardSkeleton />
+            <TraceCardSkeleton />
+          </div>
+        )}
+        {recent.status === "error" && (
+          <GlassCard>
+            <EmptyState
+              variant="error"
+              title="No pudimos cargar tus huellas"
+              description={recent.message}
+              action={
+                <Button
+                  className="h-11 rounded-full px-5"
+                  onClick={() => {
+                    setRecent({ status: "loading" })
+                    setAttempt((value) => value + 1)
+                  }}
+                >
+                  Reintentar
+                </Button>
+              }
+            />
+          </GlassCard>
+        )}
+        {recent.status === "ready" && recent.page.count > 0 && (
+          <RecentTraces
+            traces={recent.page.results}
+            total={recent.page.count}
+            catalog={catalog}
+            savedTraceId={savedTraceId}
           />
-        </GlassCard>
+        )}
+        {recent.status === "ready" && recent.page.count === 0 && (
+          <GlassCard accent="calma" cursorLabel="Registrar">
+            <EmptyState
+              visual={
+                <div className="evoca-parallax">
+                  <EmotionOrbCluster />
+                </div>
+              }
+              title="Aún no tienes huellas"
+              description="Cuando registres la primera, aquí verás tus recuerdos más recientes y cómo ha estado tu ánimo."
+              action={
+                <Button asChild size="lg" className="h-12 rounded-full px-6 text-base">
+                  <Link to="/nueva-huella">Registrar mi primera huella</Link>
+                </Button>
+              }
+            />
+          </GlassCard>
+        )}
       </div>
 
       {/* Segundo plano: cómo funciona, más pequeño y discreto. */}

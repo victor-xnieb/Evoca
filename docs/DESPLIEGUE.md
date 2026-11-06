@@ -88,8 +88,9 @@ El plan gratuito no tiene terminal, así que se hace con una variable:
 
 1. En **`evoca-naranja-api`** → *Environment*: cambia `EVOCA_SEED_DEMO` a **`true`** y guarda
    (Render reinicia el servicio).
-2. En los *Logs* verás `maria.demo@example.com: 30 huellas`, y lo mismo para Mateo y Juliana.
-3. Entra con `maria.demo@example.com`, `mateo.demo@example.com` o `juliana.demo@example.com`, con
+2. En los *Logs* verás `maria.demo@example.com: 30 huellas`, y lo mismo para Mateo, Juliana y Valentina.
+3. Entra con `maria.demo@example.com`, `mateo.demo@example.com`, `juliana.demo@example.com` o
+   `valentina.demo@example.com`, con
    la contraseña y el PIN que pusiste. La guía de qué mostrar con cada cuenta está en el
    [README](../README.md#datos-de-demostración).
 
@@ -100,6 +101,23 @@ recrean en cada arranque.
 
 Si cambias `EVOCA_DEMO_PASSWORD` o `EVOCA_DEMO_PIN` después, las cuentas ya creadas conservan los
 valores anteriores: usa `reset` una vez para que tomen los nuevos.
+
+### Cuando se agrega o cambia una cuenta demo en el código
+
+Después de mezclar el cambio en `dev`, Render redespliega solo, pero **las cuentas nuevas no
+aparecen hasta que se cargan** (el despliegue no toca los datos):
+
+1. Espera a que `evoca-naranja-api` vuelva a estar **Live** con el commit nuevo.
+2. En **Environment**, revisa `EVOCA_SEED_DEMO`: como está definida en `render.yaml`, Render puede
+   haberla devuelto a `false` al sincronizar. Ponla en **`true`** y guarda (el servicio se reinicia).
+   `true` solo crea las cuentas que falten: las demás no se tocan.
+3. En los *Logs*, mira las líneas `· <cuenta>: N huellas` de las cuentas nuevas. Las que ya
+   existían dicen `ya existe`.
+4. Si además quieres que todas las cuentas vuelvan a su estado inicial (por ejemplo, la
+   orientación de Mateo ya se mostró), usa `reset` en lugar de `true`.
+
+Las cuentas nuevas toman la contraseña y el PIN que ya tienes en `EVOCA_DEMO_PASSWORD` y
+`EVOCA_DEMO_PIN`.
 
 ## Cosas a tener en cuenta
 
@@ -113,7 +131,7 @@ valores anteriores: usa `reset` una vez para que tomen los nuevos.
   Úsalo solo con datos de ejemplo.
 - **Datos compartidos:** como la base es la rama `development` de Neon, las cuentas que se creen
   en Render aparecen también para el equipo. Las cuentas demo no afectan a otras: `reset` solo
-  borra y recrea las tres.
+  borra y recrea las cuatro.
 - **Seguridad:** `DEBUG` está apagado y `DJANGO_SECRET_KEY` la genera Render. HSTS y la
   redirección SSL de Django no se activan: Render ya redirige HTTP a HTTPS en su borde.
 - **Versión de Python:** `PYTHON_VERSION` en `render.yaml` es 3.13.5. Si Render no la ofrece, usa

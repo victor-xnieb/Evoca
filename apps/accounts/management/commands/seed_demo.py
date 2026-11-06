@@ -1,12 +1,12 @@
 """
-Crea tres cuentas de demostración con datos de ejemplo, pensadas para mostrar cada
+Crea cuatro cuentas de demostración con datos de ejemplo, pensadas para mostrar cada
 funcionalidad del Sprint 1. Las fechas se calculan desde el día en que se ejecuta, así que la
 demo siempre se ve actual.
 
     python manage.py seed_demo           # crea las que falten
-    python manage.py seed_demo --reset   # borra y vuelve a crear las tres
+    python manage.py seed_demo --reset   # borra y vuelve a crear las cuatro
 
-Son datos inventados, sin información real de nadie. La contraseña y el PIN de las tres
+Son datos inventados, sin información real de nadie. La contraseña y el PIN de las cuatro
 cuentas son DEMO_PASSWORD y DEMO_PIN (o EVOCA_DEMO_PASSWORD y EVOCA_DEMO_PIN, si existen en
 el entorno). Esos valores por defecto están en el repositorio: con DEBUG=False (un despliegue)
 el comando exige definir las variables EVOCA_DEMO_*, para no publicar cuentas con claves conocidas.
@@ -102,6 +102,31 @@ JULIANA = [
     (20, 18, 40, "place", "nostalgia", 3, "La plaza del pueblo de mis abuelos en las fiestas de diciembre."),
 ]
 
+# Segunda cuenta para HU6: 16 días DISTINTOS (del 1 al 16 atrás) con ánimo 1 o 2, todos dentro de
+# los últimos 21 días, así que al abrir la app aparece la orientación. Un solo día no sirve: la
+# regla cuenta días distintos. Tres huellas más antiguas (fuera de los 21 días) completan el historial.
+VALENTINA = [
+    (1, 21, 10, "song", "tristeza", 2, "Puse la canción que cantábamos en el carro y se me hizo un nudo en la garganta."),
+    (2, 22, 30, "aroma", "ansiedad", 2, "El olor a pintura fresca en la oficina nueva me dejó con los hombros tensos todo el día."),
+    (3, 20, 0, "place", "miedo", 1, "El pasillo oscuro del edificio al llegar tarde me aceleró el corazón."),
+    (4, 19, 30, "texture", "enojo", 2, "La silla incómoda de la sala de espera después de dos horas de trámite."),
+    (5, 21, 45, "flavor", "nostalgia", 2, "El arroz con leche igual al de la abuela, pero sin la abuela."),
+    (6, 18, 20, "color", "tristeza", 1, "Todo se veía gris desde la ventana y no tuve ganas de salir."),
+    (7, 22, 5, "song", "ansiedad", 2, "La alarma del celular sonando antes de la presentación."),
+    (8, 20, 40, "aroma", "tristeza", 2, "Pasó alguien con el mismo perfume que usaba mi mejor amigo."),
+    (9, 19, 10, "place", "nostalgia", 1, "Volví a la cancha donde jugábamos de niños y estaba vacía."),
+    (10, 21, 25, "texture", "miedo", 2, "Las manos frías y sudadas antes de la entrevista."),
+    (11, 18, 50, "flavor", "calma", 2, "Una aromática caliente, lo único que me tranquilizó hoy."),
+    (12, 20, 15, "color", "enojo", 2, "El rojo del semáforo y el pitazo de los carros me sacaron de quicio."),
+    (13, 22, 10, "song", "tristeza", 1, "Una balada lenta y me quedé mirando el techo hasta tarde."),
+    (14, 17, 35, "aroma", "gratitud", 2, "El café que me dejó un compañero en el escritorio sin decir nada: se lo agradecí."),
+    (15, 21, 0, "place", "ansiedad", 2, "La fila del banco que no avanzaba y la cita que se me hacía tarde."),
+    (16, 19, 45, "texture", "alegria", 2, "Un rato corto de sol en la cara en el descanso, aunque el día fue pesado."),
+    (24, 12, 30, "flavor", "alegria", 4, "Almuerzo con la familia: sancocho y risas en la mesa grande."),
+    (31, 10, 0, "song", "calma", 4, "Música suave mientras caminaba por el parque."),
+    (40, 16, 20, "color", "gratitud", 5, "El atardecer desde el mirador con mis amigos."),
+]
+
 DEMO_USERS = [
     {
         "email": "maria.demo@example.com",
@@ -130,6 +155,16 @@ DEMO_USERS = [
         "reminder": {"enabled": True, "frequency": "daily", "time": time(8, 0)},
         "shows": "sin huella hoy: el recordatorio diario de las 8:00 avisa al abrir; buena cuenta para registrar en vivo",
     },
+    {
+        "email": "valentina.demo@example.com",
+        "first_name": "Valentina",
+        "last_name": "Ríos",
+        "date_of_birth": date(1998, 6, 9),
+        "traces": VALENTINA,
+        # Sin recordatorio: esta cuenta es solo para mostrar la orientación de HU6, sin avisos de por medio.
+        "reminder": {"enabled": False, "frequency": "daily", "time": time(20, 0)},
+        "shows": "ánimo 1 o 2 en 16 días distintos de los últimos 21: orientación de HU6 sin mostrar (segunda cuenta para esa demo)",
+    },
 ]
 
 
@@ -142,7 +177,7 @@ def moment(today, now, days_ago, hour, minute):
 
 
 class Command(BaseCommand):
-    help = "Crea tres cuentas de demostración con huellas de ejemplo (fechas relativas a hoy)."
+    help = "Crea cuatro cuentas de demostración con huellas de ejemplo (fechas relativas a hoy)."
 
     def add_arguments(self, parser):
         parser.add_argument("--reset", action="store_true", help="Borra y vuelve a crear las cuentas de demostración.")

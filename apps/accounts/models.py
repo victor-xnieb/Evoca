@@ -1,9 +1,10 @@
 import uuid
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from .managers import UserManager
@@ -110,3 +111,54 @@ class AccessPin(models.Model):
             self.locked_until = now + self.LOCK_DURATION
             return "locked"
         return "wrong"
+
+
+class DailyReminder(models.Model):
+    """
+    Recordatorio diario para registrar una huella (HU5). La hora es la hora local del
+    proyecto (America/Bogota). Solo se avisa una vez al día y nunca si ese día ya hubo huella.
+    """
+
+    DEFAULT_TIME = time(20, 0)
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name="daily_reminder",
+    )
+    enabled = models.BooleanField(default=False)
+    time = models.TimeField(default=DEFAULT_TIME)
+    last_notified_on = models.DateField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "recordatorio diario"
+        verbose_name_plural = "recordatorios diarios"
+
+    def __str__(self):
+        return f"Recordatorio de {self.user.email} a las {self.time:%H:%M}"
+
+    def status(self, now=None):
+        """
+        Decide si toca avisar ahora. Devuelve "due" o el motivo para no hacerlo:
+        "disabled", "early" (aún no llega la hora), "already_notified" (ya se avisó hoy) o
+        "already_registered" (hoy ya registró una huella).
+        """
+        from apps.traces.models import Trace
+
+        local = timezone.localtime(now or timezone.now())
+        if not self.enabled:
+            return "disabled"
+        if local.time() < self.time:
+            return "early"
+        if self.last_notified_on == local.date():
+            return "already_notified"
+        start = timezone.make_aware(datetime.combine(local.date(), time.min))
+        registered_today = (
+            Trace.objects.filter(user=self.user)
+            .annotate(at=Coalesce("happened_at", "created_at"))
+            .filter(at__gte=start, at__lt=start + timedelta(days=1))
+            .exists()
+        )
+        return "already_registered" if registered_today else "due"

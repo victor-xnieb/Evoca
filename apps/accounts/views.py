@@ -9,9 +9,10 @@ from rest_framework.views import APIView
 from apps.traces.models import Memory
 from apps.traces.serializers import TraceSerializer
 
-from .models import AccessPin
+from .models import AccessPin, DailyReminder
 from .serializers import (
     ConsentSerializer,
+    DailyReminderSerializer,
     LoginSerializer,
     PasswordConfirmSerializer,
     PinSetSerializer,
@@ -142,6 +143,7 @@ class ExportView(APIView):
             "exported_at": timezone.now(),
             "account": UserSerializer(user).data,
             "consents": ConsentSerializer(user.consents.all(), many=True).data,
+            "daily_reminder": DailyReminderSerializer(own_reminder(user)).data,
             "traces": TraceSerializer(user.traces.all(), many=True).data,
             "memories": [
                 {
@@ -167,3 +169,40 @@ class AccountView(APIView):
         serializer.is_valid(raise_exception=True)
         request.user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def own_reminder(user):
+    reminder, _ = DailyReminder.objects.get_or_create(user=user)
+    return reminder
+
+
+class DailyReminderView(APIView):
+    """Recordatorio diario (HU5): consultarlo, activarlo, cambiar la hora o desactivarlo."""
+
+    def get(self, request):
+        return Response(DailyReminderSerializer(own_reminder(request.user)).data)
+
+    def put(self, request):
+        serializer = DailyReminderSerializer(own_reminder(request.user), data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+class DailyReminderStatusView(APIView):
+    """Si toca mostrar la notificación ahora: hora alcanzada, sin aviso hoy y sin huella hoy."""
+
+    def get(self, request):
+        reminder = own_reminder(request.user)
+        reason = reminder.status()
+        return Response({"due": reason == "due", "reason": reason, **DailyReminderSerializer(reminder).data})
+
+
+class DailyReminderAckView(APIView):
+    """La app mostró la notificación: no se repite hasta mañana."""
+
+    def post(self, request):
+        reminder = own_reminder(request.user)
+        reminder.last_notified_on = timezone.localdate()
+        reminder.save(update_fields=["last_notified_on", "updated_at"])
+        return Response(DailyReminderSerializer(reminder).data)

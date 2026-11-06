@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import AccessPin, ConsentRecord, User
+from .models import AccessPin, ConsentRecord, DailyReminder, User
 
 
 @admin.register(User)
@@ -60,3 +60,9 @@ class AccessPinAdmin(admin.ModelAdmin):
     search_fields = ("user__email",)
     exclude = ("pin_hash",)
     readonly_fields = ("user", "failed_attempts", "locked_until", "updated_at")
+
+
+@admin.register(DailyReminder)
+class DailyReminderAdmin(admin.ModelAdmin):
+    list_display = ("user", "enabled", "time", "last_notified_on")
+    search_fields = ("user__email",)

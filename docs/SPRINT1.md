@@ -30,8 +30,8 @@ Cada HU tiene tres subtareas en Jira: **Desarrollo** (backend), **Interfaz** (pa
 | 4 | HU4 · Ver mi gráfica de ánimo | SCRUM-13 | 3 | High | Seguimiento del ánimo | SCRUM-36 | SCRUM-37 | SCRUM-38 | `feature/hu4-grafica-animo` | En dev |
 | 5 | HU7 · Ver mi calendario de ánimo por colores | SCRUM-17 | 3 | High | Seguimiento del ánimo | SCRUM-45 | SCRUM-46 | SCRUM-47 | `feature/hu7-calendario-animo` | En dev |
 | 6 | HU5 · Recibir un recordatorio diario | SCRUM-14 | 2 | Medium | Registro de huellas | SCRUM-39 | SCRUM-40 | SCRUM-41 | `feature/hu5-recordatorio-diario` | En dev (parcial: app cerrada) |
-| 7 | HU6 · Recibir orientación hacia ayuda profesional | SCRUM-16 | 5 | High | Seguimiento del ánimo | SCRUM-42 | SCRUM-43 | SCRUM-44 | `feature/hu6-orientacion-ayuda` | En revisión |
-| 8 | HU8 · Sugerir la emoción con IA desde mi nota | SCRUM-18 | 5 | Medium | Registro de huellas | SCRUM-48 | SCRUM-49 | SCRUM-50 | `feature/hu8-sugerencia-emocion-ia` | Pendiente |
+| 7 | HU6 · Recibir orientación hacia ayuda profesional | SCRUM-16 | 5 | High | Seguimiento del ánimo | SCRUM-42 | SCRUM-43 | SCRUM-44 | `feature/hu6-orientacion-ayuda` | En dev |
+| 8 | HU8 · Sugerir la emoción con IA desde mi nota | SCRUM-18 | 5 | Medium | Registro de huellas | SCRUM-48 | SCRUM-49 | SCRUM-50 | `feature/hu8-sugerencia-emocion-ia` | En dev |
 
 El orden respeta dependencias: la gráfica y el calendario necesitan huellas; la IA va al
 final porque es la de más riesgo.
@@ -331,7 +331,25 @@ intensidad, para registrar más rápido y con más precisión, pudiendo cambiar 
 
 **Subtareas:** Desarrollo SCRUM-48 · Interfaz SCRUM-49 · Pruebas SCRUM-50.
 
-**Evidencia:** pendiente.
+**Evidencia** (rama `feature/hu8-sugerencia-emocion-ia`):
+
+| Escenario | Medida | Prueba automática | Pantalla | Estado |
+| --- | --- | --- | --- | --- |
+| 1 · Con una nota de 10 palabras o más, al terminar de escribirla la app propone emoción e intensidad en menos de 3 s | 10 palabras sí, 9 no; «terminar» = 0,6 s sin escribir; espera máxima 0,6 s + 2,3 s < 3 s (el servidor corta la IA a los 2 s) | `apps/traces/tests.py` (`SuggestEmotionTests`: `test_suggests_from_ten_words`, `test_nine_words_are_not_enough_and_the_ai_is_not_called`, `test_gemini_request_keeps_the_key_in_the_server_and_waits_at_most_the_timeout`); `frontend/src/app/hu8.test.tsx` (escenario 1: espera máxima, conteo de palabras, sugerencia en < 3 s, una sola petición, la sugerencia anterior desaparece si la nota cambia) | «Nueva huella» ([claro](capturas/hu8-sugerencia.jpg), [oscuro](capturas/hu8-oscuro.jpg)) | Cumplido |
+| 2 · Si acepto o cambio la sugerencia, se guarda mi elección y no la de la IA | Sugerir no guarda nada; se guarda lo elegido en el formulario | `test_suggesting_saves_nothing_and_the_trace_keeps_the_persons_choice`; `hu8.test.tsx` (escenario 2: aceptar, aceptar y cambiar, no usarla) | «Aceptar sugerencia» → «Aceptada · puedes cambiarla abajo» ([captura](capturas/hu8-en-uso.jpg)) | Cumplido |
+| 3 · Sin IA disponible o sin confianza suficiente, el registro funciona sin sugerencia | Sin clave, error, 503, espera agotada, respuesta inválida (emoción fuera de la lista, intensidad fuera de 1 a 5) o confianza < 0,6 | `test_without_a_key_there_is_no_suggestion`, `test_errors_and_timeouts_answer_without_suggestion_and_never_log_the_note`, `test_invalid_answers_are_discarded`, `test_low_confidence_gives_no_suggestion`; `hu8.test.tsx` (escenario 3: no disponible, baja confianza, error del servidor y espera agotada antes de 3 s) | Sin tarjeta; se guarda igual | Cumplido |
+
+Recorrido completo con Playwright y **Gemini real** (`gemini-3.5-flash-lite`), con notas inventadas escritas a ritmo humano:
+
+- 5 de 5 sugerencias llegaron en menos de 3 s desde la última letra: entre **1,85 s y 2,4 s**, incluida la pausa de 0,6 s. Propuso calma, alegría, ansiedad, tristeza y gratitud, coherentes con cada nota.
+- Al tocar «Aceptar sugerencia» quedaron elegidas Calma e intensidad 4, y la huella se guardó así. En otra, la sugerencia fue Alegría, se cambió a mano a Gratitud 2 y se guardó Gratitud 2.
+- Con el backend sin clave, el servidor respondió `unavailable`, no apareció tarjeta y la huella se guardó con lo elegido.
+- En los logs del servidor no aparece ninguna nota: solo el tipo de error cuando la IA falla.
+
+> **Privacidad.** La nota viaja a Google solo para sugerir; no se guarda en Evoca nada de la
+> IA. En el plan gratuito de Gemini, Google puede usar lo enviado para mejorar sus productos:
+> sirve para la demo con notas de ejemplo, pero con usuarios reales hay que usar el plan pago
+> (o cambiar de proveedor) y mencionar este envío en el texto de autorización de datos.
 
 ---
 
@@ -360,7 +378,7 @@ Se completa al cerrar la HU8.
 | HU5 | 1 y 3 completos; 2 parcial | SCRUM-39, SCRUM-40 y SCRUM-41 cubiertas | Escenario 2: la notificación llega con la app abierta o en segundo plano; con la app cerrada requiere Web Push |
 | HU6 | 3 de 3 | SCRUM-42, SCRUM-43 y SCRUM-44 cubiertas | — (los textos, las líneas y las palabras son un borrador hasta que los apruebe el psicólogo asesor) |
 | HU7 | 3 de 3 | SCRUM-45, SCRUM-46 y SCRUM-47 cubiertas | — |
-| HU8 | — | — | — |
+| HU8 | 3 de 3 | SCRUM-48, SCRUM-49 y SCRUM-50 cubiertas | — |
 
 ## Fuera del Sprint 1
 

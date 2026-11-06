@@ -16,6 +16,9 @@ export const MISSING_TRACE_FIELDS = {
 
 export const NOTE_MAX_LENGTH = 500
 
+/** Nombre de cada nivel de intensidad, de 1 a 5. */
+export const INTENSITY_LABELS = ["Muy baja", "Baja", "Media", "Alta", "Muy alta"] as const
+
 /** Ideas para la nota según el tipo elegido. */
 export const NOTE_PLACEHOLDERS: Record<string, string> = {
   default: "Por ejemplo: el café de la cocina de mi abuela.",

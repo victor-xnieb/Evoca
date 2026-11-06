@@ -244,7 +244,10 @@ describe("HU1 · Escenario 3: exportar mis datos o eliminar mi cuenta", () => {
     mockApi({ "GET auth/consents/": consents })
     renderApp({ path: "/ajustes", user: SAMPLE_USER, locked: false })
 
-    expect(await screen.findByText(/Autorizaste el tratamiento de tus datos sensibles el 1 de noviembre de 2026/)).toHaveTextContent(
+    // Ajustes es una pantalla diferida: la primera carga puede pasar de 1 s con el equipo ocupado.
+    expect(
+      await screen.findByText(/Autorizaste el tratamiento de tus datos sensibles el 1 de noviembre de 2026/, {}, { timeout: 5000 }),
+    ).toHaveTextContent(
       "versión draft-v1",
     )
   })

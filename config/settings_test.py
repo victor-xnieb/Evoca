@@ -19,3 +19,6 @@ DATABASES = {  # noqa: F405
 }
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
+# Las pruebas nunca llaman a la IA real: cada prueba simula la respuesta.
+EVOCA_AI_API_KEY = ""
+

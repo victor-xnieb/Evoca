@@ -209,7 +209,7 @@ Preparado y documentado; **no implementado en esta rama**.
 | HU2 | **Hecho.** `EmotionChip` usa la esfera pequeña como ícono de cada emoción y `EmotionPicker` muestra las 8 emociones como un conjunto de esferas |
 | HU3 | **Hecho.** `TraceCard` muestra la esfera pequeña de la emoción de cada huella (vía `EmotionChip`) en «Mis huellas» y en Inicio |
 | HU4 | **Hecho.** La leyenda de la gráfica usa esferas pequeñas (`EmotionChip`); las líneas y los puntos siguen usando los tokens de color, no las imágenes |
-| HU5 | La ilustración del recordatorio puede usar una esfera con animación suave (`animated`) |
-| HU6 | Fondo estático y calmado: `AppShell background="static"` (o `AnimatedBackground variant="static"`), sin video ni esferas en movimiento |
+| HU5 | **Hecho.** Se usó un ícono de campana en lugar de la esfera, para mantener Ajustes sobrio |
+| HU6 | **Hecho.** La orientación (`SupportCard`) y la ayuda inmediata (`HelpScreen`) usan el fondo sólido `--evoca-support`, sin video, sin esferas en movimiento y sin animación |
 | HU7 | **Hecho.** El calendario (`MoodCalendar` con `DayCell`) usa colores de los tokens, no imágenes; las esferas solo aparecen en el detalle del día, en tamaño pequeño |
-| HU8 | La emoción sugerida por la IA aparece con su esfera pequeña, con una entrada animada breve |
+| HU8 | **Hecho.** `SuggestionCard` muestra la emoción sugerida con su esfera pequeña (`EmotionChip`) y entra con `riseIn` (con movimiento reducido, `fadeIn`) |

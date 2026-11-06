@@ -10,12 +10,14 @@ import { IntensityPicker } from "@/components/evoca/IntensityPicker"
 import { LottieIllustration } from "@/components/evoca/LottieIllustration"
 import { PageTransition } from "@/components/evoca/PageTransition"
 import { SensoryTypePicker } from "@/components/evoca/SensoryTypePicker"
+import { SuggestionCard } from "@/components/evoca/SuggestionCard"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/use-auth"
 import { useCatalog } from "@/hooks/use-catalog"
+import { useEmotionSuggestion } from "@/hooks/use-emotion-suggestion"
 import { ApiError } from "@/lib/api"
 import { MISSING_TRACE_FIELDS } from "@/lib/messages"
-import { tracesApi } from "@/lib/traces"
+import { labelOf, tracesApi } from "@/lib/traces"
 
 import { NoteField } from "./traces/NoteField"
 import { RiskHelp } from "./traces/RiskHelp"
@@ -48,6 +50,8 @@ export function NewTracePage() {
   )
   const [errors, setErrors] = useState<Partial<Record<Field | "form", string>>>({})
   const [saving, setSaving] = useState(false)
+  // HU8: la IA propone emoción e intensidad; solo se aplican si la persona toca «Aceptar sugerencia».
+  const { loading: suggesting, suggestion } = useEmotionSuggestion(form.note)
 
   // Primera vez = todavía no tiene huellas y no ha visto el ejemplo en este dispositivo.
   useEffect(() => {
@@ -204,6 +208,22 @@ export function NewTracePage() {
             inputRef={noteInput}
           />
           <RiskHelp text={form.note} />
+          <SuggestionCard
+            loading={suggesting}
+            suggestion={
+              suggestion && {
+                emotion: suggestion.emotion,
+                emotionLabel: labelOf(catalog.emotions, suggestion.emotion),
+                intensity: suggestion.intensity,
+              }
+            }
+            applied={suggestion?.emotion === form.emotion && suggestion?.intensity === form.mood_intensity}
+            onAccept={() => {
+              if (!suggestion) return
+              update("emotion", suggestion.emotion)
+              update("mood_intensity", suggestion.intensity)
+            }}
+          />
 
           <EmotionPicker
             options={catalog.emotions}

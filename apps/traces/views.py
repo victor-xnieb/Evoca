@@ -5,10 +5,13 @@ from datetime import date, datetime, time, timedelta
 from django.db.models import Avg
 from django.db.models.functions import Coalesce
 from django.utils import timezone
-from rest_framework import viewsets
+from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
+
+from . import ai
 
 from .models import Trace
 from .serializers import TraceSerializer, choice_list
@@ -48,6 +51,10 @@ def dominant_emotion(entries):
     return max(stats, key=lambda emotion: tuple(stats[emotion]))
 
 
+class SuggestRequestSerializer(serializers.Serializer):
+    note = serializers.CharField(max_length=500, trim_whitespace=True)
+
+
 class TraceViewSet(viewsets.ModelViewSet):
     """Huellas de la persona autenticada (nunca las de otras), de la más reciente a la más antigua."""
 
@@ -75,6 +82,23 @@ class TraceViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=["post"], throttle_classes=[ScopedRateThrottle])
+    def suggest(self, request):
+        """
+        HU8: propone una emoción y una intensidad a partir de la nota (10 palabras o más). No
+        guarda nada: la huella se guarda con lo que elija la persona. Si no hay sugerencia,
+        responde igual con el motivo, para que el registro siga sin ella.
+        """
+        serializer = SuggestRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        suggestion, reason = ai.suggest(serializer.validated_data["note"])
+        return Response({"suggestion": suggestion, "reason": reason, "min_words": ai.MIN_WORDS})
+
+    def get_throttles(self):
+        if self.action == "suggest":
+            self.throttle_scope = "ai_suggest"
+        return super().get_throttles()
 
     @action(detail=False, methods=["get"])
     def catalog(self, request):

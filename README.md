@@ -96,6 +96,12 @@ DATABASE_URL_UNPOOLED=postgresql://usuario:contraseña@ep-ejemplo.us-east-2.aws.
 ```
 
 `.env` está ignorado por Git. Nunca envíes ese archivo por chat ni lo subas al repositorio.
+
+**Sugerencia de emoción con IA (HU8).** Para activarla, crea una clave en
+[Google AI Studio](https://aistudio.google.com) y escríbela en `.env` como
+`EVOCA_AI_API_KEY=...`. La clave solo la usa el servidor. Sin clave, la app funciona igual,
+sin sugerencia. El modelo y los tiempos se ajustan con las variables `EVOCA_AI_*` de
+`.env.example`.
 Cada integrante debe recibir acceso a Neon o una cadena rotada por un canal seguro.
 
 ## Crear el esquema y ejecutar
@@ -184,6 +190,7 @@ npm run preview
 | GET | `/api/v1/support/content/` | Textos, líneas de ayuda y palabras de riesgo vigentes (la versión aprobada más reciente) |
 | GET | `/api/v1/support/orientation/` | Si toca mostrar la orientación (ánimo de 2 o menos en 14 de los últimos 21 días) |
 | POST | `/api/v1/support/events/` | Registra qué hizo la persona con la orientación (solo el tipo de evento) |
+| POST | `/api/v1/traces/suggest/` | Propone emoción e intensidad desde la nota (10 palabras o más) con IA; no guarda nada |
 | GET/POST | `/api/v1/traces/` | Lista (la más reciente primero; filtros `?sensory_type=`, `?emotion=` y `?date=AAAA-MM-DD`) o crea huellas del usuario |
 | GET | `/api/v1/traces/catalog/` | Tipos sensoriales y emociones válidos, con su etiqueta |
 | GET | `/api/v1/traces/mood/?period=week|month` | Gráfica de ánimo: un punto por huella de los últimos 7 o 30 días y el promedio |

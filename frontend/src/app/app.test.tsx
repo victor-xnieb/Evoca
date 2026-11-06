@@ -9,14 +9,18 @@ import { renderApp as renderWithSession } from "@/test/render-app"
 const renderApp = (path = "/") => renderWithSession({ path, user: SAMPLE_USER, locked: false })
 
 beforeEach(() => {
-  mockApi({ "GET auth/consents/": { body: [] } })
+  mockApi({
+    "GET auth/consents/": { body: [] },
+    "GET traces/": { body: { count: 0, next: null, previous: null, results: [] } },
+    "GET traces/catalog/": { body: { sensory_types: [], emotions: [] } },
+  })
 })
 
 describe("App", () => {
-  it("muestra la pantalla de inicio con su invitación a registrar", () => {
+  it("muestra la pantalla de inicio con su invitación a registrar", async () => {
     renderApp()
     expect(screen.getByRole("heading", { level: 1, name: "evoca" })).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Registrar mi primera huella" })).toHaveAttribute("href", "/nueva-huella")
+    expect(await screen.findByRole("link", { name: "Registrar mi primera huella" })).toHaveAttribute("href", "/nueva-huella")
   })
 
   it("tiene la navegación inferior con las 5 secciones acordadas", () => {

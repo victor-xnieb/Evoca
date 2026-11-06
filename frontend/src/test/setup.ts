@@ -2,9 +2,12 @@ import "@testing-library/jest-dom/vitest"
 import { cleanup } from "@testing-library/react"
 import { afterEach, vi } from "vitest"
 
+import { resetCatalogCache } from "@/hooks/use-catalog"
+
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  resetCatalogCache()
   window.localStorage.clear()
   document.documentElement.className = ""
   delete document.documentElement.dataset.motion

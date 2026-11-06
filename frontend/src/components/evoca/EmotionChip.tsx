@@ -1,10 +1,12 @@
 import { motion } from "motion/react"
-import type { CSSProperties } from "react"
+import type { CSSProperties, KeyboardEvent, Ref } from "react"
 
 import { useReducedMotion } from "@/hooks/use-reduced-motion"
-import { getEmotionVisual } from "@/lib/emotions"
+import { getEmotionVisual, isEmotionSlug } from "@/lib/emotions"
 import { spring } from "@/lib/motion"
 import { cn } from "@/lib/utils"
+
+import { EmotionOrb } from "./EmotionOrb"
 
 export interface EmotionChipProps {
   /** Identificador de la emoción (alegria, calma, ...). */
@@ -14,14 +16,19 @@ export interface EmotionChipProps {
   selected?: boolean
   disabled?: boolean
   size?: "sm" | "md"
-  /** Si se pasa, el chip es un botón conmutable; si no, es una etiqueta estática. */
+  /** Si se pasa, el chip es un botón; si no, es una etiqueta estática. */
   onSelect?: (emotion: string) => void
+  /** "radio" lo vuelve una opción de un grupo de selección única (EmotionPicker). */
+  mode?: "toggle" | "radio"
+  tabIndex?: number
+  onKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void
+  buttonRef?: Ref<HTMLButtonElement>
   className?: string
 }
 
 /**
- * Chip de emoción: color propio + ícono + texto (nunca solo color). Como botón, se
- * «ilumina» al seleccionarlo con un halo de su color.
+ * Chip de emoción: esfera de su textura + color propio + texto (nunca solo color). Como
+ * botón, se «ilumina» al seleccionarlo con un halo de su color.
  */
 export function EmotionChip({
   emotion,
@@ -30,6 +37,10 @@ export function EmotionChip({
   disabled = false,
   size = "md",
   onSelect,
+  mode = "toggle",
+  tabIndex,
+  onKeyDown,
+  buttonRef,
   className,
 }: EmotionChipProps) {
   const reduced = useReducedMotion()
@@ -39,22 +50,25 @@ export function EmotionChip({
 
   const content = (
     <>
-      <span
-        aria-hidden="true"
-        className={cn(
-          "grid place-items-center rounded-full bg-(--chip-color) text-(--chip-ink)",
-          "group-aria-pressed:bg-[color-mix(in_oklab,var(--chip-ink)_16%,transparent)]",
-          size === "sm" ? "size-5" : "size-7",
-        )}
-      >
-        <Icon className={size === "sm" ? "size-3" : "size-4"} strokeWidth={2.4} />
-      </span>
+      {isEmotionSlug(emotion) ? (
+        <EmotionOrb emotion={emotion} size={size === "sm" ? 28 : 40} decorative className="-my-1.5 -ml-1" />
+      ) : (
+        <span
+          aria-hidden="true"
+          className={cn(
+            "grid place-items-center rounded-full bg-(--chip-color) text-(--chip-ink)",
+            size === "sm" ? "size-5" : "size-7",
+          )}
+        >
+          <Icon className={size === "sm" ? "size-3" : "size-4"} strokeWidth={2.4} />
+        </span>
+      )}
       <span className={cn(visual.bold && "font-bold")}>{label}</span>
     </>
   )
 
   const base = cn(
-    "relative inline-flex items-center gap-2 rounded-full border font-medium select-none",
+    "relative inline-flex items-center gap-1.5 rounded-full border font-medium select-none",
     size === "sm" ? "h-8 pr-3 pl-1.5 text-sm" : "min-h-11 pr-4 pl-2 text-base",
     className,
   )
@@ -71,13 +85,18 @@ export function EmotionChip({
     )
   }
 
+  const state = mode === "radio" ? { role: "radio", "aria-checked": selected } : { "aria-pressed": selected }
+
   return (
     <motion.button
+      ref={buttonRef}
       type="button"
       data-emotion={emotion}
-      aria-pressed={selected}
+      {...state}
+      tabIndex={tabIndex}
       disabled={disabled}
       onClick={() => onSelect(emotion)}
+      onKeyDown={onKeyDown}
       style={style}
       whileTap={reduced || disabled ? undefined : { scale: 0.94 }}
       transition={spring}
@@ -99,7 +118,7 @@ export function EmotionChip({
           transition={{ duration: 0.32 }}
         />
       )}
-      <span className="relative inline-flex items-center gap-2">{content}</span>
+      <span className="relative inline-flex items-center gap-1.5">{content}</span>
     </motion.button>
   )
 }

@@ -15,7 +15,8 @@ describe("EmotionChip", () => {
     renderWithProviders(<EmotionChip emotion="calma" label="Calma" />)
     const chip = screen.getByText("Calma").closest("[data-emotion]")
     expect(chip).toHaveAttribute("data-emotion", "calma")
-    expect(chip?.querySelector("svg")).not.toBeNull()
+    // Lleva la esfera de la emoción además del nombre.
+    expect(chip?.querySelector("img")?.getAttribute("src")).toContain("orb-calma")
   })
 
   it("como botón comunica si está seleccionado y avisa al elegirse", async () => {

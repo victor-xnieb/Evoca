@@ -30,7 +30,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        // Las imágenes WebP (esferas, fondo fijo y posters) se guardan para verse sin conexión;
+        // los videos (.mp4) no: pesan mucho y solo son decoración.
+        globPatterns: ["**/*.{js,css,html,svg,png,webp,woff2}"],
         // Las fuentes vietnamitas solo se descargan si hacen falta; no se precargan.
         globIgnores: ["**/*vietnamese*"],
         navigateFallback: "/index.html",
@@ -44,6 +46,8 @@ export default defineConfig({
     alias: { "@": path.resolve(import.meta.dirname, "./src") },
   },
   build: {
+    // Las imágenes WebP siempre van como archivo aparte, nunca incrustadas en el JavaScript.
+    assetsInlineLimit: (file) => (file.endsWith(".webp") ? false : undefined),
     rollupOptions: {
       output: {
         // Separa librerías grandes para que la carga inicial siga siendo liviana.

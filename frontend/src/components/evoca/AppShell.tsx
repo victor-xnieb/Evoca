@@ -9,6 +9,7 @@ import { spring } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 
 import { AnimatedBackground } from "./AnimatedBackground"
+import { InteractiveCursor } from "./InteractiveCursor"
 import { ThemeSwitch } from "./ThemeSwitch"
 
 export interface NavItem {
@@ -50,6 +51,7 @@ export function AppShell({ children, accentEmotion, background = "animated", cla
   return (
     <div className="evoca-backdrop relative isolate flex min-h-dvh flex-col" style={style}>
       <AnimatedBackground variant={background} />
+      <InteractiveCursor />
       {/* Refuerzo detrás del encabezado: el logo y el interruptor nunca quedan sobre el video crudo. */}
       <div
         aria-hidden="true"

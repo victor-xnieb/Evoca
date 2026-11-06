@@ -4,8 +4,11 @@ import { createBrowserRouter, RouterProvider } from "react-router"
 
 import { AppProviders } from "@/app/AppProviders"
 import { routes } from "@/app/routes"
+import { applyDeviceHints } from "@/lib/device"
 
 import "./index.css"
+
+applyDeviceHints()
 
 const router = createBrowserRouter(routes)
 

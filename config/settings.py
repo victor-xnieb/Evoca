@@ -149,11 +149,23 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
+    # Cada sugerencia de IA consume cuota del proveedor: límite por persona.
+    "DEFAULT_THROTTLE_RATES": {"ai_suggest": "20/min"},
 }
 
 EVOCA_TERMS_VERSION = os.getenv("EVOCA_TERMS_VERSION", "draft-v1")
 EVOCA_PRIVACY_VERSION = os.getenv("EVOCA_PRIVACY_VERSION", "draft-v1")
 EVOCA_HEALTH_DATA_VERSION = os.getenv("EVOCA_HEALTH_DATA_VERSION", "draft-v1")
+
+# Sugerencia de emoción con IA (HU8). La clave vive solo en el servidor (.env o secretos del
+# despliegue); sin clave, la app funciona igual pero sin sugerencia.
+EVOCA_AI_PROVIDER = os.getenv("EVOCA_AI_PROVIDER", "gemini")
+EVOCA_AI_API_KEY = os.getenv("EVOCA_AI_API_KEY", "")
+EVOCA_AI_MODEL = os.getenv("EVOCA_AI_MODEL", "gemini-3.5-flash-lite")
+EVOCA_AI_THINKING_LEVEL = os.getenv("EVOCA_AI_THINKING_LEVEL", "minimal")
+# Tiempo máximo de espera de la IA: con la pausa al escribir, la sugerencia llega en < 3 s.
+EVOCA_AI_TIMEOUT = float(os.getenv("EVOCA_AI_TIMEOUT", "2.0"))
+EVOCA_AI_MIN_CONFIDENCE = float(os.getenv("EVOCA_AI_MIN_CONFIDENCE", "0.6"))
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = not DEBUG

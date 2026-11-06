@@ -13,6 +13,8 @@ htmlcov/
 db.sqlite3
 *.sqlite3
 media/
+# Los fondos animados del frontend sí se versionan (no son archivos subidos por usuarios).
+!/frontend/public/media/
 staticfiles/
 
 # Secretos y configuración local

@@ -1,11 +1,11 @@
-# Arquitectura inicial
+# Arquitectura
 
 ## Componentes
 
 ```text
-App móvil futura (Flutter)
+PWA (React + TypeScript, Vite) — navegador del celular o escritorio, instalable
           |
-          | HTTPS + Token
+          | HTTPS + Authorization: Token <token>  (CORS con orígenes explícitos)
           v
 Django REST Framework
   - accounts: identidad y consentimientos
@@ -19,11 +19,41 @@ Neon PostgreSQL, rama development
 
 ## Decisiones
 
-### Django es el backend, no la app móvil
+### Stack acordado por el equipo
+
+| Capa | Tecnología | Motivo |
+| --- | --- | --- |
+| Backend | Django + DRF, PostgreSQL en Neon | Ya existía; reglas, autenticación y datos sensibles viven en el servidor |
+| Cliente | React + TypeScript con Vite, en `frontend/` | Una sola base de código para escritorio y celular |
+| Móvil | PWA instalable (manifest + service worker con `vite-plugin-pwa`) | Cubre Android e iOS sin app nativa ni tiendas |
+| Interfaz | Tailwind CSS v4 + shadcn/ui (Radix) + catálogo propio en `components/evoca/` | Accesibilidad de Radix y una identidad visual propia |
+| Animación | Motion (y Lottie para 2 ilustraciones) | Animaciones con intención que respetan movimiento reducido |
+| Gráficas | Recharts | Gráfica de ánimo (HU4), cargada bajo demanda |
+| Pruebas | `manage.py test` (backend), Vitest + Testing Library (frontend) | Cada escenario Gherkin tiene una prueba automatizada |
+| Documentación de UI | Storybook (solo desarrollo) | Catálogo de componentes con sus estados |
+| IA (HU8) | IA generativa llamada solo desde el backend | El prompt y la clave nunca llegan al cliente |
+
+### Django es el backend; el móvil es la PWA
 
 El caso de negocio requiere Android e iOS. Django administra reglas, autenticación y datos;
-Flutter u otro framework multiplataforma debe implementar PIN/biometría, experiencia móvil,
-notificaciones y almacenamiento seguro del token.
+la PWA implementa la experiencia móvil: bloqueo con PIN (y WebAuthn como opción), modo
+claro/oscuro y notificaciones. Las reglas de seguridad (por ejemplo, el bloqueo tras intentos
+fallidos) se aplican siempre en el servidor, no solo en el cliente. No se construye una app
+nativa ni con Flutter.
+
+### Frontend separado que consume la API
+
+El frontend es un proyecto independiente en `frontend/` que habla con `/api/v1/` usando el
+token en la cabecera `Authorization`. Por eso Django habilita CORS (`django-cors-headers`)
+solo para los orígenes listados en `DJANGO_CORS_ALLOWED_ORIGINS`, sin comodines y sin
+cookies entre sitios. El service worker nunca guarda respuestas de la API en caché.
+
+### Sistema de diseño centralizado
+
+`frontend/src/styles/tokens.css` es la única fuente de colores (incluida la paleta de
+emociones), radios, sombras, tipografía y curvas de animación. Tailwind los expone como
+utilidades. La lista de emociones válida la define el backend; el frontend solo asocia a cada
+una su color e ícono. El color nunca es la única señal: siempre va con ícono o texto.
 
 ### Usuario personalizado desde la primera migración
 
@@ -63,7 +93,7 @@ de seguridad, auditoría y prueba de penetración.
 1. Agregar servicios y endpoints de agrupación explicable sobre `Memory` y `MemoryTrace`.
 2. Definir el protocolo de bienestar como reglas versionadas aprobadas por el asesor clínico.
 3. Añadir un esquema de autenticación móvil con expiración/rotación de tokens.
-4. Construir el cliente Flutter contra `/api/v1/`.
+4. Completar las pantallas de la PWA historia por historia (HU1 a HU8).
 5. Crear ramas Neon por funcionalidad o pull request antes de aplicar migraciones a
    `development`.
 

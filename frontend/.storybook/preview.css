@@ -1,0 +1,16 @@
+/*
+ * Fondo de las historias: la imagen fija de Evoca (sin video) con la misma capa de refuerzo
+ * que pone la app encima del fondo animado.
+ */
+.evoca-story-backdrop {
+  background:
+    linear-gradient(color-mix(in oklab, var(--background) 35%, transparent), color-mix(in oklab, var(--background) 35%, transparent)),
+    url("../src/assets/backgrounds/bg-claro-estatico.webp") center / cover fixed,
+    var(--background);
+}
+.dark .evoca-story-backdrop {
+  background:
+    linear-gradient(color-mix(in oklab, var(--background) 45%, transparent), color-mix(in oklab, var(--background) 45%, transparent)),
+    url("/media/bg-oscuro-horizontal-poster.webp") center / cover fixed,
+    var(--background);
+}

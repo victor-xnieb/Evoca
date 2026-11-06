@@ -1,0 +1,422 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./styles/shadcn-variants.css";
+@import "@fontsource-variable/fraunces";
+@import "@fontsource-variable/figtree";
+@import "./styles/tokens.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Expone los tokens como utilidades de Tailwind (bg-emotion-calma, font-display, ...). */
+@theme inline {
+  --font-sans: var(--font-body);
+  --font-heading: var(--font-display);
+  --font-display: var(--font-display);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-cream: var(--evoca-cream);
+  --color-sand: var(--evoca-sand);
+  --color-ink: var(--evoca-ink);
+  --color-ink-soft: var(--evoca-ink-soft);
+  --color-day-empty: var(--evoca-day-empty);
+  --color-day-empty-ink: var(--evoca-day-empty-ink);
+  --color-support: var(--evoca-support);
+  --color-support-ink: var(--evoca-support-ink);
+
+  --color-emotion-alegria: var(--emotion-alegria);
+  --color-emotion-alegria-ink: var(--emotion-alegria-ink);
+  --color-emotion-calma: var(--emotion-calma);
+  --color-emotion-calma-ink: var(--emotion-calma-ink);
+  --color-emotion-gratitud: var(--emotion-gratitud);
+  --color-emotion-gratitud-ink: var(--emotion-gratitud-ink);
+  --color-emotion-nostalgia: var(--emotion-nostalgia);
+  --color-emotion-nostalgia-ink: var(--emotion-nostalgia-ink);
+  --color-emotion-tristeza: var(--emotion-tristeza);
+  --color-emotion-tristeza-ink: var(--emotion-tristeza-ink);
+  --color-emotion-ansiedad: var(--emotion-ansiedad);
+  --color-emotion-ansiedad-ink: var(--emotion-ansiedad-ink);
+  --color-emotion-enojo: var(--emotion-enojo);
+  --color-emotion-enojo-ink: var(--emotion-enojo-ink);
+  --color-emotion-miedo: var(--emotion-miedo);
+  --color-emotion-miedo-ink: var(--emotion-miedo-ink);
+
+  --radius-sm: calc(var(--radius) * 0.45);
+  --radius-md: calc(var(--radius) * 0.7);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.35);
+  --radius-2xl: calc(var(--radius) * 1.7);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  --shadow-soft: var(--shadow-soft);
+  --shadow-lifted: var(--shadow-lifted);
+
+  --ease-out-soft: var(--ease-out-soft);
+  --ease-spring: var(--ease-spring);
+
+  --animate-ripple: ripple var(--duration, 3.4s) var(--ease-in-out-soft) calc(var(--i, 0) * 0.2s) infinite;
+  --animate-dot-bounce: dot-bounce 1s var(--ease-in-out-soft) infinite;
+  --animate-aurora-drift: aurora-drift 9s var(--ease-in-out-soft) infinite alternate;
+}
+
+/* Fondo envolvente: degradado sutil con la emoción reciente. */
+.evoca-backdrop {
+  background:
+    radial-gradient(120% 70% at 85% -10%, color-mix(in oklab, var(--accent-emotion) 28%, transparent), transparent 62%),
+    radial-gradient(90% 60% at -10% 110%, color-mix(in oklab, var(--emotion-gratitud) 14%, transparent), transparent 60%),
+    var(--background);
+}
+
+/*
+ * Capa sobre el fondo animado. En claro el video suave se ve tal cual (solo el leve tinte de
+ * la emoción reciente); en oscuro, marrón al 45 % para bajar el brillo de los anillos.
+ * La legibilidad la dan las tarjetas de vidrio: ningún texto va directo sobre el video.
+ */
+.evoca-video-scrim {
+  background: radial-gradient(
+    120% 70% at 85% -10%,
+    color-mix(in oklab, var(--accent-emotion) 12%, transparent),
+    transparent 62%
+  );
+}
+.dark .evoca-video-scrim {
+  background:
+    radial-gradient(120% 70% at 85% -10%, color-mix(in oklab, var(--accent-emotion) 12%, transparent), transparent 62%),
+    color-mix(in oklab, var(--background) 45%, transparent);
+}
+
+/* Resplandor del color de la emoción detrás de cada esfera; más visible en modo oscuro. */
+.evoca-orb {
+  filter: drop-shadow(0 0 calc(var(--orb-size, 96px) * 0.07) color-mix(in oklab, var(--orb-color) 45%, transparent));
+}
+.dark .evoca-orb {
+  filter: drop-shadow(0 0 calc(var(--orb-size, 96px) * 0.1) color-mix(in oklab, var(--orb-color) 70%, transparent));
+}
+
+/* Punto de la marca «evoca.»: capas de color que se funden por turnos (solo opacidad). */
+.evoca-dot-layer {
+  opacity: 0;
+  animation: dot-cycle 16s var(--ease-in-out-soft) infinite;
+}
+
+/* ---------- Tarjetas de vidrio (GlassCard) ---------- */
+.evoca-glass {
+  --glass-accent: var(--ring);
+  --mx: 50%;
+  --my: 50%;
+  --px: 0px;
+  --py: 0px;
+  position: relative;
+  isolation: isolate;
+  display: block;
+  background: color-mix(in oklab, var(--card) 64%, transparent);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  box-shadow:
+    var(--shadow-soft),
+    inset 0 0 0 1px rgb(255 255 255 / 0%);
+  transition:
+    box-shadow var(--duration-base) var(--ease-out-soft),
+    translate var(--duration-base) var(--ease-out-soft);
+}
+.dark .evoca-glass {
+  background: color-mix(in oklab, var(--card) 55%, transparent);
+}
+/* Borde fino translúcido: más claro arriba a la izquierda. */
+.evoca-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  padding: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgb(255 255 255 / 85%), rgb(255 255 255 / 25%) 45%, rgb(255 255 255 / 10%));
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+.dark .evoca-glass::before {
+  background: linear-gradient(135deg, rgb(255 255 255 / 26%), rgb(255 255 255 / 8%) 45%, rgb(255 255 255 / 3%));
+}
+/* Foco de luz que sigue al mouse (--mx, --my) y destello al tocar. */
+.evoca-glass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    260px circle at var(--mx) var(--my),
+    color-mix(in oklab, var(--glass-accent) 26%, transparent),
+    transparent 70%
+  );
+  transition: opacity var(--duration-base) var(--ease-out-soft);
+}
+.evoca-glass:is(:hover, :focus-within, :focus-visible) {
+  box-shadow:
+    var(--shadow-soft),
+    inset 0 0 0 1px color-mix(in oklab, var(--glass-accent) 65%, transparent);
+}
+.evoca-glass[data-fx="on"]:is(:hover, :focus-within, :focus-visible) {
+  translate: 0 -4px;
+  box-shadow:
+    var(--shadow-lifted),
+    inset 0 0 0 1px color-mix(in oklab, var(--glass-accent) 70%, transparent);
+}
+.evoca-glass[data-fx="on"]:hover::after {
+  opacity: 1;
+}
+.evoca-glass[data-flash]::after {
+  --mx: 50%;
+  --my: 50%;
+  animation: glass-flash 450ms var(--ease-out-soft);
+}
+.evoca-glass-clickable:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 3px;
+}
+/* Contenido con paralaje: se mueve apenas en dirección opuesta al puntero. */
+.evoca-glass[data-fx="on"] .evoca-parallax {
+  translate: var(--px) var(--py);
+  transition: translate 260ms var(--ease-out-soft);
+}
+/* Las esferas del conjunto se separan un poco al entrar en la tarjeta. */
+.evoca-orb-spread {
+  transition: translate 700ms var(--ease-out-soft);
+}
+.evoca-glass[data-fx="on"]:hover .evoca-orb-spread {
+  translate: var(--spread-x) var(--spread-y);
+}
+/* Respaldo casi sólido: sin backdrop-filter, con transparencia reducida o en equipos lentos. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .evoca-glass,
+  .dark .evoca-glass {
+    background: color-mix(in oklab, var(--card) 94%, transparent);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .evoca-glass,
+  .dark .evoca-glass {
+    background: color-mix(in oklab, var(--card) 94%, transparent);
+    backdrop-filter: none;
+  }
+}
+:root[data-glass="solid"] .evoca-glass {
+  background: color-mix(in oklab, var(--card) 94%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+@keyframes glass-flash {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.97);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* ---------- Cursor interactivo (InteractiveCursor) ---------- */
+.evoca-cursor-dot,
+.evoca-cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  pointer-events: none;
+  will-change: transform;
+}
+.evoca-cursor-dot {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 999px;
+  background: var(--cursor-color, var(--evoca-ink));
+  transition:
+    opacity var(--duration-fast),
+    background-color var(--duration-fast);
+}
+.evoca-cursor-ring {
+  display: grid;
+  place-items: center;
+  width: var(--ring-w, 34px);
+  height: var(--ring-h, 34px);
+  margin: calc(var(--ring-h, 34px) / -2) 0 0 calc(var(--ring-w, 34px) / -2);
+  border: 1.5px solid color-mix(in oklab, var(--cursor-color, var(--evoca-ink)) 55%, transparent);
+  border-radius: var(--ring-radius, 999px);
+  background: color-mix(in oklab, var(--cursor-color, var(--evoca-ink)) var(--ring-fill, 0%), transparent);
+  color: var(--evoca-ink);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition:
+    width var(--duration-base) var(--ease-out-soft),
+    height var(--duration-base) var(--ease-out-soft),
+    margin var(--duration-base) var(--ease-out-soft),
+    border-radius var(--duration-base) var(--ease-out-soft),
+    background-color var(--duration-base),
+    border-color var(--duration-base),
+    opacity var(--duration-fast),
+    scale var(--duration-fast);
+}
+.evoca-cursor-ring[data-pressed],
+.evoca-cursor-dot[data-pressed] {
+  scale: 0.82;
+}
+.evoca-cursor-ring[data-state="hidden"],
+.evoca-cursor-dot[data-state="hidden"] {
+  opacity: 0;
+}
+.evoca-cursor-ring[data-state="text"] {
+  --ring-w: 10px;
+  --ring-h: 10px;
+  opacity: 0;
+}
+.evoca-cursor-dot[data-state="text"] {
+  opacity: 0;
+}
+.evoca-cursor-ring[data-state="card"],
+.evoca-cursor-ring[data-state="link"] {
+  --ring-fill: 18%;
+  --ring-radius: 42%;
+  border-color: color-mix(in oklab, var(--cursor-color) 80%, transparent);
+}
+.evoca-cursor-ring[data-state="orb"] {
+  --ring-w: 76px;
+  --ring-h: 76px;
+  --ring-fill: 22%;
+  border-color: color-mix(in oklab, var(--cursor-color) 85%, transparent);
+  box-shadow: 0 0 24px color-mix(in oklab, var(--cursor-color) 45%, transparent);
+}
+
+@keyframes dot-cycle {
+  0% {
+    opacity: 0;
+  }
+  3%,
+  12.5% {
+    opacity: 1;
+  }
+  15.5%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ripple {
+  0%,
+  100% {
+    transform: scale(1) translateZ(0);
+  }
+  50% {
+    transform: scale(0.92) translateZ(0);
+  }
+}
+
+@keyframes dot-bounce {
+  0%,
+  100% {
+    transform: translateY(-40%);
+  }
+  50% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes aurora-fade {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  30%,
+  50% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 0;
+  }
+}
+
+@keyframes aurora-drift {
+  0% {
+    transform: rotate(-2deg) scale(0.98);
+  }
+  50% {
+    transform: rotate(2deg) scale(1.02);
+  }
+  100% {
+    transform: rotate(-1deg) scale(1);
+  }
+}
+
+/*
+ * Movimiento reducido: por preferencia del sistema o forzado desde la app/Storybook
+ * (MotionPreferenceProvider pone data-motion="reduce" | "full" en <html>).
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) *,
+  :root:not([data-motion="full"]) *::before,
+  :root:not([data-motion="full"]) *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+:root[data-motion="reduce"] *,
+:root[data-motion="reduce"] *::before,
+:root[data-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    min-height: 100dvh;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    letter-spacing: -0.01em;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}

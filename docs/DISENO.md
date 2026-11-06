@@ -21,8 +21,9 @@ en producción.** La app usa versiones optimizadas que genera `npm run assets` (
 | `Bola_roja.png` | Esfera de enojo (roca volcánica) | `orb-enojo.webp` (+ `-sm`) | 181 KB → 16,8 KB + 3,6 KB |
 | `Bola_morado.png` | Esfera de miedo (niebla violeta) | `orb-miedo.webp` (+ `-sm`) | 135 KB → 11,1 KB + 3,0 KB |
 | `Fondo_estatico.jpg` | Fondo claro con grano de papel (EXIF 6: se ve horizontal) | `frontend/src/assets/backgrounds/bg-claro-estatico.webp` (1920×1072) | 2,4 MB → 24 KB |
-| `fondo_claro_vertical.mp4` | Fondo claro animado, 720×1280, 8 s | `frontend/public/media/bg-claro-vertical.mp4` (+ `-poster.webp`) | 1,01 MB → igual + 9,5 KB |
-| `fondo_claro_loop.mp4` | Fondo claro animado, 1280×720, 8 s | `frontend/public/media/bg-claro-horizontal.mp4` (+ `-poster.webp`) | 901 KB → igual + 9,5 KB |
+| `fondo_claro_suave_vertical.mp4` y `.webm` | Fondo claro suave (pasteles desenfocados, centro casi crema), 720×1280, 11 s | `frontend/public/media/bg-claro-vertical.webm` / `.mp4` (+ `-poster.webp`) | 73 KB WebM / 498 KB MP4 + 6,2 KB |
+| `fondo_claro_suave_horizontal.mp4` y `.webm` | Fondo claro suave, 1280×720, 11 s | `frontend/public/media/bg-claro-horizontal.webm` / `.mp4` (+ `-poster.webp`) | 80 KB WebM / 505 KB MP4 + 6,4 KB |
+| `fondo_claro_vertical.mp4`, `fondo_claro_loop.mp4` | Fondos claros anteriores (círculos de borde duro) | Ya no se usan; quedan como material fuente | — |
 | `fondo_oscuro_vertical.mp4` | Fondo oscuro animado, 720×1280, 9 s | `frontend/public/media/bg-oscuro-vertical.mp4` (+ `-poster.webp`) | 605 KB → igual + 35,7 KB |
 | `fondo_oscuro_horizontal.mp4` | Fondo oscuro animado, 1280×720, 9 s | `frontend/public/media/bg-oscuro-horizontal.mp4` (+ `-poster.webp`) | 617 KB → igual + 36,8 KB |
 
@@ -30,11 +31,15 @@ en producción.** La app usa versiones optimizadas que genera `npm run assets` (
   La esfera ocupa cerca de dos tercios de la imagen: el margen transparente deja espacio
   al resplandor.
 - El fondo estático se gira según su EXIF al convertirlo: los píxeles quedan horizontales.
-- Los videos se copian sin recodificar. Si hay `ffmpeg` (en el `PATH` o en la variable
-  `FFMPEG`), el script además genera WebM (VP9, `-crf 38`) y los posters; hay que añadir
-  la fuente WebM en `frontend/src/lib/backgrounds.ts` (está comentado dónde).
-- Los posters son el primer fotograma de cada video: así el cambio de la imagen al video
-  no se nota.
+- Los videos se copian sin recodificar, con su WebM si viene en `diseno/` (el claro sí; el
+  oscuro no). Si hay `ffmpeg` (en el `PATH` o en la variable `FFMPEG`), el script genera el
+  WebM que falte (VP9, `-crf 38`) y los posters. En `frontend/src/lib/backgrounds.ts` el WebM
+  se ofrece primero y el MP4 queda de respaldo (`video(nombre, { webm: true })`).
+- Los posters son el primer fotograma de cada video (a 0,05 s): así el cambio de la imagen
+  al video no se nota.
+- En modo claro el fondo se atenúa (opacidad 0,8) y se desvanece hacia el centro con una
+  máscara radial (`.evoca-bg-layer`): las manchas solo se notan en los bordes. Los anillos
+  del hero de Inicio solo aparecen en modo oscuro.
 
 ### Cambiar una esfera
 
@@ -67,7 +72,8 @@ de los tokens de `frontend/src/styles/tokens.css`; no se derivan tokens de las i
   `decorative`, `priority`). Usa la imagen de 128 px hasta 64 px de lado, define `width` y
   `height` (sin saltos de diseño) y carga diferida salvo `priority`. El resplandor usa el
   color del token, más fuerte en modo oscuro. La flotación (Motion, solo `transform`) tiene
-  fases y duraciones distintas por esfera y se apaga con movimiento reducido.
+  fases y duraciones distintas por esfera y se apaga con movimiento reducido (ver
+  «Interacción»).
 - `EmotionOrbCluster`: las cinco esferas de la tarjeta «Aún no tienes huellas».
 - `AnimatedBackground`: fondo de toda la app, montado por `AppShell`.
   - Elige el video por tema (el del interruptor) y orientación (`matchMedia`, hook
@@ -83,28 +89,115 @@ de los tokens de `frontend/src/styles/tokens.css`; no se derivan tokens de las i
 
 ## Reglas de legibilidad
 
-Los videos tienen zonas de color fuerte. Por eso:
+Los videos tienen zonas de color. Por eso:
 
-1. **Ningún texto va directamente sobre el video.** El contenido va en tarjetas casi opacas:
-   `bg-card/92` con `backdrop-blur-sm`.
+1. **Ningún texto va directamente sobre el video.** El contenido va en `GlassCard`: vidrio
+   translúcido (60 % de `--card` en claro, 55 % en oscuro) con `blur(20px) saturate(1.3)`. El
+   desenfoque fuerte borra el detalle del video que queda detrás; eso es lo que permite la
+   transparencia sin perder contraste.
 2. Encima del video hay una capa de refuerzo: crema al 35 % en claro y marrón al 45 % en
    oscuro (`.evoca-video-scrim`). Detrás del encabezado hay un degradado extra para el logo.
-3. El texto suelto (saludo del hero, títulos de página) lleva un halo `bg-background/75` con
-   desenfoque.
-4. Contraste medido en el peor píxel de cada fondo con esas capas encima. En los videos se
-   revisó un fotograma cada 0,5 s de todo el bucle (17 a 19 fotogramas). Mínimo exigido:
-   4,5:1.
+3. **Contraste ≥ 4,5:1 contra el fondo renderizado** (3:1 para texto grande). Si algún punto
+   del video lo baja, se sube la opacidad o el desenfoque de esa tarjeta; nunca se oscurece
+   el texto.
+4. Cómo se mide: con Playwright se pausa el video en 3 momentos (15, 45 y 75 % del bucle),
+   se registra cada texto visible, se vuelve transparente y se captura lo que queda detrás.
+   Luego se compara el color del texto con esos píxeles (percentil 2, para ignorar bordes
+   sueltos). Se descarta el texto tapado (por ejemplo, por la barra inferior) y el punto del
+   logo, que es parte de la marca.
 
-| Fondo | Texto en tarjeta | Texto secundario en tarjeta | Texto secundario con halo | Logo bajo el degradado del encabezado | Texto suelto sin tarjeta ni halo |
+Peor contraste medido en Inicio (texto de cada tarjeta contra su fondo real, en los 3
+momentos):
+
+| Tema · tamaño | Tarjeta «Buenas noches» | Tarjeta «Aún no tienes huellas» | Tarjetas de pasos | Navegación | Encabezado |
 | --- | --- | --- | --- | --- | --- |
-| Claro vertical (video) | 15,0:1 | 6,3:1 | 5,0:1 | 11,0:1 | 4,0:1; secundario 1,7:1 (no permitido) |
-| Claro horizontal (video) | 15,0:1 | 6,3:1 | 5,0:1 | 10,0:1 | 4,0:1; secundario 1,7:1 (no permitido) |
-| Claro estático | 15,8:1 | 6,7:1 | 5,9:1 | 10,1:1 o más | 10,1:1; secundario 4,3:1 (no permitido) |
-| Oscuro vertical (video) | 13,9:1 | 7,9:1 | 6,8:1 | 10,7:1 | 3,7:1; secundario 2,1:1 (no permitido) |
-| Oscuro horizontal (video) | 13,9:1 | 7,9:1 | 6,8:1 | 10,6:1 | 3,7:1; secundario 2,1:1 (no permitido) |
+| Claro · escritorio | 6,2:1 | 6,7:1 | 6,0:1 | 6,7:1 | 14,4:1 |
+| Claro · celular | 6,2:1 | 6,3:1 | 6,2:1 | 5,7:1 | 15,3:1 |
+| Oscuro · escritorio | 5,5:1 | 5,1:1 | 5,6:1 | 7,0:1 | 10,8:1 |
+| Oscuro · celular | 5,6:1 | 5,5:1 | 5,4:1 | 6,3:1 | 16,4:1 |
 
-La última columna muestra por qué se exige tarjeta o halo: sin ellos ningún tema llega a
-4,5:1 en todo el bucle.
+Las demás pantallas (Ajustes, «Muy pronto», 404) siguen con tarjetas casi opacas
+(`bg-card/92`) y halo `bg-background/75` en los títulos. Pasarán a `GlassCard` cuando se
+construyan en su HU.
+
+## Interacción
+
+La inspiración es el tipo de interacción: cursor que se transforma, tarjetas que
+reaccionan, objetos que flotan. Todo usa la paleta, los tokens y las esferas de Evoca.
+
+### GlassCard
+
+Base de todas las tarjetas (`components/evoca/GlassCard.tsx`, estilos `.evoca-glass` en
+`index.css`).
+
+- **Aspecto:** vidrio translúcido con desenfoque, borde fino con degradado (más claro
+  arriba a la izquierda), sombra suave y esquinas muy redondeadas.
+- **Con mouse** (`(pointer: fine) and (hover: hover)`):
+  - se eleva 4 px y su sombra crece;
+  - un foco de luz del color de acento sigue al puntero (variables `--mx` y `--my`, escritas
+    en `pointermove` sin re-renderizar React);
+  - se inclina hasta ±5° con un resorte de Motion;
+  - el borde se ilumina con el acento (`accent="calma"` o cualquier color CSS);
+  - lo marcado con `.evoca-parallax` (íconos, esferas) se mueve hasta 6 px en sentido
+    contrario.
+
+  Al presionar se hunde (`scale(0.98)`). Con foco de teclado también se eleva y se ilumina.
+- **En táctil:** sin inclinación ni foco de luz; al tocar, leve hundimiento y un destello
+  del color de acento.
+- **Con movimiento reducido:** sin inclinación, elevación ni paralaje; solo cambia el borde
+  al pasar el mouse o con foco.
+- **Clicable:** con `to` es un enlace (`<a>`) y con `onClick` un `<button>`, ambos con foco
+  visible. Sin ninguno de los dos es un contenedor (`as="div" | "section" | "article" | "li"`).
+- **Respaldo casi sólido (94 %):** sin `backdrop-filter`, con `prefers-reduced-transparency`
+  o en equipos con 2 GB de memoria o menos, o con 2 núcleos o menos (`data-glass="solid"`,
+  `lib/device.ts`).
+
+### InteractiveCursor
+
+Seguidor decorativo del mouse, montado una vez en `AppShell`
+(`components/evoca/InteractiveCursor.tsx`, reglas en `lib/cursor.ts`).
+
+- **Cuándo existe:** solo con puntero fino y sin movimiento reducido.
+- **Qué es:** un punto y un anillo que lo sigue con retraso de resorte. El cursor del sistema
+  sigue visible; el seguidor se suma.
+- **Accesibilidad:** es `aria-hidden`, no recibe clics (`pointer-events: none`) y no
+  reemplaza el foco del teclado.
+- **Cómo cambia según lo que hay debajo** (gana el elemento más cercano):
+
+  | Debajo | Estado | Cómo se ve |
+  | --- | --- | --- |
+  | `GlassCard` (`data-cursor="card"`) | `card` | Burbuja blanda del color de acento, un poco adaptada al tamaño de la tarjeta |
+  | Enlace, botón, interruptor o pestaña | `link` | Burbuja del acento heredado (`--cursor-accent`) |
+  | Elemento con `data-cursor-label="Ver"` | `link` o `card` | Muestra la etiqueta dentro de la burbuja |
+  | Esfera animada (`data-cursor="orb"`) | `orb` | Grande y cálido, con el color de la emoción |
+  | Texto o campo de formulario | `text` | Desaparece para no estorbar |
+
+- **Al presionar:** se contrae.
+- **Rendimiento:**
+  - un solo manejador global para `pointermove`, `pointerdown`, `pointerup` y `pointerout`;
+  - la posición se actualiza con `requestAnimationFrame` y `transform`;
+  - el estado va en atributos `data-state`, así que React nunca se re-renderiza al mover el
+    mouse.
+
+### Esferas vivas
+
+- **Flotación** (`EmotionOrb animated`):
+  - 8 a 14 px de subida, deriva horizontal de 3 a 6 px, giro de ±3° y respiración de escala
+    de 1 a 1,03;
+  - cada propiedad tiene su propia duración (ciclo base de 5 a 9 s según la esfera) y un
+    punto de partida distinto;
+  - se crea con `animate()` de Motion. La prop `animate` no servía: el
+    `AnimatePresence initial={false}` de las rutas salta las animaciones de montaje;
+  - se pausa fuera de la pantalla (`IntersectionObserver`) y con la pestaña oculta.
+- **Magnetismo** (solo con mouse): cuando el puntero está cerca, la esfera se acerca hasta
+  10 px.
+- **Dentro de una `GlassCard`:** las esferas del conjunto se separan un poco al entrar el
+  mouse y vuelven al salir.
+- **Al tocarla:** rebota (aumenta y vuelve) y deja una onda del color de su emoción.
+- **En celular:** flota, pero sin magnetismo.
+- **Con movimiento reducido:** queda quieta.
+- **Rendimiento:** solo se animan `transform` y `opacity`. El resplandor (`drop-shadow`) es
+  fijo y no se anima.
 
 ## Para las HU de los siguientes pasos
 

@@ -43,6 +43,9 @@ public/media/          videos de fondo y sus posters (fuera del paquete de JavaS
   `useReducedMotion()`; en Storybook se puede forzar desde la barra («Movimiento»).
 - La orientación hacia ayuda (`SupportCard`) es sobria: sin animación ni colores de alarma.
 - Cada componente nuevo o modificado de `components/evoca/` actualiza su historia.
-- Ningún texto va directamente sobre el fondo animado: el contenido va en tarjetas casi
-  opacas (`bg-card/92` con `backdrop-blur-sm`) y el texto suelto lleva un halo
-  (`bg-background/75`). Las esferas son decoración; los colores salen de los tokens.
+- Ningún texto va directamente sobre el fondo animado: el contenido va en `GlassCard`
+  (vidrio con desenfoque fuerte) y debe medir ≥ 4,5:1 contra el fondo renderizado. Las
+  esferas son decoración; los colores salen de los tokens.
+- La interacción con mouse (inclinación, foco de luz, cursor `InteractiveCursor`,
+  magnetismo de las esferas) solo existe con `(pointer: fine)` y sin movimiento reducido.
+  Ver [docs/DISENO.md](../docs/DISENO.md#interacción).

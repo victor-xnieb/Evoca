@@ -32,7 +32,8 @@ obtienen con `npm run assets` (sharp) y se describen en [docs/DISENO.md](docs/DI
 | --- | --- | --- | --- | --- |
 | Esferas de las 8 emociones | `diseno/Bola_*.png` | `frontend/src/assets/orbs/orb-<emoción>.webp` y `-sm.webp` | IA generativa; herramienta exacta: por completar por el equipo | sharp (WebP) |
 | Fondo claro estático | `diseno/Fondo_estatico.jpg` | `frontend/src/assets/backgrounds/bg-claro-estatico.webp` | IA generativa; herramienta exacta: por completar por el equipo | sharp (rotación EXIF, 1920 px, WebP) |
-| Fondos animados claro y oscuro (vertical y horizontal) | `diseno/fondo_*.mp4` | `frontend/public/media/bg-*.mp4` | IA generativa; herramienta exacta: por completar por el equipo | Copia sin recodificar (ffmpeg no estaba disponible); posters extraídos del primer fotograma |
+| Fondos claros suaves (vertical y horizontal) | `diseno/fondo_claro_suave_*.mp4` y `.webm` | `frontend/public/media/bg-claro-*.webm` / `.mp4` | IA generativa; herramienta exacta: por completar por el equipo | Entregados ya optimizados por el equipo (MP4 y WebM); posters extraídos del primer fotograma |
+| Fondos oscuros animados (vertical y horizontal) | `diseno/fondo_oscuro_*.mp4` | `frontend/public/media/bg-oscuro-*.mp4` | IA generativa; herramienta exacta: por completar por el equipo | Copia sin recodificar (ffmpeg no estaba disponible); posters extraídos del primer fotograma |
 
 ## Tipografías
 

@@ -1,7 +1,9 @@
 from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from .models import Trace
-from .serializers import TraceSerializer
+from .serializers import TraceSerializer, choice_list
 
 
 class TraceViewSet(viewsets.ModelViewSet):
@@ -17,3 +19,12 @@ class TraceViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    @action(detail=False, methods=["get"])
+    def catalog(self, request):
+        """Tipos sensoriales y emociones válidos, con la etiqueta que se muestra."""
+        return Response(
+            {
+                "sensory_types": choice_list(Trace.SensoryType.choices),
+                "emotions": choice_list(Trace.Emotion.choices),
+            }
+        )

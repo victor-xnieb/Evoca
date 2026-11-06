@@ -74,3 +74,110 @@ class TraceApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+
+
+class RegisterTraceTests(APITestCase):
+    """HU2: guardar una huella con tipo, nota, emoción e intensidad."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="huellas@example.com",
+            password="UnaClaveSegura!2026",
+            date_of_birth=date(1990, 1, 1),
+        )
+        self.client.force_authenticate(self.user)
+        self.url = "/api/v1/traces/"
+
+    def payload(self, **overrides):
+        data = {"sensory_type": "aroma", "note": "Café de la abuela", "emotion": "nostalgia", "mood_intensity": 4}
+        data.update(overrides)
+        return data
+
+    def test_accepts_each_of_the_six_sensory_types(self):
+        for sensory_type in ("aroma", "color", "song", "flavor", "texture", "place"):
+            response = self.client.post(self.url, self.payload(sensory_type=sensory_type), format="json")
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED, sensory_type)
+        self.assertEqual(Trace.objects.filter(user=self.user).count(), 6)
+
+    def test_rejects_unknown_sensory_type(self):
+        response = self.client.post(self.url, self.payload(sensory_type="sonido"), format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("sensory_type", response.data)
+
+    def test_without_emotion_says_what_is_missing_and_does_not_save(self):
+        data = self.payload()
+        del data["emotion"]
+
+        response = self.client.post(self.url, data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(str(response.data["emotion"][0]), "Elige la emoción que sentiste.")
+        self.assertFalse(Trace.objects.exists())
+
+    def test_without_intensity_says_what_is_missing_and_does_not_save(self):
+        data = self.payload()
+        del data["mood_intensity"]
+
+        response = self.client.post(self.url, data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(str(response.data["mood_intensity"][0]), "Elige qué tan intenso fue, de 1 a 5.")
+        self.assertFalse(Trace.objects.exists())
+
+    def test_reports_both_missing_fields_at_once(self):
+        response = self.client.post(self.url, {"sensory_type": "color", "note": "Azul del mar"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertSetEqual(set(response.data), {"emotion", "mood_intensity"})
+
+    def test_intensity_goes_from_one_to_five(self):
+        for level in (1, 5):
+            self.assertEqual(
+                self.client.post(self.url, self.payload(mood_intensity=level), format="json").status_code,
+                status.HTTP_201_CREATED,
+            )
+        for level in (0, 6):
+            self.assertEqual(
+                self.client.post(self.url, self.payload(mood_intensity=level), format="json").status_code,
+                status.HTTP_400_BAD_REQUEST,
+            )
+
+    def test_emotion_must_be_one_of_the_eight(self):
+        response = self.client.post(self.url, self.payload(emotion="felicidad"), format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("emotion", response.data)
+
+    def test_note_is_required_and_short(self):
+        self.assertEqual(
+            self.client.post(self.url, self.payload(note="   "), format="json").status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertEqual(
+            self.client.post(self.url, self.payload(note="x" * 501), format="json").status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+
+    def test_saved_trace_appears_first_in_my_list(self):
+        self.client.post(self.url, self.payload(note="Primera"), format="json")
+        created = self.client.post(self.url, self.payload(note="La más reciente"), format="json")
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.data["results"][0]["id"], created.data["id"])
+        self.assertEqual(response.data["results"][0]["note"], "La más reciente")
+
+    def test_catalog_lists_six_types_and_eight_emotions(self):
+        response = self.client.get(f"{self.url}catalog/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item["value"] for item in response.data["sensory_types"]],
+            ["aroma", "color", "song", "flavor", "texture", "place"],
+        )
+        self.assertEqual(
+            [item["value"] for item in response.data["emotions"]],
+            ["alegria", "calma", "gratitud", "nostalgia", "tristeza", "ansiedad", "enojo", "miedo"],
+        )
+        self.assertEqual(response.data["emotions"][0]["label"], "Alegría")

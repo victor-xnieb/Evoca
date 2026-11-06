@@ -3,6 +3,7 @@ import { motion } from "motion/react"
 import { Link } from "react-router"
 
 import { AuroraText } from "@/components/evoca/AuroraText"
+import { EmotionOrbCluster } from "@/components/evoca/EmotionOrbCluster"
 import { EmptyState } from "@/components/evoca/EmptyState"
 import { PageTransition } from "@/components/evoca/PageTransition"
 import { Ripple } from "@/components/evoca/Ripple"
@@ -39,17 +40,21 @@ export function HomePage() {
       <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-12">
         <section className="relative isolate flex min-h-[22rem] flex-col items-center justify-center px-4 py-10 text-center sm:min-h-[27rem]">
           <Ripple className="-z-10" />
-          <p className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">{greeting()}</p>
-          <h1 className="mt-2 font-display text-6xl font-semibold tracking-tight sm:text-7xl">
-            <AuroraText>Evoca</AuroraText>
-          </h1>
-          <p className="mt-3 max-w-sm text-lg text-pretty text-muted-foreground">
-            Tu memoria sensorial, un camino para conocerte y cuidar cómo te sientes.
-          </p>
+          {/* Halo casi opaco: el texto nunca queda directamente sobre el video del fondo. */}
+          <div className="flex flex-col items-center rounded-[2.5rem] bg-background/75 px-6 py-5 backdrop-blur-md">
+            <p className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">{greeting()}</p>
+            <h1 className="mt-2 font-display text-6xl font-semibold tracking-tight sm:text-7xl">
+              <AuroraText>Evoca</AuroraText>
+            </h1>
+            <p className="mt-3 max-w-sm text-lg text-pretty text-muted-foreground">
+              Tu memoria sensorial, un camino para conocerte y cuidar cómo te sientes.
+            </p>
+          </div>
         </section>
 
-        <div className="rounded-3xl border bg-card/80 shadow-soft backdrop-blur-sm">
+        <div className="rounded-3xl border bg-card/92 shadow-soft backdrop-blur-sm">
           <EmptyState
+            visual={<EmotionOrbCluster />}
             title="Aún no tienes huellas"
             description="Cuando registres la primera, aquí verás tus recuerdos más recientes y cómo ha estado tu ánimo."
             action={
@@ -72,7 +77,7 @@ export function HomePage() {
           <motion.li
             key={step.title}
             variants={item}
-            className="flex gap-3 rounded-2xl border bg-card/70 p-4 sm:flex-col"
+            className="flex gap-3 rounded-2xl border bg-card/92 p-4 backdrop-blur-sm sm:flex-col"
           >
             <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-secondary">
               <step.icon aria-hidden="true" className="size-5" />

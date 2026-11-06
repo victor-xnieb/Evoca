@@ -17,9 +17,11 @@ export function SettingsPage() {
 
   return (
     <PageTransition className="mx-auto w-full max-w-2xl gap-6">
-      <h1 className="text-3xl font-semibold">Ajustes</h1>
+      <h1 className="self-start rounded-2xl bg-background/75 px-3 py-1 text-3xl font-semibold backdrop-blur-md">
+        Ajustes
+      </h1>
 
-      <section aria-labelledby="apariencia" className="flex flex-col gap-3 rounded-3xl border bg-card/80 p-5 shadow-soft">
+      <section aria-labelledby="apariencia" className="flex flex-col gap-3 rounded-3xl border bg-card/92 p-5 shadow-soft backdrop-blur-sm">
         <h2 id="apariencia" className="text-xl font-semibold">
           Apariencia
         </h2>
@@ -40,7 +42,7 @@ export function SettingsPage() {
         </p>
       </section>
 
-      <p className="text-sm text-muted-foreground">
+      <p className="rounded-3xl border bg-card/92 p-5 text-sm text-muted-foreground backdrop-blur-sm">
         Tu PIN, la exportación de datos, la eliminación de la cuenta y el recordatorio diario llegarán aquí en
         las siguientes entregas del sprint.
       </p>

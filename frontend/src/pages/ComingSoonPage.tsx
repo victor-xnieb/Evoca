@@ -13,8 +13,10 @@ interface ComingSoonPageProps {
 export function ComingSoonPage({ title, description }: ComingSoonPageProps) {
   return (
     <PageTransition className="mx-auto w-full max-w-2xl gap-6">
-      <h1 className="text-3xl font-semibold">{title}</h1>
-      <div className="rounded-3xl border bg-card/80 shadow-soft">
+      <h1 className="self-start rounded-2xl bg-background/75 px-3 py-1 text-3xl font-semibold backdrop-blur-md">
+        {title}
+      </h1>
+      <div className="rounded-3xl border bg-card/92 shadow-soft backdrop-blur-sm">
         <EmptyState
           illustration="bloom"
           title="Muy pronto"

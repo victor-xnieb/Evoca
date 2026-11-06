@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button"
 
 export function NotFoundPage() {
   return (
-    <PageTransition>
+    <PageTransition className="mx-auto w-full max-w-2xl">
       <EmptyState
+        className="border bg-card/92 shadow-soft backdrop-blur-sm"
         title="Esta página no existe"
         description="Puede que el enlace haya cambiado. Volvamos a un lugar conocido."
         action={

@@ -17,6 +17,8 @@ export interface EmptyStateProps {
   /** "empty" muestra ilustración animada; "error" es sobrio y ofrece reintentar. */
   variant?: "empty" | "error"
   illustration?: IllustrationName
+  /** Reemplaza la ilustración Lottie (por ejemplo, un conjunto de esferas de emociones). */
+  visual?: ReactNode
   compact?: boolean
   className?: string
 }
@@ -28,6 +30,7 @@ export function EmptyState({
   action,
   variant = "empty",
   illustration = "orbs",
+  visual,
   compact = false,
   className,
 }: EmptyStateProps) {
@@ -51,6 +54,8 @@ export function EmptyState({
           <span className="grid size-16 place-items-center rounded-2xl bg-secondary text-muted-foreground">
             <CloudOff aria-hidden="true" className="size-8" />
           </span>
+        ) : visual ? (
+          visual
         ) : (
           <LottieIllustration name={illustration} className={compact ? "w-28" : "w-40"} />
         )}

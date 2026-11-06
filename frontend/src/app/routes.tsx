@@ -1,7 +1,6 @@
 import type { RouteObject } from "react-router"
 
 import { LoginPage } from "@/pages/auth/LoginPage"
-import { ComingSoonPage } from "@/pages/ComingSoonPage"
 import { HomePage } from "@/pages/HomePage"
 import { NotFoundPage } from "@/pages/NotFoundPage"
 
@@ -9,6 +8,7 @@ import { AuthLayout } from "./AuthLayout"
 import {
   CreatePinPage,
   Deferred,
+  MoodPage,
   MyTracesPage,
   NewTracePage,
   RegisterPage,
@@ -92,10 +92,9 @@ export const routes: RouteObject[] = [
       {
         path: "animo",
         element: (
-          <ComingSoonPage
-            title="Mi ánimo"
-            description="Aquí verás cómo evoluciona tu ánimo en una gráfica y en un calendario de colores."
-          />
+          <Deferred>
+            <MoodPage />
+          </Deferred>
         ),
       },
       {

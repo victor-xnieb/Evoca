@@ -187,9 +187,9 @@ despliegue público, cámbialos con las variables `EVOCA_DEMO_PASSWORD` y `EVOCA
 
 | Cuenta | Huellas | Qué mostrar |
 | --- | --- | --- |
-| `laura.demo@example.com` | 30, en 3 meses | **HU2/HU3**: lista, filtros por tipo y emoción, editar y borrar. **HU4**: gráfica semanal y mensual. **HU7**: calendario de colores con meses anteriores. Ya registró hoy, así que el recordatorio no avisa (HU5 · escenario 3) |
+| `maria.demo@example.com` | 30, en 3 meses | **HU2/HU3**: lista, filtros por tipo y emoción, editar y borrar. **HU4**: gráfica semanal y mensual. **HU7**: calendario de colores con meses anteriores. Ya registró hoy, así que el recordatorio no avisa (HU5 · escenario 3) |
 | `mateo.demo@example.com` | 18 | **HU6**: ánimo bajo 15 de los últimos 21 días, así que al abrir aparece la orientación («Ver opciones de ayuda» o «Ahora no»). **HU5**: recordatorio «cada hora» y sin huella hoy, así que avisa al abrir |
-| `sofia.demo@example.com` | 16 | **HU5**: sin huella hoy y recordatorio diario a las 8:00, así que avisa al abrir. Buena cuenta para registrar en vivo: **HU2**, **HU8** (sugerencia de la IA) y **HU6** (pantalla de ayuda al escribir, por ejemplo, «quiero morir») |
+| `juliana.demo@example.com` | 16 | **HU5**: sin huella hoy y recordatorio diario a las 8:00, así que avisa al abrir. Buena cuenta para registrar en vivo: **HU2**, **HU8** (sugerencia de la IA) y **HU6** (pantalla de ayuda al escribir, por ejemplo, «quiero morir») |
 
 Con cualquiera de las tres se puede mostrar **HU1**: entrar, el bloqueo con PIN al volver a la
 app, y en Ajustes la autorización de datos sensibles, exportar los datos y eliminar la cuenta.

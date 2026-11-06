@@ -26,7 +26,7 @@ DEMO_PASSWORD = "EvocaDemo!2026"
 DEMO_PIN = "2468"
 
 # (días atrás, hora, minuto, tipo, emoción, intensidad, nota). Día 0 = hoy.
-LAURA = [
+MARIA = [
     (0, None, None, "aroma", "alegria", 4, "El olor del café recién molido en la oficina me alegró la mañana."),
     (1, 19, 30, "song", "gratitud", 5, "Mi hermana me mandó la canción que bailábamos de niñas y le agradecí por recordármela."),
     (2, 8, 10, "color", "calma", 4, "El azul del cielo despejado camino a la universidad me dio mucha tranquilidad."),
@@ -82,7 +82,7 @@ MATEO = [
 ]
 
 # Sin huella hoy y con recordatorio a las 8:00: al abrir la app llega el aviso (HU5).
-SOFIA = [
+JULIANA = [
     (1, 7, 50, "aroma", "calma", 4, "El olor a eucalipto en la caminata de la mañana."),
     (2, 20, 0, "song", "nostalgia", 4, "La canción del primer concierto al que fui con mis primas."),
     (3, 12, 40, "flavor", "alegria", 5, "El ajiaco del almuerzo familiar del domingo."),
@@ -103,11 +103,11 @@ SOFIA = [
 
 DEMO_USERS = [
     {
-        "email": "laura.demo@example.com",
-        "first_name": "Laura",
+        "email": "maria.demo@example.com",
+        "first_name": "María",
         "last_name": "Gómez",
         "date_of_birth": date(1999, 3, 14),
-        "traces": LAURA,
+        "traces": MARIA,
         "reminder": {"enabled": True, "frequency": "daily", "time": time(20, 0)},
         "shows": "ánimo variado: lista y filtros, gráfica semanal y mensual, calendario de tres meses; ya registró hoy",
     },
@@ -121,11 +121,11 @@ DEMO_USERS = [
         "shows": "ánimo bajo 15 de los últimos 21 días: orientación al abrir; recordatorio cada hora sin huella hoy",
     },
     {
-        "email": "sofia.demo@example.com",
-        "first_name": "Sofía",
+        "email": "juliana.demo@example.com",
+        "first_name": "Juliana",
         "last_name": "Herrera",
         "date_of_birth": date(2001, 11, 25),
-        "traces": SOFIA,
+        "traces": JULIANA,
         "reminder": {"enabled": True, "frequency": "daily", "time": time(8, 0)},
         "shows": "sin huella hoy: el recordatorio diario de las 8:00 avisa al abrir; buena cuenta para registrar en vivo",
     },

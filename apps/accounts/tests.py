@@ -499,21 +499,21 @@ class SeedDemoTests(TestCase):
         self.run_seed()
 
         mateo = User.objects.get(email="mateo.demo@example.com")
-        sofia = User.objects.get(email="sofia.demo@example.com")
-        laura = User.objects.get(email="laura.demo@example.com")
+        juliana = User.objects.get(email="juliana.demo@example.com")
+        maria = User.objects.get(email="maria.demo@example.com")
         self.assertTrue(orientation_status(mateo)["show"])
-        self.assertFalse(orientation_status(laura)["show"])
+        self.assertFalse(orientation_status(maria)["show"])
         start_of_today = timezone.make_aware(datetime.combine(timezone.localdate(), time.min))
-        self.assertTrue(laura.traces.filter(happened_at__gte=start_of_today).exists())
-        self.assertFalse(sofia.traces.filter(happened_at__gte=start_of_today).exists())
+        self.assertTrue(maria.traces.filter(happened_at__gte=start_of_today).exists())
+        self.assertFalse(juliana.traces.filter(happened_at__gte=start_of_today).exists())
 
     def test_running_twice_does_not_duplicate_and_reset_recreates(self):
         self.run_seed()
         self.run_seed()
         self.assertEqual(Trace.objects.filter(user__email__endswith=".demo@example.com").count(), 30 + 18 + 16)
 
-        laura = User.objects.get(email="laura.demo@example.com")
-        laura.traces.all().delete()
+        maria = User.objects.get(email="maria.demo@example.com")
+        maria.traces.all().delete()
         self.run_seed("--reset")
 
-        self.assertEqual(User.objects.get(email="laura.demo@example.com").traces.count(), 30)
+        self.assertEqual(User.objects.get(email="maria.demo@example.com").traces.count(), 30)

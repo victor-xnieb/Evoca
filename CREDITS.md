@@ -22,6 +22,18 @@ para que la interfaz se vea como una sola familia.
 | «Orbes» y «Florecer» (Lottie) | Creación propia del equipo, generadas en código a partir de los tokens de color | `frontend/src/components/evoca/lottie/animations.ts` |
 | Ícono de la app y favicon | Creación propia del equipo | `frontend/public/` |
 
+## Recursos visuales generados con IA
+
+Los generó el equipo con herramientas de inteligencia artificial generativa. El material
+fuente está en `diseno/` y no se sirve en producción; las versiones que usa la app se
+obtienen con `npm run assets` (sharp) y se describen en [docs/DISENO.md](docs/DISENO.md).
+
+| Recurso | Archivo fuente | Archivo en la app | Herramienta de generación | Procesado |
+| --- | --- | --- | --- | --- |
+| Esferas de las 8 emociones | `diseno/Bola_*.png` | `frontend/src/assets/orbs/orb-<emoción>.webp` y `-sm.webp` | IA generativa; herramienta exacta: por completar por el equipo | sharp (WebP) |
+| Fondo claro estático | `diseno/Fondo_estatico.jpg` | `frontend/src/assets/backgrounds/bg-claro-estatico.webp` | IA generativa; herramienta exacta: por completar por el equipo | sharp (rotación EXIF, 1920 px, WebP) |
+| Fondos animados claro y oscuro (vertical y horizontal) | `diseno/fondo_*.mp4` | `frontend/public/media/bg-*.mp4` | IA generativa; herramienta exacta: por completar por el equipo | Copia sin recodificar (ffmpeg no estaba disponible); posters extraídos del primer fotograma |
+
 ## Tipografías
 
 | Fuente | Autor | Licencia | Enlace |

@@ -1,6 +1,11 @@
+import json
 import time as clock
+import urllib.error
 from datetime import date, datetime, time, timedelta
+from unittest import mock
 
+from django.core.cache import cache
+from django.test import override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -8,6 +13,7 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
 
+from . import ai
 from .models import Memory, MemoryTrace, Trace
 
 
@@ -521,3 +527,157 @@ class MoodCalendarTests(APITestCase):
         self.client.delete(f"/api/v1/traces/{trace.id}/")
 
         self.assertNotIn("2026-10-14", self.days("2026-10"))
+
+
+TEN_WORDS = "El olor a pan me recordó las mañanas con abuela"
+NINE_WORDS = "El olor a pan me recordó las mañanas contigo"
+
+
+def gemini_reply(emotion="nostalgia", intensity=4, confidence=0.9):
+    return json.dumps({"emotion": emotion, "intensity": intensity, "confidence": confidence})
+
+
+@override_settings(EVOCA_AI_API_KEY="clave-de-prueba", EVOCA_AI_PROVIDER="gemini")
+class SuggestEmotionTests(APITestCase):
+    """HU8: la IA propone emoción e intensidad desde la nota; la huella guarda lo que elige la persona."""
+
+    url = "/api/v1/traces/suggest/"
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(email="ia@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        self.client.force_authenticate(self.user)
+        self.calls = []
+
+    def provider(self, reply=None, error=None):
+        def ask(note):
+            self.calls.append(note)
+            if error:
+                raise error
+            return reply if reply is not None else gemini_reply()
+
+        return mock.patch.dict(ai.PROVIDERS, {"gemini": ask})
+
+    def suggest(self, note=TEN_WORDS):
+        return self.client.post(self.url, {"note": note}, format="json")
+
+    # Escenario 1
+    def test_suggests_from_ten_words(self):
+        with self.provider():
+            response = self.suggest()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["reason"], "ok")
+        self.assertEqual(response.data["suggestion"], {"emotion": "nostalgia", "intensity": 4, "confidence": 0.9})
+        self.assertEqual(self.calls, [TEN_WORDS])
+
+    def test_nine_words_are_not_enough_and_the_ai_is_not_called(self):
+        with self.provider():
+            response = self.suggest(NINE_WORDS)
+
+        self.assertEqual((response.data["suggestion"], response.data["reason"]), (None, "too_short"))
+        self.assertEqual(self.calls, [])
+
+    def test_gemini_request_keeps_the_key_in_the_server_and_waits_at_most_the_timeout(self):
+        captured = {}
+
+        class Reply:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return json.dumps({"candidates": [{"content": {"parts": [{"text": gemini_reply()}]}}]}).encode()
+
+        def fake_urlopen(request, timeout):
+            captured.update(request=request, timeout=timeout, body=json.loads(request.data))
+            return Reply()
+
+        with mock.patch("urllib.request.urlopen", fake_urlopen), self.settings(EVOCA_AI_MODEL="modelo-x", EVOCA_AI_TIMEOUT=2.0):
+            response = self.suggest()
+
+        request, body = captured["request"], captured["body"]
+        self.assertEqual(response.data["suggestion"]["emotion"], "nostalgia")
+        self.assertIn("/models/modelo-x:generateContent", request.full_url)
+        self.assertNotIn("clave-de-prueba", request.full_url)
+        self.assertEqual(request.get_header("X-goog-api-key"), "clave-de-prueba")
+        self.assertEqual(captured["timeout"], 2.0)
+        self.assertEqual(body["contents"][0]["parts"][0]["text"], TEN_WORDS)
+        schema = body["generationConfig"]["responseSchema"]["properties"]
+        self.assertEqual(schema["emotion"]["enum"], [value for value, _ in Trace.Emotion.choices])
+        self.assertEqual((schema["intensity"]["minimum"], schema["intensity"]["maximum"]), (1, 5))
+        # La sugerencia no le llega al cliente con el prompt ni con la clave.
+        self.assertNotIn("Eres el asistente", json.dumps(response.data))
+
+    # Escenario 2
+    def test_suggesting_saves_nothing_and_the_trace_keeps_the_persons_choice(self):
+        with self.provider(gemini_reply("nostalgia", 4)):
+            self.assertEqual(self.suggest().data["suggestion"]["emotion"], "nostalgia")
+        self.assertFalse(Trace.objects.exists())
+
+        response = self.client.post(
+            "/api/v1/traces/",
+            {"sensory_type": "aroma", "note": TEN_WORDS, "emotion": "alegria", "mood_intensity": 2},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        trace = Trace.objects.get()
+        self.assertEqual((trace.emotion, trace.mood_intensity), ("alegria", 2))
+
+    # Escenario 3
+    def test_without_a_key_there_is_no_suggestion(self):
+        with self.provider(), self.settings(EVOCA_AI_API_KEY=""):
+            response = self.suggest()
+
+        self.assertEqual((response.data["suggestion"], response.data["reason"]), (None, "unavailable"))
+        self.assertEqual(self.calls, [])
+
+    def test_errors_and_timeouts_answer_without_suggestion_and_never_log_the_note(self):
+        failures = [
+            TimeoutError(),
+            urllib.error.URLError("sin red"),
+            urllib.error.HTTPError("https://x", 503, "Ocupado", {}, None),
+        ]
+        for failure in failures:
+            with self.subTest(failure=type(failure).__name__), self.provider(error=failure):
+                with self.assertLogs("apps.traces.ai", level="WARNING") as logs:
+                    response = self.suggest()
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                self.assertEqual((response.data["suggestion"], response.data["reason"]), (None, "unavailable"))
+                self.assertNotIn("abuela", " ".join(logs.output))
+
+    def test_invalid_answers_are_discarded(self):
+        answers = [
+            gemini_reply(emotion="felicidad"),
+            gemini_reply(intensity=7),
+            gemini_reply(intensity=0),
+            gemini_reply(intensity="3"),
+            gemini_reply(intensity=True),
+            gemini_reply(confidence=1.5),
+            "esto no es JSON",
+            json.dumps({"emotion": "calma"}),
+        ]
+        for answer in answers:
+            with self.subTest(answer=answer), self.provider(answer), self.assertLogs("apps.traces.ai", level="WARNING"):
+                self.assertEqual(self.suggest().data["reason"], "unavailable")
+
+    def test_low_confidence_gives_no_suggestion(self):
+        with self.provider(gemini_reply(confidence=0.59)):
+            self.assertEqual((self.suggest().data["suggestion"], self.suggest().data["reason"]), (None, "low_confidence"))
+        with self.provider(gemini_reply(confidence=0.6)):
+            self.assertEqual(self.suggest().data["reason"], "ok")
+
+    def test_needs_a_note_and_an_authenticated_person(self):
+        self.assertEqual(self.client.post(self.url, {}, format="json").status_code, status.HTTP_400_BAD_REQUEST)
+        self.client.force_authenticate(None)
+        self.assertEqual(self.suggest().status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_limits_suggestions_per_person(self):
+        with self.provider():
+            codes = [self.suggest().status_code for _ in range(21)]
+
+        self.assertEqual(codes[:20], [status.HTTP_200_OK] * 20)
+        self.assertEqual(codes[20], status.HTTP_429_TOO_MANY_REQUESTS)

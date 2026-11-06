@@ -81,13 +81,13 @@ describe("EmotionOrb", () => {
 })
 
 describe("AnimatedBackground", () => {
-  it("monta el video claro vertical cuando el navegador queda ocioso", async () => {
+  it("monta el video claro vertical (WebM primero, MP4 de respaldo) cuando el navegador queda ocioso", async () => {
     mockOrientation("portrait")
     renderWithProviders(<AnimatedBackground />, { reducedMotion: false })
     // Primero solo la imagen fija: el video no compite con el primer pintado.
     expect(background().querySelector("video")).toBeNull()
     expect(background().querySelector("img")?.getAttribute("src")).toContain("bg-claro-vertical-poster.webp")
-    await waitFor(() => expect(videoSources()).toEqual(["/media/bg-claro-vertical.mp4"]))
+    await waitFor(() => expect(videoSources()).toEqual(["/media/bg-claro-vertical.webm", "/media/bg-claro-vertical.mp4"]))
     const video = background().querySelector("video")!
     expect(video).toHaveAttribute("poster", "/media/bg-claro-vertical-poster.webp")
     expect(video.muted).toBe(true)
@@ -99,7 +99,7 @@ describe("AnimatedBackground", () => {
   it("elige el video horizontal en pantallas horizontales", async () => {
     mockOrientation("landscape")
     renderWithProviders(<AnimatedBackground />, { reducedMotion: false })
-    await waitFor(() => expect(videoSources()).toEqual(["/media/bg-claro-horizontal.mp4"]))
+    await waitFor(() => expect(videoSources()).toEqual(["/media/bg-claro-horizontal.webm", "/media/bg-claro-horizontal.mp4"]))
   })
 
   it("elige el video oscuro con el tema oscuro", async () => {

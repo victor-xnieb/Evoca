@@ -6,14 +6,15 @@
  *
  * - Esferas: src/assets/orbs/orb-<emoción>.webp (500×500) y orb-<emoción>-sm.webp (128×128).
  * - Fondo estático: src/assets/backgrounds/bg-claro-estatico.webp (orientación EXIF aplicada).
- * - Videos: copia a public/media/ con nombres claros. Si hay ffmpeg (en el PATH o en la
- *   variable FFMPEG), además genera WebM (VP9) y los fotogramas fijos (posters).
+ * - Videos: copia a public/media/ con nombres claros, con su WebM si viene en diseno/. Si
+ *   hay ffmpeg (en el PATH o en la variable FFMPEG), genera el WebM que falte (VP9) y los
+ *   fotogramas fijos (posters).
  *
  * Si se regenera una esfera (por ejemplo la de alegría), basta con reemplazar el PNG en
  * diseno/ y volver a ejecutar el script: ningún componente cambia.
  */
 import { execFileSync } from "node:child_process"
-import { copyFileSync, mkdirSync, statSync } from "node:fs"
+import { copyFileSync, existsSync, mkdirSync, statSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -37,9 +38,11 @@ const ORBS = {
   "Bola_morado.png": "miedo",
 }
 
+// El fondo claro usa las versiones suaves (pasteles, centro casi crema). Los videos claros
+// anteriores (fondo_claro_vertical.mp4 y fondo_claro_loop.mp4) quedan en diseno/ sin uso.
 const VIDEOS = {
-  "fondo_claro_vertical.mp4": "bg-claro-vertical",
-  "fondo_claro_loop.mp4": "bg-claro-horizontal",
+  "fondo_claro_suave_vertical.mp4": "bg-claro-vertical",
+  "fondo_claro_suave_horizontal.mp4": "bg-claro-horizontal",
   "fondo_oscuro_vertical.mp4": "bg-oscuro-vertical",
   "fondo_oscuro_horizontal.mp4": "bg-oscuro-horizontal",
 }
@@ -102,15 +105,20 @@ for (const [file, name] of Object.entries(VIDEOS)) {
   const mp4 = path.join(mediaDir, `${name}.mp4`)
   copyFileSync(input, mp4)
   let line = `video ${name}: mp4 ${kb(statSync(mp4).size)}`
-  if (ffmpeg) {
-    const webm = path.join(mediaDir, `${name}.webm`)
+  const webm = path.join(mediaDir, `${name}.webm`)
+  const sourceWebm = input.replace(/.mp4$/, ".webm")
+  if (existsSync(sourceWebm)) copyFileSync(sourceWebm, webm)
+  else if (ffmpeg) {
     execFileSync(ffmpeg, ["-y", "-loglevel", "error", "-i", input, "-an", "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "38", webm])
+  }
+  if (existsSync(webm)) line += ` · webm ${kb(statSync(webm).size)}`
+  if (ffmpeg) {
     const poster = path.join(mediaDir, `${name}-poster.webp`)
     execFileSync(ffmpeg, ["-y", "-loglevel", "error", "-ss", "2", "-i", input, "-frames:v", "1", "-c:v", "libwebp", "-quality", "75", poster])
-    line += ` · webm ${kb(statSync(webm).size)} · poster ${kb(statSync(poster).size)}`
+    line += ` · poster ${kb(statSync(poster).size)}`
   }
   console.log(line)
 }
 if (!ffmpeg) {
-  console.warn("Sin ffmpeg: solo se copiaron los MP4. Los posters existentes en public/media/ se conservan.")
+  console.warn("Sin ffmpeg: no se generan WebM ni posters; los posters existentes en public/media/ se conservan.")
 }

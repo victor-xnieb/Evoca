@@ -18,18 +18,21 @@ export interface BackgroundMedia {
 // Los videos viven en public/media: no pasan por el paquete de JavaScript.
 const media = (name: string) => `${import.meta.env.BASE_URL}media/${name}`
 
-function video(name: string): BackgroundMedia {
+/** `webm`: hay versión WebM (más liviana); se ofrece primero y el MP4 queda de respaldo. */
+function video(name: string, { webm = false } = {}): BackgroundMedia {
+  const mp4 = { src: media(`${name}.mp4`), type: "video/mp4" }
   return {
-    // Si se generan las versiones WebM (npm run assets con ffmpeg), se agregan aquí primero:
-    // { src: media(`${name}.webm`), type: "video/webm" },
-    sources: [{ src: media(`${name}.mp4`), type: "video/mp4" }],
+    sources: webm ? [{ src: media(`${name}.webm`), type: "video/webm" }, mp4] : [mp4],
     poster: media(`${name}-poster.webp`),
   }
 }
 
 /** Fondos animados por tema y orientación. */
 export const BACKGROUND_VIDEOS: Record<ResolvedTheme, Record<Orientation, BackgroundMedia>> = {
-  light: { portrait: video("bg-claro-vertical"), landscape: video("bg-claro-horizontal") },
+  light: {
+    portrait: video("bg-claro-vertical", { webm: true }),
+    landscape: video("bg-claro-horizontal", { webm: true }),
+  },
   dark: { portrait: video("bg-oscuro-vertical"), landscape: video("bg-oscuro-horizontal") },
 }
 

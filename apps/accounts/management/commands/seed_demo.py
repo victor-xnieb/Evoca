@@ -8,14 +8,15 @@ demo siempre se ve actual.
 
 Son datos inventados, sin información real de nadie. La contraseña y el PIN de las tres
 cuentas son DEMO_PASSWORD y DEMO_PIN (o EVOCA_DEMO_PASSWORD y EVOCA_DEMO_PIN, si existen en
-el entorno). En un despliegue público conviene definir esas variables con otros valores.
+el entorno). Esos valores por defecto están en el repositorio: con DEBUG=False (un despliegue)
+el comando exige definir las variables EVOCA_DEMO_*, para no publicar cuentas con claves conocidas.
 """
 
 import os
 from datetime import date, datetime, time, timedelta
 
 from django.conf import settings
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
@@ -148,8 +149,17 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
-        password = os.getenv("EVOCA_DEMO_PASSWORD") or DEMO_PASSWORD
-        pin = os.getenv("EVOCA_DEMO_PIN") or DEMO_PIN
+        password = os.getenv("EVOCA_DEMO_PASSWORD") or ""
+        pin = os.getenv("EVOCA_DEMO_PIN") or ""
+        if not settings.DEBUG and not (password and pin):
+            raise CommandError(
+                "Con DEBUG=False define EVOCA_DEMO_PASSWORD y EVOCA_DEMO_PIN: los valores por "
+                "defecto están en el repositorio y no deben usarse en un sitio público."
+            )
+        password = password or DEMO_PASSWORD
+        pin = pin or DEMO_PIN
+        if not (pin.isdigit() and len(pin) == 4):
+            raise CommandError("EVOCA_DEMO_PIN debe tener exactamente 4 dígitos.")
         now = timezone.now()
         today = timezone.localdate(now)
 

@@ -2,9 +2,9 @@ import { CalendarHeart, Flower2, PenLine, type LucideIcon } from "lucide-react"
 import { motion } from "motion/react"
 import { Link } from "react-router"
 
-import { AuroraText } from "@/components/evoca/AuroraText"
 import { EmotionOrbCluster } from "@/components/evoca/EmotionOrbCluster"
 import { EmptyState } from "@/components/evoca/EmptyState"
+import { EvocaWordmark } from "@/components/evoca/EvocaWordmark"
 import { GlassCard } from "@/components/evoca/GlassCard"
 import { PageTransition } from "@/components/evoca/PageTransition"
 import { Ripple } from "@/components/evoca/Ripple"
@@ -44,14 +44,11 @@ export function HomePage() {
       {/* Foco principal: el saludo y la invitación a registrar. En escritorio, lado a lado. */}
       <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
         <section className="relative isolate flex min-h-[19rem] flex-col items-center justify-center px-2 py-8 text-center sm:min-h-[25rem]">
-          {/* Anillos solo en oscuro: en claro competían con el fondo. */}
-          <div aria-hidden="true" className="absolute inset-0 -z-10 hidden dark:block">
-            <Ripple numCircles={4} mainCircleOpacity={0.4} />
-          </div>
+          <Ripple numCircles={4} mainCircleOpacity={0.65} className="-z-10 dark:opacity-65" />
           <GlassCard accent="gratitud" className="flex flex-col items-center px-8 py-7">
             <p className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">{greeting()}</p>
-            <h1 className="mt-2 font-display text-6xl font-semibold tracking-tight sm:text-7xl">
-              <AuroraText>Evoca</AuroraText>
+            <h1 className="mt-1 text-6xl sm:text-7xl">
+              <EvocaWordmark />
             </h1>
             <p className="mt-3 max-w-sm text-lg text-pretty text-muted-foreground">
               Tu memoria sensorial, un camino para conocerte y cuidar cómo te sientes.

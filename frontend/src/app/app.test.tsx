@@ -23,7 +23,7 @@ function renderApp(path = "/") {
 describe("App", () => {
   it("muestra la pantalla de inicio con su invitación a registrar", () => {
     renderApp()
-    expect(screen.getByRole("heading", { level: 1, name: "Evoca" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { level: 1, name: "evoca" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Registrar mi primera huella" })).toHaveAttribute("href", "/nueva-huella")
   })
 

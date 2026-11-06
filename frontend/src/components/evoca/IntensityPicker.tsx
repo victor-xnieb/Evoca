@@ -3,10 +3,9 @@ import { useId, useRef, type CSSProperties, type KeyboardEvent } from "react"
 
 import { useReducedMotion } from "@/hooks/use-reduced-motion"
 import { getEmotionVisual } from "@/lib/emotions"
+import { INTENSITY_LABELS } from "@/lib/messages"
 import { spring } from "@/lib/motion"
 import { cn } from "@/lib/utils"
-
-const INTENSITY_LABELS = ["Muy baja", "Baja", "Media", "Alta", "Muy alta"] as const
 
 export interface IntensityPickerProps {
   value: number | null

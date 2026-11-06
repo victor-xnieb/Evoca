@@ -31,7 +31,7 @@ Neon PostgreSQL, rama development
 | Gráficas | Recharts | Gráfica de ánimo (HU4), cargada bajo demanda |
 | Pruebas | `manage.py test` (backend), Vitest + Testing Library (frontend) | Cada escenario Gherkin tiene una prueba automatizada |
 | Documentación de UI | Storybook (solo desarrollo) | Catálogo de componentes con sus estados |
-| IA (HU8) | IA generativa llamada solo desde el backend | El prompt y la clave nunca llegan al cliente |
+| IA (HU8) | Google Gemini (`gemini-3.5-flash-lite`), llamada solo desde el backend con la librería estándar | El prompt y la clave nunca llegan al cliente; el proveedor y el modelo se cambian con variables de entorno |
 
 ### Django es el backend; el móvil es la PWA
 

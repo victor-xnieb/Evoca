@@ -1,24 +1,16 @@
-import { render, screen, within } from "@testing-library/react"
+import { screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { createMemoryRouter, RouterProvider } from "react-router"
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 
-import { MotionPreferenceProvider } from "@/providers/MotionPreferenceProvider"
-import { ThemeProvider } from "@/providers/ThemeProvider"
+import { mockApi, SAMPLE_USER } from "@/test/api-mock"
+import { renderApp as renderWithSession } from "@/test/render-app"
 
-import { routes } from "./routes"
+/** La app con una sesión abierta y ya desbloqueada. */
+const renderApp = (path = "/") => renderWithSession({ path, user: SAMPLE_USER, locked: false })
 
-function renderApp(path = "/") {
-  const router = createMemoryRouter(routes, { initialEntries: [path] })
-  render(
-    <ThemeProvider initialPreference="light">
-      <MotionPreferenceProvider override>
-        <RouterProvider router={router} />
-      </MotionPreferenceProvider>
-    </ThemeProvider>,
-  )
-  return router
-}
+beforeEach(() => {
+  mockApi({ "GET auth/consents/": { body: [] } })
+})
 
 describe("App", () => {
   it("muestra la pantalla de inicio con su invitación a registrar", () => {

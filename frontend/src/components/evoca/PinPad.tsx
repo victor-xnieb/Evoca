@@ -67,15 +67,21 @@ export function PinPad({
   // Cuenta regresiva del bloqueo.
   useEffect(() => {
     if (!lockedUntil) return
-    const timer = window.setInterval(() => {
+    const tick = () => {
       const current = Date.now()
       setNow(current)
       if (lockedUntil.getTime() <= current) {
         window.clearInterval(timer)
         onUnlock?.()
       }
-    }, 1000)
-    return () => window.clearInterval(timer)
+    }
+    // Primer cálculo inmediato: la cuenta arranca en 5:00 y no con la hora del montaje.
+    const first = window.setTimeout(tick, 0)
+    const timer = window.setInterval(tick, 1000)
+    return () => {
+      window.clearTimeout(first)
+      window.clearInterval(timer)
+    }
   }, [lockedUntil, onUnlock])
 
   // Temblor al recibir un error nuevo.

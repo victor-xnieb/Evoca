@@ -1,17 +1,60 @@
 import type { RouteObject } from "react-router"
 
+import { LoginPage } from "@/pages/auth/LoginPage"
 import { ComingSoonPage } from "@/pages/ComingSoonPage"
 import { HomePage } from "@/pages/HomePage"
 import { NotFoundPage } from "@/pages/NotFoundPage"
-import { SettingsPage } from "@/pages/SettingsPage"
 
+import { AuthLayout } from "./AuthLayout"
+import { CreatePinPage, Deferred, RegisterPage, SettingsPage } from "./deferred"
+import { PublicOnly, RequireAuth, RequireSession } from "./guards"
 import { RootLayout } from "./RootLayout"
 
-/** Rutas de la app. Las secciones marcadas como «Muy pronto» se construyen en su HU. */
+/**
+ * Rutas de la app. Entrar, registrarse y crear el PIN son públicas; el resto exige sesión,
+ * PIN creado y desbloqueo. Las secciones marcadas como «Muy pronto» se construyen en su HU.
+ */
 export const routes: RouteObject[] = [
   {
+    element: <AuthLayout />,
+    children: [
+      {
+        path: "entrar",
+        element: (
+          <PublicOnly>
+            <LoginPage />
+          </PublicOnly>
+        ),
+      },
+      {
+        path: "registro",
+        element: (
+          <PublicOnly>
+            <Deferred>
+              <RegisterPage />
+            </Deferred>
+          </PublicOnly>
+        ),
+      },
+      {
+        path: "crear-pin",
+        element: (
+          <RequireSession>
+            <Deferred>
+              <CreatePinPage />
+            </Deferred>
+          </RequireSession>
+        ),
+      },
+    ],
+  },
+  {
     path: "/",
-    element: <RootLayout />,
+    element: (
+      <RequireAuth>
+        <RootLayout />
+      </RequireAuth>
+    ),
     children: [
       { index: true, element: <HomePage /> },
       {
@@ -41,7 +84,14 @@ export const routes: RouteObject[] = [
           />
         ),
       },
-      { path: "ajustes", element: <SettingsPage /> },
+      {
+        path: "ajustes",
+        element: (
+          <Deferred>
+            <SettingsPage />
+          </Deferred>
+        ),
+      },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

@@ -21,14 +21,14 @@ Las instrucciones completas para levantar backend y frontend están en el
 
 ```text
 src/
-  app/                 rutas, layout raíz y proveedores globales
+  app/                 rutas, layouts, guardas de sesión (guards.tsx) y bloqueo con PIN (AppLock)
   assets/              esferas y fondo estático optimizados (los genera npm run assets)
   components/evoca/    catálogo propio de Evoca (cada componente con su historia)
   components/ui/       componentes base de shadcn/ui (Radix)
-  hooks/               useReducedMotion, useTheme, useOrientation, useSaveData
+  hooks/               useReducedMotion, useTheme, useAuth, useOrientation, useSaveData, useFinePointer
   lib/                 cliente de API, emociones, esferas (emotionOrbs), fondos, formato, movimiento
-  pages/               pantallas
-  providers/           ThemeProvider, MotionPreferenceProvider
+  pages/               pantallas (auth/: entrar, registro, crear PIN; settings/: seguridad y datos)
+  providers/           ThemeProvider, MotionPreferenceProvider, AuthProvider (sesión y bloqueo)
   styles/tokens.css    ÚNICA fuente de los tokens de diseño
   mocks/               datos de ejemplo para Storybook y pruebas
 public/media/          videos de fondo y sus posters (fuera del paquete de JavaScript)

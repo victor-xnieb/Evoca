@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import ConsentRecord, User
+from .models import AccessPin, ConsentRecord, User
 
 
 @admin.register(User)
@@ -51,3 +51,12 @@ class ConsentRecordAdmin(admin.ModelAdmin):
     search_fields = ("user__email",)
     readonly_fields = ("accepted_at",)
 
+
+
+@admin.register(AccessPin)
+class AccessPinAdmin(admin.ModelAdmin):
+    # El hash del PIN nunca se muestra; solo el estado del bloqueo.
+    list_display = ("user", "failed_attempts", "locked_until", "updated_at")
+    search_fields = ("user__email",)
+    exclude = ("pin_hash",)
+    readonly_fields = ("user", "failed_attempts", "locked_until", "updated_at")

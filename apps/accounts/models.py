@@ -1,5 +1,7 @@
 import uuid
+from datetime import timedelta
 
+from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
@@ -47,3 +49,64 @@ class ConsentRecord(models.Model):
     def __str__(self):
         return f"{self.user.email}: {self.consent_type} ({self.document_version})"
 
+
+
+class AccessPin(models.Model):
+    """PIN de 4 dígitos que protege la app abierta. Se guarda con hash, nunca en claro."""
+
+    MAX_ATTEMPTS = 5
+    LOCK_DURATION = timedelta(minutes=5)
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name="access_pin",
+    )
+    pin_hash = models.CharField(max_length=128)
+    failed_attempts = models.PositiveSmallIntegerField(default=0)
+    locked_until = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "PIN de acceso"
+        verbose_name_plural = "PIN de acceso"
+
+    def __str__(self):
+        return f"PIN de {self.user.email}"
+
+    def set_pin(self, raw_pin):
+        self.pin_hash = make_password(raw_pin)
+        self.reset_attempts()
+
+    def reset_attempts(self):
+        self.failed_attempts = 0
+        self.locked_until = None
+
+    def is_locked(self, now=None):
+        now = now or timezone.now()
+        return self.locked_until is not None and self.locked_until > now
+
+    @property
+    def remaining_attempts(self):
+        return max(0, self.MAX_ATTEMPTS - self.failed_attempts)
+
+    def verify(self, raw_pin, now=None):
+        """
+        Compara el PIN y actualiza el conteo. Devuelve "ok", "wrong" o "locked".
+        Tras MAX_ATTEMPTS fallos seguidos, bloquea durante LOCK_DURATION (aunque luego
+        llegue el PIN correcto). Al vencer el bloqueo se empieza de cero.
+        """
+        now = now or timezone.now()
+        if self.is_locked(now):
+            return "locked"
+        if self.locked_until is not None:
+            self.reset_attempts()
+        if check_password(raw_pin, self.pin_hash):
+            self.reset_attempts()
+            return "ok"
+        self.failed_attempts += 1
+        if self.failed_attempts >= self.MAX_ATTEMPTS:
+            self.locked_until = now + self.LOCK_DURATION
+            return "locked"
+        return "wrong"

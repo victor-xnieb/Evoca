@@ -5,7 +5,7 @@ from django.contrib.auth import authenticate, password_validation
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import ConsentRecord, User
+from .models import AccessPin, ConsentRecord, User
 
 
 def calculate_age(date_of_birth, on_date=None):
@@ -16,10 +16,22 @@ def calculate_age(date_of_birth, on_date=None):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    has_pin = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ("id", "email", "first_name", "last_name", "date_of_birth", "date_joined")
-        read_only_fields = ("id", "email", "date_joined")
+        fields = ("id", "email", "first_name", "last_name", "date_of_birth", "date_joined", "has_pin")
+        read_only_fields = ("id", "email", "date_joined", "has_pin")
+
+    def get_has_pin(self, user):
+        return AccessPin.objects.filter(user=user).exists()
+
+
+class ConsentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConsentRecord
+        fields = ("consent_type", "document_version", "accepted_at", "revoked_at")
+        read_only_fields = fields
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -45,11 +57,22 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def validate_date_of_birth(self, value):
         if calculate_age(value) < 18:
-            raise serializers.ValidationError("Evoca solo está disponible para mayores de 18 años.")
+            raise serializers.ValidationError(
+                "Evoca es solo para personas mayores de 18 años, por eso no podemos crear la cuenta."
+            )
         return value
 
     def validate(self, attrs):
-        for field in ("accepted_terms", "accepted_privacy", "accepted_health_data"):
+        if attrs.get("accepted_health_data") is not True:
+            raise serializers.ValidationError(
+                {
+                    "accepted_health_data": (
+                        "Sin tu autorización expresa no podemos crear la cuenta: Evoca guarda "
+                        "emociones y recuerdos, que la ley trata como datos sensibles."
+                    )
+                }
+            )
+        for field in ("accepted_terms", "accepted_privacy"):
             if attrs.get(field) is not True:
                 raise serializers.ValidationError(
                     {field: "Este consentimiento es obligatorio para crear la cuenta."}
@@ -110,3 +133,35 @@ class LoginSerializer(serializers.Serializer):
         attrs["user"] = user
         return attrs
 
+
+PIN_PATTERN = r"^\d{4}$"
+PIN_ERRORS = {"invalid": "El PIN debe tener exactamente 4 dígitos."}
+
+
+class PinSetSerializer(serializers.Serializer):
+    pin = serializers.RegexField(PIN_PATTERN, error_messages=PIN_ERRORS)
+    password = serializers.CharField(write_only=True, required=False, trim_whitespace=False)
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+        # Cambiar un PIN que ya existe exige la contraseña de la cuenta.
+        if AccessPin.objects.filter(user=user).exists():
+            password = attrs.get("password")
+            if not password or not user.check_password(password):
+                raise serializers.ValidationError(
+                    {"password": "Escribe la contraseña de tu cuenta para cambiar el PIN."}
+                )
+        return attrs
+
+
+class PinVerifySerializer(serializers.Serializer):
+    pin = serializers.RegexField(PIN_PATTERN, error_messages=PIN_ERRORS)
+
+
+class PasswordConfirmSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate_password(self, value):
+        if not self.context["request"].user.check_password(value):
+            raise serializers.ValidationError("La contraseña no es correcta.")
+        return value

@@ -31,6 +31,13 @@ if not DEBUG and SECRET_KEY == "dev-only-insecure-key":
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 
+# Render entrega el dominio público del servicio en esta variable: se autoriza solo, sin
+# tener que copiarlo a mano en DJANGO_ALLOWED_HOSTS ni en DJANGO_CSRF_TRUSTED_ORIGINS.
+render_host = os.getenv("RENDER_EXTERNAL_HOSTNAME", "").strip()
+if render_host:
+    ALLOWED_HOSTS.append(render_host)
+    CSRF_TRUSTED_ORIGINS.append(f"https://{render_host}")
+
 # Orígenes del frontend (Vite) autorizados a consumir la API. Nunca se usa comodín:
 # cada origen se declara explícitamente en DJANGO_CORS_ALLOWED_ORIGINS.
 CORS_ALLOWED_ORIGINS = env_list(
@@ -60,6 +67,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Sirve los archivos estáticos (el administrador de Django) sin un servidor aparte.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -130,6 +139,10 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 

@@ -8,4 +8,7 @@ django-cors-headers==4.9.0
 dj-database-url==3.1.2
 python-dotenv==1.2.4
 psycopg[binary]==3.3.6
+# Despliegue en Render: servidor de producción y archivos estáticos del administrador.
+gunicorn==26.2.0
+whitenoise==6.12.0
 

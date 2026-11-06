@@ -171,6 +171,31 @@ npm run build
 npm run preview
 ```
 
+## Datos de demostración
+
+Para mostrar la app sin usar datos reales, carga tres cuentas de ejemplo con huellas inventadas.
+Las fechas se calculan desde el día en que se ejecuta, así que la demo siempre se ve actual.
+
+```powershell
+python manage.py seed_demo           # crea las que falten
+python manage.py seed_demo --reset   # borra y vuelve a crear las tres (por ejemplo, el día de la demo)
+```
+
+La contraseña y el PIN de las tres cuentas están en
+`apps/accounts/management/commands/seed_demo.py` (`DEMO_PASSWORD` y `DEMO_PIN`). En un
+despliegue público, cámbialos con las variables `EVOCA_DEMO_PASSWORD` y `EVOCA_DEMO_PIN`.
+
+| Cuenta | Huellas | Qué mostrar |
+| --- | --- | --- |
+| `maria.demo@example.com` | 30, en 3 meses | **HU2/HU3**: lista, filtros por tipo y emoción, editar y borrar. **HU4**: gráfica semanal y mensual. **HU7**: calendario de colores con meses anteriores. Ya registró hoy, así que el recordatorio no avisa (HU5 · escenario 3) |
+| `mateo.demo@example.com` | 18 | **HU6**: ánimo bajo 15 de los últimos 21 días, así que al abrir aparece la orientación («Ver opciones de ayuda» o «Ahora no»). **HU5**: recordatorio «cada hora» y sin huella hoy, así que avisa al abrir |
+| `juliana.demo@example.com` | 16 | **HU5**: sin huella hoy y recordatorio diario a las 8:00, así que avisa al abrir. Buena cuenta para registrar en vivo: **HU2**, **HU8** (sugerencia de la IA) y **HU6** (pantalla de ayuda al escribir, por ejemplo, «quiero morir») |
+
+Con cualquiera de las tres se puede mostrar **HU1**: entrar, el bloqueo con PIN al volver a la
+app, y en Ajustes la autorización de datos sensibles, exportar los datos y eliminar la cuenta.
+Después de una demo, `--reset` las deja como al principio (por ejemplo, si se tocó «Ahora no»
+en la orientación de Mateo, que la pausa 7 días).
+
 ## API del Sprint 1
 
 | Método | Ruta | Función |

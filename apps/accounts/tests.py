@@ -1,13 +1,17 @@
 from datetime import date, datetime, time, timedelta
+from io import StringIO
 from unittest import mock
 
 from django.conf import settings
+from django.core.management import call_command
+from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
+from apps.support.models import orientation_status
 from apps.traces.models import Memory, Trace
 
 from .models import AccessPin, ConsentRecord, DailyReminder, User
@@ -469,3 +473,47 @@ class DailyReminderTests(APITestCase):
 
         self.assertEqual(response.data["daily_reminder"]["time"], "07:15")
         self.assertTrue(response.data["daily_reminder"]["enabled"])
+
+
+class SeedDemoTests(TestCase):
+    """Datos de demostración: tres cuentas listas para mostrar cada HU, sin duplicarse."""
+
+    def run_seed(self, *args):
+        call_command("seed_demo", *args, stdout=StringIO())
+
+    def test_creates_three_complete_accounts_with_at_least_fifteen_traces(self):
+        self.run_seed()
+
+        users = User.objects.filter(email__endswith=".demo@example.com")
+        self.assertEqual(users.count(), 3)
+        for user in users:
+            self.assertGreaterEqual(user.traces.count(), 15)
+            self.assertEqual(user.consents.count(), 3)
+            self.assertTrue(AccessPin.objects.filter(user=user).exists())
+            self.assertTrue(DailyReminder.objects.get(user=user).enabled)
+            # Las huellas salen en el orden en que ocurrieron.
+            listed = list(user.traces.values_list("happened_at", flat=True))
+            self.assertEqual(listed, sorted(listed, reverse=True))
+
+    def test_each_account_shows_its_feature(self):
+        self.run_seed()
+
+        mateo = User.objects.get(email="mateo.demo@example.com")
+        juliana = User.objects.get(email="juliana.demo@example.com")
+        maria = User.objects.get(email="maria.demo@example.com")
+        self.assertTrue(orientation_status(mateo)["show"])
+        self.assertFalse(orientation_status(maria)["show"])
+        start_of_today = timezone.make_aware(datetime.combine(timezone.localdate(), time.min))
+        self.assertTrue(maria.traces.filter(happened_at__gte=start_of_today).exists())
+        self.assertFalse(juliana.traces.filter(happened_at__gte=start_of_today).exists())
+
+    def test_running_twice_does_not_duplicate_and_reset_recreates(self):
+        self.run_seed()
+        self.run_seed()
+        self.assertEqual(Trace.objects.filter(user__email__endswith=".demo@example.com").count(), 30 + 18 + 16)
+
+        maria = User.objects.get(email="maria.demo@example.com")
+        maria.traces.all().delete()
+        self.run_seed("--reset")
+
+        self.assertEqual(User.objects.get(email="maria.demo@example.com").traces.count(), 30)

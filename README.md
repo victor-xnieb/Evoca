@@ -178,9 +178,9 @@ npm run preview
 | GET | `/api/v1/auth/consents/` | Autorizaciones dadas, con versión y fecha |
 | GET | `/api/v1/auth/export/` | Descarga un archivo JSON con todos los datos propios |
 | DELETE | `/api/v1/auth/account/` | Elimina la cuenta y todos sus datos (pide `password`) |
-| GET/PUT | `/api/v1/auth/reminder/` | Recordatorio diario: activo y hora (`HH:MM`, hora de Bogotá) |
-| GET | `/api/v1/auth/reminder/status/` | Si toca avisar ahora (hora alcanzada, sin aviso hoy y sin huella hoy) |
-| POST | `/api/v1/auth/reminder/ack/` | Marca el aviso de hoy para no repetirlo |
+| GET/PUT | `/api/v1/auth/reminder/` | Recordatorio: activo, `frequency` (`daily` a la hora `HH:MM` elegida u `hourly` de 8:00 a 21:00, hora de Bogotá) |
+| GET | `/api/v1/auth/reminder/status/` | Si toca avisar ahora (hora alcanzada, sin aviso pendiente y sin huella hoy) |
+| POST | `/api/v1/auth/reminder/ack/` | Marca el aviso para no repetirlo hoy (o, cada hora, en esta hora) |
 | GET/POST | `/api/v1/traces/` | Lista (la más reciente primero; filtros `?sensory_type=`, `?emotion=` y `?date=AAAA-MM-DD`) o crea huellas del usuario |
 | GET | `/api/v1/traces/catalog/` | Tipos sensoriales y emociones válidos, con su etiqueta |
 | GET | `/api/v1/traces/mood/?period=week|month` | Gráfica de ánimo: un punto por huella de los últimos 7 o 30 días y el promedio |

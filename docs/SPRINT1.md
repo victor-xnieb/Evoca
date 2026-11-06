@@ -215,6 +215,14 @@ el hábito de registrar mi ánimo sin tener que acordarme.
 | 2 · …y al tocarla se abre «Nueva huella» | — | `hu5.test.tsx`: «al tocar la notificación se abre Nueva huella» y el manejador del service worker (`public/notification-click.js`) abre `/nueva-huella` | — | Cumplido |
 | 3 · Si ya registré una huella hoy, no recibo la notificación | Huella del mismo día, en hora de Bogotá | `test_not_due_if_a_trace_was_registered_today`; `hu5.test.tsx` (escenario 3: no se muestra ni se marca) | — | Cumplido |
 
+**Opción «cada hora»** (pedida por el equipo en la revisión): además de «una vez al día» a la
+hora elegida, el recordatorio puede avisar cada hora en punto, de 8:00 a 21:00, hasta que se
+registre una huella ese día ([captura](capturas/hu5-ajustes-cada-hora.jpg)). Pruebas:
+`test_starts_once_a_day_and_can_switch_to_every_hour`, `test_rejects_unknown_frequency`,
+`test_every_hour_until_a_trace_is_registered` (7:59:59 todavía no, 8:00 sí, una vez por hora,
+se detiene con la huella), `test_every_hour_stops_after_nine_pm`; en `hu5.test.tsx`, el cambio
+de modo en Ajustes, la espera hasta la siguiente hora en punto y el aviso al cambiar de hora.
+
 Recorrido completo con Playwright, con el build de producción y su service worker:
 
 - Desde Ajustes se activó el recordatorio para un minuto después, y la hora quedó guardada en el servidor.
@@ -225,7 +233,7 @@ Recorrido completo con Playwright, con el build de producción y su service work
 > abierta o en segundo plano en el dispositivo (también como PWA instalada en segundo plano).
 > Con la app totalmente cerrada no llega. Para eso hace falta Web Push:
 >
-> - un proceso del servidor que envíe a la hora elegida (cron);
+> - un proceso del servidor que envíe a la hora elegida o cada hora (cron);
 > - claves VAPID, que son secretos y no se agregan desde esta rama;
 > - la dependencia `pywebpush`.
 >

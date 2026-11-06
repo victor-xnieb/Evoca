@@ -9,6 +9,7 @@ export const NewTracePage = lazy(() => import("@/pages/NewTracePage").then((m) =
 export const MyTracesPage = lazy(() => import("@/pages/MyTracesPage").then((m) => ({ default: m.MyTracesPage })))
 export const TraceDetailPage = lazy(() => import("@/pages/TraceDetailPage").then((m) => ({ default: m.TraceDetailPage })))
 export const MoodPage = lazy(() => import("@/pages/MoodPage").then((m) => ({ default: m.MoodPage })))
+export const HelpPage = lazy(() => import("@/pages/HelpPage").then((m) => ({ default: m.HelpPage })))
 export const SettingsPage = lazy(() => import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })))
 
 export function Deferred({ children }: { children: ReactNode }) {

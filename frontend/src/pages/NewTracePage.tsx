@@ -18,6 +18,7 @@ import { MISSING_TRACE_FIELDS } from "@/lib/messages"
 import { tracesApi } from "@/lib/traces"
 
 import { NoteField } from "./traces/NoteField"
+import { RiskHelp } from "./traces/RiskHelp"
 
 type Field = keyof typeof MISSING_TRACE_FIELDS
 
@@ -202,6 +203,7 @@ export function NewTracePage() {
             error={errors.note}
             inputRef={noteInput}
           />
+          <RiskHelp text={form.note} />
 
           <EmotionPicker
             options={catalog.emotions}

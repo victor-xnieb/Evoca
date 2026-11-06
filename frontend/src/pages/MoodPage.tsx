@@ -10,6 +10,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useCatalog } from "@/hooks/use-catalog"
 import { labelOf, tracesApi, type MoodPeriod } from "@/lib/traces"
 
+import { CalendarSection } from "./mood/CalendarSection"
+
 const VIEWS: Array<{ value: MoodPeriod; param: string; label: string; periodLabel: string }> = [
   { value: "week", param: "semana", label: "Semana", periodLabel: "en los últimos 7 días" },
   { value: "month", param: "mes", label: "Mes", periodLabel: "en los últimos 30 días" },
@@ -20,7 +22,7 @@ type Chart =
   | { status: "error"; message: string }
   | { status: "ready"; points: Omit<MoodPoint, "emotionLabel">[]; average: number | null }
 
-/** HU4: cómo evoluciona mi ánimo, en vista semanal o mensual. */
+/** HU4 y HU7: cómo evoluciona mi ánimo (gráfica semanal o mensual) y mi calendario por colores. */
 export function MoodPage() {
   const [params, setParams] = useSearchParams()
   const view = VIEWS.find((item) => item.param === params.get("vista")) ?? VIEWS[0]
@@ -104,6 +106,8 @@ export function MoodPage() {
           </ul>
         )}
       </GlassCard>
+
+      <CalendarSection catalog={catalog} />
     </PageTransition>
   )
 }

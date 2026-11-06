@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from "react"
+import { useEffect, useRef, useState, type FormEvent } from "react"
 import { useNavigate } from "react-router"
 
 import { EmotionPicker } from "@/components/evoca/EmotionPicker"
@@ -14,8 +14,10 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/use-auth"
 import { useCatalog } from "@/hooks/use-catalog"
 import { ApiError } from "@/lib/api"
-import { MISSING_TRACE_FIELDS, NOTE_MAX_LENGTH, NOTE_PLACEHOLDERS } from "@/lib/messages"
+import { MISSING_TRACE_FIELDS } from "@/lib/messages"
 import { tracesApi } from "@/lib/traces"
+
+import { NoteField } from "./traces/NoteField"
 
 type Field = keyof typeof MISSING_TRACE_FIELDS
 
@@ -37,7 +39,6 @@ export function NewTracePage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { catalog, error: catalogError, retry } = useCatalog()
-  const noteId = useId()
   const summary = useRef<HTMLDivElement>(null)
   const noteInput = useRef<HTMLTextAreaElement>(null)
   const [showExample, setShowExample] = useState<boolean | null>(() => (user && exampleSeen(user.id) ? false : null))
@@ -194,29 +195,13 @@ export function NewTracePage() {
             error={errors.sensory_type}
           />
 
-          <div className="flex flex-col gap-2">
-            <label htmlFor={noteId} className="text-base font-semibold">
-              Escribe una nota corta
-            </label>
-            <textarea
-              id={noteId}
-              ref={noteInput}
-              rows={3}
-              maxLength={NOTE_MAX_LENGTH}
-              value={form.note}
-              onChange={(event) => update("note", event.target.value)}
-              placeholder={NOTE_PLACEHOLDERS[form.sensory_type ?? "default"] ?? NOTE_PLACEHOLDERS.default}
-              aria-invalid={errors.note ? true : undefined}
-              aria-describedby={`${noteId}-contador`}
-              className="min-h-24 w-full resize-y rounded-2xl border border-input bg-background/70 px-4 py-3 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive"
-            />
-            <div className="flex justify-between gap-3 text-sm">
-              <span className="font-medium text-destructive">{errors.note}</span>
-              <span id={`${noteId}-contador`} className="text-muted-foreground tabular-nums">
-                {form.note.length}/{NOTE_MAX_LENGTH}
-              </span>
-            </div>
-          </div>
+          <NoteField
+            value={form.note}
+            onChange={(value) => update("note", value)}
+            sensoryType={form.sensory_type}
+            error={errors.note}
+            inputRef={noteInput}
+          />
 
           <EmotionPicker
             options={catalog.emotions}

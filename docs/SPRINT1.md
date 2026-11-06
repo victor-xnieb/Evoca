@@ -25,8 +25,8 @@ Cada HU tiene tres subtareas en Jira: **Desarrollo** (backend), **Interfaz** (pa
 | Orden | HU | Jira | Pts | Prioridad | Épica | Desarrollo | Interfaz | Pruebas | Rama | Estado en el repo |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | HU1 · Crear cuenta y proteger mi acceso | SCRUM-10 | 8 | Highest | Cuenta y privacidad | SCRUM-27 | SCRUM-28 | SCRUM-29 | `feature/hu1-cuenta-y-pin` | En dev (parcial: biometría) |
-| 2 | HU2 · Registrar una huella sensorial | SCRUM-15 | 5 | Highest | Registro de huellas | SCRUM-30 | SCRUM-31 | SCRUM-32 | `feature/hu2-registrar-huella` | En revisión |
-| 3 | HU3 · Ver y editar mis huellas | SCRUM-12 | 5 | High | Registro de huellas | SCRUM-33 | SCRUM-34 | SCRUM-35 | `feature/hu3-ver-editar-huellas` | Pendiente |
+| 2 | HU2 · Registrar una huella sensorial | SCRUM-15 | 5 | Highest | Registro de huellas | SCRUM-30 | SCRUM-31 | SCRUM-32 | `feature/hu2-registrar-huella` | En dev |
+| 3 | HU3 · Ver y editar mis huellas | SCRUM-12 | 5 | High | Registro de huellas | SCRUM-33 | SCRUM-34 | SCRUM-35 | `feature/hu3-ver-editar-huellas` | En revisión (parcial: gráfica y calendario) |
 | 4 | HU4 · Ver mi gráfica de ánimo | SCRUM-13 | 3 | High | Seguimiento del ánimo | SCRUM-36 | SCRUM-37 | SCRUM-38 | `feature/hu4-grafica-animo` | Pendiente |
 | 5 | HU7 · Ver mi calendario de ánimo por colores | SCRUM-17 | 3 | High | Seguimiento del ánimo | SCRUM-45 | SCRUM-46 | SCRUM-47 | `feature/hu7-calendario-animo` | Pendiente |
 | 6 | HU5 · Recibir un recordatorio diario | SCRUM-14 | 2 | Medium | Registro de huellas | SCRUM-39 | SCRUM-40 | SCRUM-41 | `feature/hu5-recordatorio-diario` | Pendiente |
@@ -144,7 +144,21 @@ emoción, y editar o borrar una, para mantener mi registro al día y corregir er
 
 **Subtareas:** Desarrollo SCRUM-33 · Interfaz SCRUM-34 · Pruebas SCRUM-35.
 
-**Evidencia:** pendiente.
+**Evidencia** (rama `feature/hu3-ver-editar-huellas`):
+
+| Escenario | Medida | Prueba automática | Pantalla | Estado |
+| --- | --- | --- | --- | --- |
+| 1 · Filtro por tipo o emoción y veo solo las que coinciden, de la más reciente a la más antigua | Orden por `created_at` descendente; `?sensory_type=` y `?emotion=` combinables | `apps/traces/tests.py` (`ManageTracesTests`: `test_lists_only_my_traces_newest_first`, `test_filters_by_sensory_type_newest_first`, `test_filters_by_emotion_newest_first`, `test_combines_type_and_emotion`, `test_filter_without_matches_returns_empty_list`, `test_rejects_unknown_filter_values`); `frontend/src/app/hu3.test.tsx` (escenario 1) | `/mis-huellas` ([lista](capturas/hu3-lista.jpg), [filtros](capturas/hu3-filtros.jpg)) | Cumplido |
+| 2 · Cambio la nota, la emoción o la intensidad y guardo | Se guarda y la lista ya trae el cambio | `test_edits_note_emotion_and_intensity`, `test_edit_validates_like_create`, `test_cannot_edit_or_delete_another_persons_trace`; `hu3.test.tsx` (escenario 2) | `/mis-huellas/:id` ([captura](capturas/hu3-editar.jpg)) | Cumplido |
+| 2 · El cambio se refleja en mi gráfica y en mi calendario | — | La gráfica (HU4) y el calendario (HU7) todavía no existen. Leerán las mismas huellas, y la prueba confirma que la lista ya devuelve el valor editado | — | **Parcial** (se completa en HU4 y HU7) |
+| 3 · Confirmo borrar y la huella desaparece de mi lista y de los recuerdos que la incluían | Confirmación previa; borrado en el servidor; la relación con las memorias se elimina | `test_delete_removes_it_from_my_list_and_from_memories`; `hu3.test.tsx`: «cancelar no borra nada», «al confirmar, la huella desaparece de mi lista» | Diálogo de confirmación ([captura](capturas/hu3-borrar.jpg)) | Cumplido |
+
+Recorrido completo contra el backend real con Playwright:
+
+- 4 huellas en orden, de la más reciente a la más antigua.
+- Con el filtro «Aroma» quedan 2; con «Aroma + Calma», 1. Los filtros quedan en la URL y se conservan al volver.
+- La edición queda guardada en el servidor (nota, gratitud, 5).
+- Tras borrar, quedan 3 huellas, tanto en la lista como en el servidor.
 
 ## HU4 · Ver mi gráfica de ánimo (SCRUM-13)
 
@@ -260,7 +274,7 @@ Se completa al cerrar la HU8.
 | --- | --- | --- | --- |
 | HU1 | 3 de 3 con PIN; huella o rostro parcial | SCRUM-27, SCRUM-28 y SCRUM-29 cubiertas | Huella o rostro: verificación local, sin prueba en un dispositivo real |
 | HU2 | 3 de 3 | SCRUM-30, SCRUM-31 y SCRUM-32 cubiertas | — |
-| HU3 | — | — | — |
+| HU3 | 1 y 3 completos; 2 parcial | SCRUM-33, SCRUM-34 y SCRUM-35 cubiertas | Escenario 2: el reflejo en la gráfica y el calendario se verifica en HU4 y HU7 |
 | HU4 | — | — | — |
 | HU5 | — | — | — |
 | HU6 | — | — | — |

@@ -178,7 +178,7 @@ npm run preview
 | GET | `/api/v1/auth/consents/` | Autorizaciones dadas, con versión y fecha |
 | GET | `/api/v1/auth/export/` | Descarga un archivo JSON con todos los datos propios |
 | DELETE | `/api/v1/auth/account/` | Elimina la cuenta y todos sus datos (pide `password`) |
-| GET/POST | `/api/v1/traces/` | Lista (la más reciente primero) o crea huellas del usuario |
+| GET/POST | `/api/v1/traces/` | Lista (la más reciente primero; filtros `?sensory_type=` y `?emotion=`) o crea huellas del usuario |
 | GET | `/api/v1/traces/catalog/` | Tipos sensoriales y emociones válidos, con su etiqueta |
 | GET/PATCH/DELETE | `/api/v1/traces/{id}/` | Consulta, modifica o elimina una huella propia |
 

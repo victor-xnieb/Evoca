@@ -1,12 +1,13 @@
-from datetime import date
+from datetime import date, timedelta
 
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
 
-from .models import Trace
+from .models import Memory, MemoryTrace, Trace
 
 
 class TraceApiTests(APITestCase):
@@ -181,3 +182,112 @@ class RegisterTraceTests(APITestCase):
             ["alegria", "calma", "gratitud", "nostalgia", "tristeza", "ansiedad", "enojo", "miedo"],
         )
         self.assertEqual(response.data["emotions"][0]["label"], "Alegría")
+
+
+class ManageTracesTests(APITestCase):
+    """HU3: ver, filtrar, editar y borrar mis huellas."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="mias@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1)
+        )
+        self.other = User.objects.create_user(
+            email="ajena@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1)
+        )
+        self.client.force_authenticate(self.user)
+        self.url = "/api/v1/traces/"
+        base = timezone.now()
+        rows = [
+            ("aroma", "calma", "Café", 3),
+            ("song", "alegria", "Canción del colegio", 5),
+            ("aroma", "nostalgia", "Perfume de la abuela", 4),
+            ("place", "calma", "El parque", 2),
+        ]
+        self.traces = []
+        for minutes, (sensory_type, emotion, note, level) in enumerate(rows):
+            trace = Trace.objects.create(
+                user=self.user, sensory_type=sensory_type, emotion=emotion, note=note, mood_intensity=level
+            )
+            # Cada una un minuto después de la anterior: la última es la más reciente.
+            Trace.objects.filter(pk=trace.pk).update(created_at=base + timedelta(minutes=minutes))
+            self.traces.append(trace)
+        Trace.objects.create(user=self.other, sensory_type="aroma", emotion="calma", note="Ajena", mood_intensity=3)
+
+    def notes(self, response):
+        return [item["note"] for item in response.data["results"]]
+
+    def test_lists_only_my_traces_newest_first(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(self.notes(response), ["El parque", "Perfume de la abuela", "Canción del colegio", "Café"])
+
+    def test_filters_by_sensory_type_newest_first(self):
+        response = self.client.get(self.url, {"sensory_type": "aroma"})
+
+        self.assertEqual(self.notes(response), ["Perfume de la abuela", "Café"])
+
+    def test_filters_by_emotion_newest_first(self):
+        response = self.client.get(self.url, {"emotion": "calma"})
+
+        self.assertEqual(self.notes(response), ["El parque", "Café"])
+        self.assertNotIn("Ajena", self.notes(response))
+
+    def test_combines_type_and_emotion(self):
+        response = self.client.get(self.url, {"sensory_type": "aroma", "emotion": "calma"})
+
+        self.assertEqual(self.notes(response), ["Café"])
+
+    def test_filter_without_matches_returns_empty_list(self):
+        response = self.client.get(self.url, {"emotion": "miedo"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+
+    def test_rejects_unknown_filter_values(self):
+        self.assertEqual(self.client.get(self.url, {"emotion": "felicidad"}).status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.client.get(self.url, {"sensory_type": "olor"}).status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_edits_note_emotion_and_intensity(self):
+        trace = self.traces[0]
+
+        response = self.client.patch(
+            f"{self.url}{trace.id}/",
+            {"note": "Café con canela", "emotion": "gratitud", "mood_intensity": 5},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        trace.refresh_from_db()
+        self.assertEqual((trace.note, trace.emotion, trace.mood_intensity), ("Café con canela", "gratitud", 5))
+        # Lo que leen la gráfica y el calendario (la lista de huellas) ya trae el cambio.
+        listed = next(item for item in self.client.get(self.url).data["results"] if item["id"] == str(trace.id))
+        self.assertEqual((listed["emotion"], listed["mood_intensity"]), ("gratitud", 5))
+
+    def test_edit_validates_like_create(self):
+        trace = self.traces[0]
+        for bad in ({"mood_intensity": 6}, {"emotion": "felicidad"}, {"note": "  "}):
+            response = self.client.patch(f"{self.url}{trace.id}/", bad, format="json")
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, bad)
+
+    def test_cannot_edit_or_delete_another_persons_trace(self):
+        foreign = Trace.objects.get(user=self.other)
+
+        self.assertEqual(
+            self.client.patch(f"{self.url}{foreign.id}/", {"note": "x"}, format="json").status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+        self.assertEqual(self.client.delete(f"{self.url}{foreign.id}/").status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(Trace.objects.filter(pk=foreign.pk).exists())
+
+    def test_delete_removes_it_from_my_list_and_from_memories(self):
+        trace = self.traces[2]
+        memory = Memory.objects.create(user=self.user, name="La casa de la abuela")
+        memory.traces.add(trace, self.traces[0])
+
+        response = self.client.delete(f"{self.url}{trace.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertNotIn("Perfume de la abuela", self.notes(self.client.get(self.url)))
+        self.assertFalse(Trace.objects.filter(pk=trace.pk).exists())
+        self.assertEqual(list(memory.traces.all()), [self.traces[0]])
+        self.assertFalse(MemoryTrace.objects.filter(trace_id=trace.pk).exists())

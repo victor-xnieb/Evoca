@@ -1,5 +1,5 @@
 import { CheckCircle2, Plus } from "lucide-react"
-import { Link } from "react-router"
+import { Link, useNavigate } from "react-router"
 
 import { GlassCard } from "@/components/evoca/GlassCard"
 import { TraceCard } from "@/components/evoca/TraceCard"
@@ -20,6 +20,7 @@ interface RecentTracesProps {
 
 /** Las huellas más recientes en Inicio (HU2: la huella guardada aparece en mi lista). */
 export function RecentTraces({ traces, total, catalog, savedTraceId }: RecentTracesProps) {
+  const navigate = useNavigate()
   const saved = traces.some((trace) => trace.id === savedTraceId)
   return (
     <GlassCard as="section" accent="calma" aria-labelledby="recientes" className="flex flex-col gap-4 p-5 sm:p-6">
@@ -45,16 +46,24 @@ export function RecentTraces({ traces, total, catalog, savedTraceId }: RecentTra
               sensoryLabel={labelOf(catalog?.sensory_types ?? [], trace.sensory_type)}
               emotionLabel={labelOf(catalog?.emotions ?? [], trace.emotion)}
               className={trace.id === savedTraceId ? "ring-2 ring-(--emotion-calma)" : undefined}
+              onOpen={() => navigate(`/mis-huellas/${trace.id}`)}
             />
           </li>
         ))}
       </ul>
-      <Button asChild size="lg" className="h-12 self-start rounded-full px-6 text-base">
-        <Link to="/nueva-huella">
-          <Plus aria-hidden="true" />
-          Registrar otra huella
-        </Link>
-      </Button>
+      <div className="flex flex-wrap gap-3">
+        <Button asChild size="lg" className="h-12 rounded-full px-6 text-base">
+          <Link to="/nueva-huella">
+            <Plus aria-hidden="true" />
+            Registrar otra huella
+          </Link>
+        </Button>
+        {total > VISIBLE && (
+          <Button asChild variant="outline" className="h-12 rounded-full px-5">
+            <Link to="/mis-huellas">Ver todas</Link>
+          </Button>
+        )}
+      </div>
     </GlassCard>
   )
 }

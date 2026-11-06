@@ -12,7 +12,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Esfera de una emoción (imagen del mapa central `lib/emotionOrbs.ts`), con resplandor del color del token y flotación suave opcional. Es decoración: los chips, la gráfica y el calendario siguen usando los colores de los tokens. Con movimiento reducido no flota.",
+          "Esfera de una emoción (imagen del mapa central `lib/emotionOrbs.ts`), con resplandor del color del token. Con `animated` flota (8 a 14 px, deriva, giro de ±3° y respiración de escala, 5 a 9 s), se acerca al mouse cuando está cerca y rebota con una onda al tocarla. Es decoración: los chips, la gráfica y el calendario siguen usando los colores de los tokens. Con movimiento reducido queda quieta.",
       },
     },
   },
@@ -56,8 +56,9 @@ export const Tamanos: Story = {
 }
 
 export const Animada: Story = {
+  name: "Animada (acerca el mouse o haz clic)",
   render: (args) => (
-    <div className="flex gap-4">
+    <div className="flex gap-6 p-6">
       {EMOTION_SLUGS.slice(0, 5).map((emotion) => (
         <EmotionOrb key={emotion} {...args} emotion={emotion} />
       ))}

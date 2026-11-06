@@ -40,6 +40,25 @@ Object.defineProperty(HTMLMediaElement.prototype, "play", {
 })
 Object.defineProperty(HTMLMediaElement.prototype, "pause", { configurable: true, value: vi.fn() })
 
+// jsdom no tiene IntersectionObserver: todo se considera visible.
+if (!("IntersectionObserver" in window)) {
+  class IntersectionObserverStub {
+    callback: IntersectionObserverCallback
+    constructor(callback: IntersectionObserverCallback) {
+      this.callback = callback
+    }
+    observe(target: Element) {
+      this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this as never)
+    }
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return []
+    }
+  }
+  Object.defineProperty(window, "IntersectionObserver", { configurable: true, value: IntersectionObserverStub })
+}
+
 // El reproductor Lottie no aporta nada en jsdom: se sustituye por uno vacío.
 vi.mock("lottie-web/build/player/lottie_light", () => ({
   default: { loadAnimation: () => ({ goToAndStop: () => {}, destroy: () => {} }) },

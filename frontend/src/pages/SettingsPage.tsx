@@ -1,9 +1,13 @@
 import { Monitor, Moon, Sun } from "lucide-react"
 
+import { GlassCard } from "@/components/evoca/GlassCard"
 import { PageTransition } from "@/components/evoca/PageTransition"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useReducedMotion } from "@/hooks/use-reduced-motion"
 import { useTheme, type ThemePreference } from "@/hooks/use-theme"
+
+import { DataSection } from "./settings/DataSection"
+import { SecuritySection } from "./settings/SecuritySection"
 
 const THEME_OPTIONS: Array<{ value: ThemePreference; label: string; icon: typeof Sun }> = [
   { value: "light", label: "Claro", icon: Sun },
@@ -21,7 +25,7 @@ export function SettingsPage() {
         Ajustes
       </h1>
 
-      <section aria-labelledby="apariencia" className="flex flex-col gap-3 rounded-3xl border bg-card/92 p-5 shadow-soft backdrop-blur-sm">
+      <GlassCard as="section" aria-labelledby="apariencia" className="flex flex-col gap-3 p-5">
         <h2 id="apariencia" className="text-xl font-semibold">
           Apariencia
         </h2>
@@ -40,12 +44,10 @@ export function SettingsPage() {
             ? "Tu dispositivo pide reducir el movimiento: Evoca muestra las animaciones al mínimo."
             : "Evoca respeta la opción de reducir movimiento de tu dispositivo."}
         </p>
-      </section>
+      </GlassCard>
 
-      <p className="rounded-3xl border bg-card/92 p-5 text-sm text-muted-foreground backdrop-blur-sm">
-        Tu PIN, la exportación de datos, la eliminación de la cuenta y el recordatorio diario llegarán aquí en
-        las siguientes entregas del sprint.
-      </p>
+      <SecuritySection />
+      <DataSection />
     </PageTransition>
   )
 }

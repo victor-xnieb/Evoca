@@ -1,8 +1,9 @@
 /*
  * Adaptado de «Ripple» de Magic UI (MIT, https://magicui.design/docs/components/ripple).
  * Cambios: cada onda toma un color de emoción de los tokens de Evoca, las ondas se miden
- * en porcentaje de un cuadrado que cabe en el contenedor (así nunca se cortan) y respeta
- * el movimiento reducido mediante las reglas globales de animación.
+ * en porcentaje de un cuadrado que cabe en el contenedor (así nunca se cortan), se centran
+ * sin translate y cada onda va en su propia capa de composición para que el borde no
+ * titile al escalar. Respeta el movimiento reducido mediante las reglas globales.
  * Copyright (c) Magic UI. Ver CREDITS.md.
  */
 import { memo, type ComponentPropsWithoutRef, type CSSProperties } from "react"
@@ -46,7 +47,7 @@ export const Ripple = memo(function Ripple({
           return (
             <div
               key={i}
-              className="absolute top-1/2 left-1/2 animate-ripple rounded-full border"
+              className="absolute inset-0 m-auto animate-ripple rounded-full border-[1.5px]"
               style={
                 {
                   "--i": i,
@@ -55,7 +56,9 @@ export const Ripple = memo(function Ripple({
                   opacity: Math.max(0.14, mainCircleOpacity - i * 0.08),
                   borderColor: color,
                   background: `color-mix(in oklab, ${color} 12%, transparent)`,
-                  transform: "translate(-50%, -50%) scale(1)",
+                  // Capa propia: se rasteriza una vez y la GPU solo la escala (sin titileo).
+                  willChange: "transform",
+                  backfaceVisibility: "hidden",
                 } as CSSProperties
               }
             />

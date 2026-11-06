@@ -26,3 +26,6 @@ export const NOTE_PLACEHOLDERS: Record<string, string> = {
   texture: "Por ejemplo: la cobija de lana de la finca.",
   place: "Por ejemplo: el parque donde aprendí a montar bicicleta.",
 }
+
+export const TRACE_UPDATED_NOTICE = "Guardaste los cambios de tu huella."
+export const TRACE_DELETED_NOTICE = "Borraste la huella."

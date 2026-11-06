@@ -6,7 +6,15 @@ import { HomePage } from "@/pages/HomePage"
 import { NotFoundPage } from "@/pages/NotFoundPage"
 
 import { AuthLayout } from "./AuthLayout"
-import { CreatePinPage, Deferred, NewTracePage, RegisterPage, SettingsPage } from "./deferred"
+import {
+  CreatePinPage,
+  Deferred,
+  MyTracesPage,
+  NewTracePage,
+  RegisterPage,
+  SettingsPage,
+  TraceDetailPage,
+} from "./deferred"
 import { PublicOnly, RequireAuth, RequireSession } from "./guards"
 import { RootLayout } from "./RootLayout"
 
@@ -68,10 +76,17 @@ export const routes: RouteObject[] = [
       {
         path: "mis-huellas",
         element: (
-          <ComingSoonPage
-            title="Mis huellas"
-            description="Aquí verás, filtrarás y editarás todas tus huellas, de la más reciente a la más antigua."
-          />
+          <Deferred>
+            <MyTracesPage />
+          </Deferred>
+        ),
+      },
+      {
+        path: "mis-huellas/:id",
+        element: (
+          <Deferred>
+            <TraceDetailPage />
+          </Deferred>
         ),
       },
       {

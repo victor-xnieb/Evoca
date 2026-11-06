@@ -37,9 +37,8 @@ en producción.** La app usa versiones optimizadas que genera `npm run assets` (
   se ofrece primero y el MP4 queda de respaldo (`video(nombre, { webm: true })`).
 - Los posters son el primer fotograma de cada video (a 0,05 s): así el cambio de la imagen
   al video no se nota.
-- En modo claro el fondo se atenúa (opacidad 0,8) y se desvanece hacia el centro con una
-  máscara radial (`.evoca-bg-layer`): las manchas solo se notan en los bordes. Los anillos
-  del hero de Inicio solo aparecen en modo oscuro.
+- En modo claro el video suave se ve tal cual, sin atenuar (solo un leve tinte de la emoción
+  reciente arriba a la derecha). Los anillos del hero de Inicio aparecen en los dos modos.
 
 ### Cambiar una esfera
 
@@ -92,29 +91,30 @@ de los tokens de `frontend/src/styles/tokens.css`; no se derivan tokens de las i
 Los videos tienen zonas de color. Por eso:
 
 1. **Ningún texto va directamente sobre el video.** El contenido va en `GlassCard`: vidrio
-   translúcido (60 % de `--card` en claro, 55 % en oscuro) con `blur(20px) saturate(1.3)`. El
+   translúcido (64 % de `--card` en claro, 55 % en oscuro) con `blur(20px) saturate(1.3)`. El
    desenfoque fuerte borra el detalle del video que queda detrás; eso es lo que permite la
    transparencia sin perder contraste.
-2. Encima del video hay una capa de refuerzo: crema al 35 % en claro y marrón al 45 % en
-   oscuro (`.evoca-video-scrim`). Detrás del encabezado hay un degradado extra para el logo.
-3. **Contraste ≥ 4,5:1 contra el fondo renderizado** (3:1 para texto grande). Si algún punto
+2. En oscuro, encima del video hay una capa marrón al 45 % (`.evoca-video-scrim`) y un
+   degradado detrás del interruptor de tema. En claro no hay capa: el video se ve completo.
+3. El encabezado ya no lleva la marca: «evoca.» (`EvocaWordmark`) vive en el hero de Inicio,
+   con el color del texto del tema y el punto pasando por los colores de las emociones.
+4. **Contraste ≥ 4,5:1 contra el fondo renderizado** (3:1 para texto grande). Si algún punto
    del video lo baja, se sube la opacidad o el desenfoque de esa tarjeta; nunca se oscurece
    el texto.
-4. Cómo se mide: con Playwright se pausa el video en 3 momentos (15, 45 y 75 % del bucle),
+5. Cómo se mide: con Playwright se pausa el video en 3 momentos (15, 45 y 75 % del bucle),
    se registra cada texto visible, se vuelve transparente y se captura lo que queda detrás.
    Luego se compara el color del texto con esos píxeles (percentil 2, para ignorar bordes
-   sueltos). Se descarta el texto tapado (por ejemplo, por la barra inferior) y el punto del
-   logo, que es parte de la marca.
+   sueltos). Se descarta el texto tapado (por ejemplo, por la barra inferior).
 
 Peor contraste medido en Inicio (texto de cada tarjeta contra su fondo real, en los 3
 momentos):
 
-| Tema · tamaño | Tarjeta «Buenas noches» | Tarjeta «Aún no tienes huellas» | Tarjetas de pasos | Navegación | Encabezado |
-| --- | --- | --- | --- | --- | --- |
-| Claro · escritorio | 6,2:1 | 6,7:1 | 6,0:1 | 6,7:1 | 14,4:1 |
-| Claro · celular | 6,2:1 | 6,3:1 | 6,2:1 | 5,7:1 | 15,3:1 |
-| Oscuro · escritorio | 5,5:1 | 5,1:1 | 5,6:1 | 7,0:1 | 10,8:1 |
-| Oscuro · celular | 5,6:1 | 5,5:1 | 5,4:1 | 6,3:1 | 16,4:1 |
+| Tema · tamaño | Tarjeta «Buenas noches» | Tarjeta «Aún no tienes huellas» | Tarjetas de pasos | Navegación |
+| --- | --- | --- | --- | --- |
+| Claro · escritorio | 5,2:1 | 6,2:1 | 5,0:1 | 6,4:1 |
+| Claro · celular | 5,3:1 | 5,3:1 | 5,5:1 | 5,9:1 |
+| Oscuro · escritorio | 5,5:1 | 5,1:1 | 5,6:1 | 7,0:1 |
+| Oscuro · celular | 5,6:1 | 5,5:1 | 5,4:1 | 6,5:1 |
 
 Las demás pantallas (Ajustes, «Muy pronto», 404) siguen con tarjetas casi opacas
 (`bg-card/92`) y halo `bg-background/75` en los títulos. Pasarán a `GlassCard` cuando se

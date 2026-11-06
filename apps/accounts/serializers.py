@@ -173,8 +173,12 @@ class DailyReminderSerializer(serializers.ModelSerializer):
         input_formats=["%H:%M", "%H:%M:%S"],
         error_messages={"invalid": "Elige una hora válida, por ejemplo 20:00."},
     )
+    frequency = serializers.ChoiceField(
+        choices=DailyReminder.Frequency.choices,
+        error_messages={"invalid_choice": "Elige «una vez al día» o «cada hora»."},
+    )
 
     class Meta:
         model = DailyReminder
-        fields = ("enabled", "time", "last_notified_on")
+        fields = ("enabled", "time", "frequency", "last_notified_on")
         read_only_fields = ("last_notified_on",)

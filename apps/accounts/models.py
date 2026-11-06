@@ -115,11 +115,19 @@ class AccessPin(models.Model):
 
 class DailyReminder(models.Model):
     """
-    Recordatorio diario para registrar una huella (HU5). La hora es la hora local del
-    proyecto (America/Bogota). Solo se avisa una vez al día y nunca si ese día ya hubo huella.
+    Recordatorio para registrar una huella (HU5). Las horas son locales del proyecto
+    (America/Bogota). Puede avisar una vez al día a la hora elegida, o cada hora en punto
+    dentro de la franja diurna. Nunca avisa si ese día ya hubo huella.
     """
 
+    class Frequency(models.TextChoices):
+        DAILY = "daily", "Una vez al día"
+        HOURLY = "hourly", "Cada hora"
+
     DEFAULT_TIME = time(20, 0)
+    # Franja del modo «cada hora»: el primer aviso a las 8:00 y el último a las 21:00.
+    HOURLY_FIRST = time(8, 0)
+    HOURLY_LAST = time(21, 0)
 
     user = models.OneToOneField(
         User,
@@ -129,7 +137,9 @@ class DailyReminder(models.Model):
     )
     enabled = models.BooleanField(default=False)
     time = models.TimeField(default=DEFAULT_TIME)
+    frequency = models.CharField(max_length=10, choices=Frequency.choices, default=Frequency.DAILY)
     last_notified_on = models.DateField(null=True, blank=True)
+    last_notified_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -137,23 +147,35 @@ class DailyReminder(models.Model):
         verbose_name_plural = "recordatorios diarios"
 
     def __str__(self):
+        if self.frequency == self.Frequency.HOURLY:
+            return f"Recordatorio de {self.user.email} cada hora"
         return f"Recordatorio de {self.user.email} a las {self.time:%H:%M}"
 
     def status(self, now=None):
         """
         Decide si toca avisar ahora. Devuelve "due" o el motivo para no hacerlo:
-        "disabled", "early" (aún no llega la hora), "already_notified" (ya se avisó hoy) o
-        "already_registered" (hoy ya registró una huella).
+        "disabled", "early" (aún no llega la hora), "late" (en el modo «cada hora», ya pasó
+        el último aviso del día), "already_notified" (ya se avisó hoy o, cada hora, en esta
+        hora) o "already_registered" (hoy ya registró una huella).
         """
         from apps.traces.models import Trace
 
         local = timezone.localtime(now or timezone.now())
         if not self.enabled:
             return "disabled"
-        if local.time() < self.time:
-            return "early"
-        if self.last_notified_on == local.date():
-            return "already_notified"
+        if self.frequency == self.Frequency.HOURLY:
+            if local.time() < self.HOURLY_FIRST:
+                return "early"
+            if local.hour > self.HOURLY_LAST.hour:
+                return "late"
+            this_hour = local.replace(minute=0, second=0, microsecond=0)
+            if self.last_notified_at and self.last_notified_at >= this_hour:
+                return "already_notified"
+        else:
+            if local.time() < self.time:
+                return "early"
+            if self.last_notified_on == local.date():
+                return "already_notified"
         start = timezone.make_aware(datetime.combine(local.date(), time.min))
         registered_today = (
             Trace.objects.filter(user=self.user)

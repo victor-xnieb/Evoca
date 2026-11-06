@@ -64,5 +64,5 @@ class AccessPinAdmin(admin.ModelAdmin):
 
 @admin.register(DailyReminder)
 class DailyReminderAdmin(admin.ModelAdmin):
-    list_display = ("user", "enabled", "time", "last_notified_on")
+    list_display = ("user", "enabled", "frequency", "time", "last_notified_on")
     search_fields = ("user__email",)

@@ -177,7 +177,7 @@ def own_reminder(user):
 
 
 class DailyReminderView(APIView):
-    """Recordatorio diario (HU5): consultarlo, activarlo, cambiar la hora o desactivarlo."""
+    """Recordatorio (HU5): consultarlo, activarlo, elegir la hora o «cada hora», o desactivarlo."""
 
     def get(self, request):
         return Response(DailyReminderSerializer(own_reminder(request.user)).data)
@@ -190,7 +190,7 @@ class DailyReminderView(APIView):
 
 
 class DailyReminderStatusView(APIView):
-    """Si toca mostrar la notificación ahora: hora alcanzada, sin aviso hoy y sin huella hoy."""
+    """Si toca mostrar la notificación ahora: hora alcanzada, sin aviso pendiente y sin huella hoy."""
 
     def get(self, request):
         reminder = own_reminder(request.user)
@@ -199,10 +199,11 @@ class DailyReminderStatusView(APIView):
 
 
 class DailyReminderAckView(APIView):
-    """La app mostró la notificación: no se repite hasta mañana."""
+    """La app mostró la notificación: no se repite hasta mañana (o, cada hora, hasta la próxima hora)."""
 
     def post(self, request):
         reminder = own_reminder(request.user)
-        reminder.last_notified_on = timezone.localdate()
-        reminder.save(update_fields=["last_notified_on", "updated_at"])
+        reminder.last_notified_at = timezone.now()
+        reminder.last_notified_on = timezone.localdate(reminder.last_notified_at)
+        reminder.save(update_fields=["last_notified_on", "last_notified_at", "updated_at"])
         return Response(DailyReminderSerializer(reminder).data)

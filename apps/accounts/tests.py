@@ -396,6 +396,53 @@ class DailyReminderTests(APITestCase):
         self.assertEqual(self.status_at(self.at(today, 21))["reason"], "already_notified")
         self.assertTrue(self.status_at(self.at(date(2026, 11, 7), 20, 0))["due"])
 
+    def ack_at(self, moment):
+        with mock.patch("django.utils.timezone.now", return_value=moment):
+            self.client.post(reverse("reminder-ack"))
+
+    def test_starts_once_a_day_and_can_switch_to_every_hour(self):
+        self.assertEqual(self.client.get(reverse("reminder")).data["frequency"], "daily")
+
+        response = self.client.put(reverse("reminder"), {"enabled": True, "frequency": "hourly"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["frequency"], "hourly")
+        self.assertEqual(DailyReminder.objects.get(user=self.user).frequency, "hourly")
+
+    def test_rejects_unknown_frequency(self):
+        response = self.client.put(reverse("reminder"), {"frequency": "weekly"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("frequency", response.data)
+
+    def test_every_hour_until_a_trace_is_registered(self):
+        self.client.put(reverse("reminder"), {"enabled": True, "frequency": "hourly"}, format="json")
+        today = date(2026, 11, 6)
+
+        self.assertEqual(self.status_at(self.at(today, 7, 59, 59))["reason"], "early")
+        self.assertTrue(self.status_at(self.at(today, 8, 0))["due"])
+        self.ack_at(self.at(today, 8, 0))
+        self.assertEqual(self.status_at(self.at(today, 8, 59, 59))["reason"], "already_notified")
+        self.assertTrue(self.status_at(self.at(today, 9, 0))["due"])
+        self.ack_at(self.at(today, 9, 0))
+
+        Trace.objects.create(
+            user=self.user, sensory_type="aroma", note="Café", emotion="calma", mood_intensity=3,
+            happened_at=self.at(today, 9, 20),
+        )
+
+        self.assertEqual(self.status_at(self.at(today, 10, 0))["reason"], "already_registered")
+        self.assertTrue(self.status_at(self.at(date(2026, 11, 7), 8, 0))["due"])
+
+    def test_every_hour_stops_after_nine_pm(self):
+        self.client.put(reverse("reminder"), {"enabled": True, "frequency": "hourly"}, format="json")
+        today = date(2026, 11, 6)
+
+        self.assertTrue(self.status_at(self.at(today, 21, 0))["due"])
+        self.ack_at(self.at(today, 21, 0))
+        self.assertEqual(self.status_at(self.at(today, 21, 59))["reason"], "already_notified")
+        self.assertEqual(self.status_at(self.at(today, 22, 0))["reason"], "late")
+
     def test_export_includes_the_reminder(self):
         self.enable("07:15")
 

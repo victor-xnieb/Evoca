@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it } from "vitest"
+import { beforeAll, describe, expect, it } from "vitest"
 
 import type { MoodData } from "@/lib/traces"
 import { EMOTION_OPTIONS, SENSORY_OPTIONS } from "@/mocks/fixtures"
@@ -53,6 +53,12 @@ function mockMood(week: MoodData["points"], month: MoodData["points"]) {
     "GET traces/mood/": ({ query }) => (query.get("period") === "month" ? mood("month", month) : mood("week", week)),
   })
 }
+
+// «Mi ánimo» se carga en diferido junto con Recharts: se importa antes para que las pruebas
+// midan la pantalla y no la importación en frío (lenta si el equipo está ocupado).
+beforeAll(async () => {
+  await import("@/pages/MoodPage")
+}, 60_000)
 
 describe("HU4 · Escenario 1: vista semanal y mensual, cada punto es un registro real", () => {
   it("la vista semanal muestra un punto por cada registro de la semana", async () => {

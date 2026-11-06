@@ -178,9 +178,10 @@ npm run preview
 | GET | `/api/v1/auth/consents/` | Autorizaciones dadas, con versión y fecha |
 | GET | `/api/v1/auth/export/` | Descarga un archivo JSON con todos los datos propios |
 | DELETE | `/api/v1/auth/account/` | Elimina la cuenta y todos sus datos (pide `password`) |
-| GET/POST | `/api/v1/traces/` | Lista (la más reciente primero; filtros `?sensory_type=` y `?emotion=`) o crea huellas del usuario |
+| GET/POST | `/api/v1/traces/` | Lista (la más reciente primero; filtros `?sensory_type=`, `?emotion=` y `?date=AAAA-MM-DD`) o crea huellas del usuario |
 | GET | `/api/v1/traces/catalog/` | Tipos sensoriales y emociones válidos, con su etiqueta |
 | GET | `/api/v1/traces/mood/?period=week|month` | Gráfica de ánimo: un punto por huella de los últimos 7 o 30 días y el promedio |
+| GET | `/api/v1/traces/calendar/?month=AAAA-MM` | Calendario: por día, la emoción dominante, la intensidad promedio y cuántas huellas hay |
 | GET/PATCH/DELETE | `/api/v1/traces/{id}/` | Consulta, modifica o elimina una huella propia |
 
 Para rutas privadas, envía:

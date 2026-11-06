@@ -4,10 +4,12 @@ import { Link, useNavigate } from "react-router"
 import { GlassCard } from "@/components/evoca/GlassCard"
 import { TraceCard } from "@/components/evoca/TraceCard"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import type { TraceCatalog } from "@/lib/traces"
 import { labelOf } from "@/lib/traces"
 import type { Trace } from "@/lib/types"
 
+/** Con más de estas huellas aparece «Ver todas»; la lista se desplaza dentro de la tarjeta. */
 const VISIBLE = 4
 
 interface RecentTracesProps {
@@ -38,19 +40,30 @@ export function RecentTraces({ traces, total, catalog, savedTraceId }: RecentTra
           Guardaste tu huella.
         </p>
       )}
-      <ul className="flex flex-col gap-3" aria-label="Huellas recientes">
-        {traces.slice(0, VISIBLE).map((trace) => (
-          <li key={trace.id}>
-            <TraceCard
-              trace={trace}
-              sensoryLabel={labelOf(catalog?.sensory_types ?? [], trace.sensory_type)}
-              emotionLabel={labelOf(catalog?.emotions ?? [], trace.emotion)}
-              className={trace.id === savedTraceId ? "ring-2 ring-(--emotion-calma)" : undefined}
-              onOpen={() => navigate(`/mis-huellas/${trace.id}`)}
-            />
-          </li>
-        ))}
-      </ul>
+      {/* Altura fija con desplazamiento interno: la tarjeta no crece al sumar huellas. Cada
+          huella es un botón, así que con Tab se recorre y el navegador desplaza la lista. */}
+      <div
+        role="region"
+        aria-label="Lista desplazable de huellas recientes"
+        className={cn(
+          "evoca-scroll -mx-1 max-h-[min(26rem,55vh)] overflow-y-auto overscroll-contain rounded-2xl px-1 py-1",
+          traces.length > 3 && "evoca-scroll-fade",
+        )}
+      >
+        <ul className="flex flex-col gap-3 pb-6" aria-label="Huellas recientes">
+          {traces.map((trace) => (
+            <li key={trace.id}>
+              <TraceCard
+                trace={trace}
+                sensoryLabel={labelOf(catalog?.sensory_types ?? [], trace.sensory_type)}
+                emotionLabel={labelOf(catalog?.emotions ?? [], trace.emotion)}
+                className={trace.id === savedTraceId ? "ring-2 ring-(--emotion-calma)" : undefined}
+                onOpen={() => navigate(`/mis-huellas/${trace.id}`)}
+              />
+            </li>
+          ))}
+        </ul>
+      </div>
       <div className="flex flex-wrap gap-3">
         <Button asChild size="lg" className="h-12 rounded-full px-6 text-base">
           <Link to="/nueva-huella">

@@ -18,6 +18,16 @@ export interface NewTrace {
 export interface TraceFilters {
   sensory_type?: string | null
   emotion?: string | null
+  /** Día AAAA-MM-DD (hora de Bogotá). */
+  date?: string | null
+}
+
+/** Calendario de un mes: por día con huellas, su emoción dominante (GET /traces/calendar/). */
+export interface CalendarData {
+  month: string
+  /** Primer mes con datos o en que se creó la cuenta: no se navega más atrás. */
+  first_month: string
+  days: Array<{ date: string; dominant_emotion: string; average_intensity: number; count: number }>
 }
 
 export type MoodPeriod = "week" | "month"
@@ -41,8 +51,14 @@ export const tracesApi = {
   /** Mis huellas filtradas por tipo y/o emoción, de la más reciente a la más antigua. */
   list: (filters: TraceFilters = {}, page = 1) =>
     api.get<Paginated<Trace>>("traces/", {
-      query: { sensory_type: filters.sensory_type, emotion: filters.emotion, page: page > 1 ? page : undefined },
+      query: {
+        sensory_type: filters.sensory_type,
+        emotion: filters.emotion,
+        date: filters.date,
+        page: page > 1 ? page : undefined,
+      },
     }),
+  calendar: (month: string) => api.get<CalendarData>("traces/calendar/", { query: { month } }),
   mood: (period: MoodPeriod) => api.get<MoodData>("traces/mood/", { query: { period } }),
   get: (id: string) => api.get<Trace>(`traces/${id}/`),
   create: (trace: NewTrace) => api.post<Trace>("traces/", trace),

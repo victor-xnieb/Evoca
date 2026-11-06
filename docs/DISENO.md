@@ -207,7 +207,7 @@ Preparado y documentado; **no implementado en esta rama**.
 | --- | --- |
 | HU1 | **Hecho.** La pantalla de bloqueo (`LockScreen`) y las de entrar, registrarse y crear el PIN (`AuthLayout`) usan el mismo `AnimatedBackground`, con el teclado y los formularios en una `GlassCard` |
 | HU2 | **Hecho.** `EmotionChip` usa la esfera pequeña como ícono de cada emoción y `EmotionPicker` muestra las 8 emociones como un conjunto de esferas |
-| HU3 | `TraceCard` muestra la esfera pequeña de la emoción de cada huella |
+| HU3 | **Hecho.** `TraceCard` muestra la esfera pequeña de la emoción de cada huella (vía `EmotionChip`) en «Mis huellas» y en Inicio |
 | HU4 | La leyenda de la gráfica usa esferas pequeñas; las líneas y puntos siguen usando los tokens de color, no las imágenes |
 | HU5 | La ilustración del recordatorio puede usar una esfera con animación suave (`animated`) |
 | HU6 | Fondo estático y calmado: `AppShell background="static"` (o `AnimatedBackground variant="static"`), sin video ni esferas en movimiento |

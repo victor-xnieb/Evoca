@@ -26,8 +26,8 @@ Cada HU tiene tres subtareas en Jira: **Desarrollo** (backend), **Interfaz** (pa
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | HU1 · Crear cuenta y proteger mi acceso | SCRUM-10 | 8 | Highest | Cuenta y privacidad | SCRUM-27 | SCRUM-28 | SCRUM-29 | `feature/hu1-cuenta-y-pin` | En dev (parcial: biometría) |
 | 2 | HU2 · Registrar una huella sensorial | SCRUM-15 | 5 | Highest | Registro de huellas | SCRUM-30 | SCRUM-31 | SCRUM-32 | `feature/hu2-registrar-huella` | En dev |
-| 3 | HU3 · Ver y editar mis huellas | SCRUM-12 | 5 | High | Registro de huellas | SCRUM-33 | SCRUM-34 | SCRUM-35 | `feature/hu3-ver-editar-huellas` | En revisión (parcial: gráfica y calendario) |
-| 4 | HU4 · Ver mi gráfica de ánimo | SCRUM-13 | 3 | High | Seguimiento del ánimo | SCRUM-36 | SCRUM-37 | SCRUM-38 | `feature/hu4-grafica-animo` | Pendiente |
+| 3 | HU3 · Ver y editar mis huellas | SCRUM-12 | 5 | High | Registro de huellas | SCRUM-33 | SCRUM-34 | SCRUM-35 | `feature/hu3-ver-editar-huellas` | En dev (parcial: calendario) |
+| 4 | HU4 · Ver mi gráfica de ánimo | SCRUM-13 | 3 | High | Seguimiento del ánimo | SCRUM-36 | SCRUM-37 | SCRUM-38 | `feature/hu4-grafica-animo` | En revisión |
 | 5 | HU7 · Ver mi calendario de ánimo por colores | SCRUM-17 | 3 | High | Seguimiento del ánimo | SCRUM-45 | SCRUM-46 | SCRUM-47 | `feature/hu7-calendario-animo` | Pendiente |
 | 6 | HU5 · Recibir un recordatorio diario | SCRUM-14 | 2 | Medium | Registro de huellas | SCRUM-39 | SCRUM-40 | SCRUM-41 | `feature/hu5-recordatorio-diario` | Pendiente |
 | 7 | HU6 · Recibir orientación hacia ayuda profesional | SCRUM-16 | 5 | High | Seguimiento del ánimo | SCRUM-42 | SCRUM-43 | SCRUM-44 | `feature/hu6-orientacion-ayuda` | Pendiente |
@@ -150,7 +150,7 @@ emoción, y editar o borrar una, para mantener mi registro al día y corregir er
 | --- | --- | --- | --- | --- |
 | 1 · Filtro por tipo o emoción y veo solo las que coinciden, de la más reciente a la más antigua | Orden por `created_at` descendente; `?sensory_type=` y `?emotion=` combinables | `apps/traces/tests.py` (`ManageTracesTests`: `test_lists_only_my_traces_newest_first`, `test_filters_by_sensory_type_newest_first`, `test_filters_by_emotion_newest_first`, `test_combines_type_and_emotion`, `test_filter_without_matches_returns_empty_list`, `test_rejects_unknown_filter_values`); `frontend/src/app/hu3.test.tsx` (escenario 1) | `/mis-huellas` ([lista](capturas/hu3-lista.jpg), [filtros](capturas/hu3-filtros.jpg)) | Cumplido |
 | 2 · Cambio la nota, la emoción o la intensidad y guardo | Se guarda y la lista ya trae el cambio | `test_edits_note_emotion_and_intensity`, `test_edit_validates_like_create`, `test_cannot_edit_or_delete_another_persons_trace`; `hu3.test.tsx` (escenario 2) | `/mis-huellas/:id` ([captura](capturas/hu3-editar.jpg)) | Cumplido |
-| 2 · El cambio se refleja en mi gráfica y en mi calendario | — | La gráfica (HU4) y el calendario (HU7) todavía no existen. Leerán las mismas huellas, y la prueba confirma que la lista ya devuelve el valor editado | — | **Parcial** (se completa en HU4 y HU7) |
+| 2 · El cambio se refleja en mi gráfica y en mi calendario | — | Gráfica: `MoodChartTests.test_editing_a_trace_is_reflected_in_the_chart` y el recorrido de HU4 (el punto editado cambia). El calendario (HU7) todavía no existe | `/animo` | **Parcial** (gráfica cumplida; calendario en HU7) |
 | 3 · Confirmo borrar y la huella desaparece de mi lista y de los recuerdos que la incluían | Confirmación previa; borrado en el servidor; la relación con las memorias se elimina | `test_delete_removes_it_from_my_list_and_from_memories`; `hu3.test.tsx`: «cancelar no borra nada», «al confirmar, la huella desaparece de mi lista» | Diálogo de confirmación ([captura](capturas/hu3-borrar.jpg)) | Cumplido |
 
 Recorrido completo contra el backend real con Playwright:
@@ -176,7 +176,19 @@ notar patrones que de otro modo pasarían inadvertidos.
 
 **Subtareas:** Desarrollo SCRUM-36 · Interfaz SCRUM-37 · Pruebas SCRUM-38.
 
-**Evidencia:** pendiente.
+**Evidencia** (rama `feature/hu4-grafica-animo`):
+
+| Escenario | Medida | Prueba automática | Pantalla | Estado |
+| --- | --- | --- | --- | --- |
+| 1 · Al alternar entre la vista semanal y la mensual, cada punto corresponde a un registro real | Semana = últimos 7 días; mes = últimos 30; un punto por huella, sin agrupar | `apps/traces/tests.py` (`MoodChartTests`: `test_week_has_one_point_per_real_trace_of_the_last_7_days`, `test_month_includes_the_last_30_days`, `test_uses_when_it_happened_if_given`, `test_never_includes_other_peoples_traces`); `frontend/src/app/hu4.test.tsx` (escenario 1) | `/animo` ([semana](capturas/hu4-semana.jpg), [mes en oscuro](capturas/hu4-mes-oscuro.jpg)) | Cumplido |
+| 2 · Sin registros en el periodo veo un mensaje que me invita a registrar mi primera huella | Mensaje y botón «Registrar mi primera huella» | `test_empty_period_has_no_points_and_no_average`; `hu4.test.tsx` (escenario 2) | Estado vacío ([captura](capturas/hu4-vacio.jpg)) | Cumplido |
+| 3 · Con hasta 90 días de datos veo el promedio del periodo | Promedio con un decimal | `test_average_of_the_period`; `hu4.test.tsx`: «muestra el promedio del periodo» | Resumen sobre la gráfica | Cumplido |
+| 3 · …y la gráfica carga en menos de 2 segundos | < 2 s | `test_ninety_days_of_data_load_in_under_two_seconds` (360 huellas en 90 días; 2 consultas). Recorrido con Playwright contra el backend real y el build de producción: semana **1,04 s** (primera apertura, incluye bajar el código de la gráfica), mes **0,21 s**, recarga completa desde el PIN **1,06 s** | — | Cumplido |
+
+El recorrido con Playwright también confirmó dos cosas:
+
+- La gráfica de la semana tiene los mismos 28 puntos que reporta el servidor.
+- Al editar una huella desde la app, el punto cambia en la gráfica: los puntos «Enojo, 1 de 5» pasaron de 3 a 4, y el servidor confirma el valor editado. Esto completa la parte de la gráfica del escenario 2 de HU3.
 
 ## HU5 · Recibir un recordatorio diario (SCRUM-14)
 
@@ -274,8 +286,8 @@ Se completa al cerrar la HU8.
 | --- | --- | --- | --- |
 | HU1 | 3 de 3 con PIN; huella o rostro parcial | SCRUM-27, SCRUM-28 y SCRUM-29 cubiertas | Huella o rostro: verificación local, sin prueba en un dispositivo real |
 | HU2 | 3 de 3 | SCRUM-30, SCRUM-31 y SCRUM-32 cubiertas | — |
-| HU3 | 1 y 3 completos; 2 parcial | SCRUM-33, SCRUM-34 y SCRUM-35 cubiertas | Escenario 2: el reflejo en la gráfica y el calendario se verifica en HU4 y HU7 |
-| HU4 | — | — | — |
+| HU3 | 1 y 3 completos; 2 parcial | SCRUM-33, SCRUM-34 y SCRUM-35 cubiertas | Escenario 2: la gráfica ya refleja la edición (verificado en HU4); falta el calendario (HU7) |
+| HU4 | 3 de 3 | SCRUM-36, SCRUM-37 y SCRUM-38 cubiertas | — |
 | HU5 | — | — | — |
 | HU6 | — | — | — |
 | HU7 | — | — | — |

@@ -50,12 +50,12 @@ export default defineConfig({
     assetsInlineLimit: (file) => (file.endsWith(".webp") ? false : undefined),
     rollupOptions: {
       output: {
-        // Separa librerías grandes para que la carga inicial siga siendo liviana.
+        // Separa librerías grandes para que la carga inicial siga siendo liviana. Recharts no se
+        // agrupa aquí: solo la usa «Mi ánimo» (diferida) y agrupada a mano arrastraba a React.
         manualChunks(id) {
           const normalized = id.replaceAll("\\", "/")
           if (/node_modules\/(react|react-dom|scheduler|react-router)\//.test(normalized)) return "react"
           if (/node_modules\/(motion|framer-motion|motion-dom|motion-utils)\//.test(normalized)) return "motion"
-          if (/node_modules\/(recharts|d3-[a-z-]+|victory-vendor)\//.test(normalized)) return "charts"
           if (normalized.includes("node_modules/lottie-web/")) return "lottie"
           return undefined
         },

@@ -180,6 +180,7 @@ npm run preview
 | DELETE | `/api/v1/auth/account/` | Elimina la cuenta y todos sus datos (pide `password`) |
 | GET/POST | `/api/v1/traces/` | Lista (la más reciente primero; filtros `?sensory_type=` y `?emotion=`) o crea huellas del usuario |
 | GET | `/api/v1/traces/catalog/` | Tipos sensoriales y emociones válidos, con su etiqueta |
+| GET | `/api/v1/traces/mood/?period=week|month` | Gráfica de ánimo: un punto por huella de los últimos 7 o 30 días y el promedio |
 | GET/PATCH/DELETE | `/api/v1/traces/{id}/` | Consulta, modifica o elimina una huella propia |
 
 Para rutas privadas, envía:

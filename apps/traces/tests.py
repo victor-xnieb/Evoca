@@ -1,3 +1,4 @@
+import time
 from datetime import date, timedelta
 
 from django.utils import timezone
@@ -291,3 +292,121 @@ class ManageTracesTests(APITestCase):
         self.assertFalse(Trace.objects.filter(pk=trace.pk).exists())
         self.assertEqual(list(memory.traces.all()), [self.traces[0]])
         self.assertFalse(MemoryTrace.objects.filter(trace_id=trace.pk).exists())
+
+
+class MoodChartTests(APITestCase):
+    """HU4: datos de la gráfica de ánimo semanal y mensual (y HU3: la edición se refleja)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="animo@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1)
+        )
+        self.client.force_authenticate(self.user)
+        self.url = "/api/v1/traces/mood/"
+        self.now = timezone.now()
+
+    def add(self, days_ago, intensity, emotion="calma", user=None):
+        trace = Trace.objects.create(
+            user=user or self.user, sensory_type="aroma", note=f"Hace {days_ago} días", emotion=emotion,
+            mood_intensity=intensity,
+        )
+        Trace.objects.filter(pk=trace.pk).update(created_at=self.now - timedelta(days=days_ago, hours=1))
+        return trace
+
+    def test_week_has_one_point_per_real_trace_of_the_last_7_days(self):
+        recent = [self.add(1, 4, "alegria"), self.add(3, 2, "tristeza"), self.add(6, 5, "gratitud")]
+        self.add(8, 1)  # fuera de la semana
+
+        response = self.client.get(self.url, {"period": "week"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 3)
+        # En orden cronológico; cada punto es una huella real con su intensidad y emoción.
+        self.assertEqual([p["id"] for p in response.data["points"]], [str(t.id) for t in reversed(recent)])
+        by_id = {str(t.id): t for t in recent}
+        for point in response.data["points"]:
+            trace = by_id[point["id"]]
+            self.assertEqual((point["intensity"], point["emotion"]), (trace.mood_intensity, trace.emotion))
+
+    def test_month_includes_the_last_30_days(self):
+        for days in (1, 10, 29):
+            self.add(days, 3)
+        self.add(31, 3)
+
+        response = self.client.get(self.url, {"period": "month"})
+
+        self.assertEqual(response.data["count"], 3)
+
+    def test_average_of_the_period(self):
+        self.add(1, 4)
+        self.add(2, 5)
+        self.add(3, 2)
+
+        response = self.client.get(self.url, {"period": "week"})
+
+        self.assertEqual(response.data["average"], 3.7)
+
+    def test_empty_period_has_no_points_and_no_average(self):
+        self.add(20, 3)  # solo hay datos del mes, no de la semana
+
+        response = self.client.get(self.url, {"period": "week"})
+
+        self.assertEqual(response.data["count"], 0)
+        self.assertEqual(response.data["points"], [])
+        self.assertIsNone(response.data["average"])
+
+    def test_uses_when_it_happened_if_given(self):
+        trace = self.add(40, 3)
+        Trace.objects.filter(pk=trace.pk).update(happened_at=self.now - timedelta(days=2))
+
+        response = self.client.get(self.url, {"period": "week"})
+
+        self.assertEqual([p["id"] for p in response.data["points"]], [str(trace.id)])
+
+    def test_never_includes_other_peoples_traces(self):
+        other = User.objects.create_user(
+            email="otra-animo@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1)
+        )
+        self.add(1, 5, user=other)
+
+        self.assertEqual(self.client.get(self.url).data["count"], 0)
+
+    def test_rejects_unknown_period(self):
+        self.assertEqual(self.client.get(self.url, {"period": "year"}).status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_editing_a_trace_is_reflected_in_the_chart(self):
+        trace = self.add(1, 2, "tristeza")
+
+        self.client.patch(f"/api/v1/traces/{trace.id}/", {"emotion": "alegria", "mood_intensity": 5}, format="json")
+
+        point = self.client.get(self.url).data["points"][0]
+        self.assertEqual((point["emotion"], point["intensity"]), ("alegria", 5))
+
+    def test_deleting_a_trace_removes_its_point(self):
+        trace = self.add(1, 2)
+
+        self.client.delete(f"/api/v1/traces/{trace.id}/")
+
+        self.assertEqual(self.client.get(self.url).data["count"], 0)
+
+    def test_ninety_days_of_data_load_in_under_two_seconds(self):
+        # 90 días con 4 huellas por día (360 registros).
+        rows = [
+            Trace(user=self.user, sensory_type="aroma", note="x", emotion="calma", mood_intensity=(day % 5) + 1)
+            for day in range(90)
+            for _ in range(4)
+        ]
+        created = Trace.objects.bulk_create(rows)
+        for index, trace in enumerate(created):
+            trace.created_at = self.now - timedelta(days=index // 4, hours=index % 4)
+        Trace.objects.bulk_update(created, ["created_at"])
+
+        started = time.perf_counter()
+        with self.assertNumQueries(2):
+            response = self.client.get(self.url, {"period": "month"})
+        elapsed = time.perf_counter() - started
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 120)
+        self.assertIsNotNone(response.data["average"])
+        self.assertLess(elapsed, 2.0)

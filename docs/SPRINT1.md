@@ -24,7 +24,7 @@ Cada HU tiene tres subtareas en Jira: **Desarrollo** (backend), **Interfaz** (pa
 
 | Orden | HU | Jira | Pts | Prioridad | Épica | Desarrollo | Interfaz | Pruebas | Rama | Estado en el repo |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | HU1 · Crear cuenta y proteger mi acceso | SCRUM-10 | 8 | Highest | Cuenta y privacidad | SCRUM-27 | SCRUM-28 | SCRUM-29 | `feature/hu1-cuenta-y-pin` | Pendiente |
+| 1 | HU1 · Crear cuenta y proteger mi acceso | SCRUM-10 | 8 | Highest | Cuenta y privacidad | SCRUM-27 | SCRUM-28 | SCRUM-29 | `feature/hu1-cuenta-y-pin` | En revisión (parcial: biometría) |
 | 2 | HU2 · Registrar una huella sensorial | SCRUM-15 | 5 | Highest | Registro de huellas | SCRUM-30 | SCRUM-31 | SCRUM-32 | `feature/hu2-registrar-huella` | Pendiente |
 | 3 | HU3 · Ver y editar mis huellas | SCRUM-12 | 5 | High | Registro de huellas | SCRUM-33 | SCRUM-34 | SCRUM-35 | `feature/hu3-ver-editar-huellas` | Pendiente |
 | 4 | HU4 · Ver mi gráfica de ánimo | SCRUM-13 | 3 | High | Seguimiento del ánimo | SCRUM-36 | SCRUM-37 | SCRUM-38 | `feature/hu4-grafica-animo` | Pendiente |
@@ -77,7 +77,28 @@ que nadie más vea mis recuerdos y poder llevarme o borrar mis datos cuando quie
 
 **Subtareas:** Desarrollo SCRUM-27 · Interfaz SCRUM-28 · Pruebas SCRUM-29.
 
-**Evidencia:** pendiente (se completa en `feature/hu1-cuenta-y-pin`).
+**Evidencia** (rama `feature/hu1-cuenta-y-pin`):
+
+| Escenario | Medida | Prueba automática | Pantalla | Estado |
+| --- | --- | --- | --- | --- |
+| 1 · Menor de 18 o sin autorización: no se crea la cuenta y se explica el motivo | 18 años cumplidos (hoy sí, mañana no) | `apps/accounts/tests.py` (`RegistrationTests`: `test_accepts_person_who_turns_18_today`, `test_rejects_person_who_turns_18_tomorrow_and_explains_why`, `test_requires_sensitive_data_consent_and_explains_why`); `frontend/src/app/hu1.test.tsx` (escenario 1) | `/registro` ([captura](capturas/hu1-registro-rechazo.jpg)) | Cumplido |
+| 1 · La autorización se guarda con fecha y versión | `accepted_at` y `document_version` | `test_sensitive_data_consent_is_saved_with_date_and_version`, `test_lists_own_consents`; en Ajustes se muestra la fecha y la versión | `/ajustes` ([captura](capturas/hu1-ajustes.jpg)) | Cumplido |
+| 2 · Al abrir la app o volver desde segundo plano pide el PIN | PIN de 4 dígitos | `PinTests.test_pin_must_have_exactly_four_digits`; `hu1.test.tsx`: «al abrir la app…», «vuelve a pedir el PIN al regresar desde segundo plano» | Pantalla de bloqueo ([captura](capturas/hu1-crear-pin.jpg)) | Cumplido |
+| 2 · Tras 5 intentos fallidos, bloqueo de 5 minutos | 5 intentos, 5 min (4:59 sigue bloqueado; a los 5:00 se libera) | `test_four_failures_do_not_lock`, `test_fifth_failure_locks_for_five_minutes`, `test_locked_rejects_even_the_correct_pin_until_five_minutes_pass`, `test_after_lock_expires_attempts_start_from_zero`; `hu1.test.tsx`: cuenta regresiva 5:00 | Bloqueo con cuenta regresiva ([captura](capturas/hu1-bloqueado.jpg)) | Cumplido |
+| 2 · «O mi huella o rostro, si lo activé» | — | Sin prueba automática: jsdom y Chrome sin ventana no tienen lector biométrico | Se ofrece tras crear el PIN y en Ajustes | **Parcial** (ver nota) |
+| 3 · Exportar: recibo mis datos en un archivo | Archivo `evoca-mis-datos-AAAA-MM-DD.json` | `DataRightsTests.test_export_returns_a_file_with_only_my_data`; `hu1.test.tsx`: «exportar descarga un archivo» | `/ajustes` | Cumplido |
+| 3 · Eliminar: la cuenta se elimina y los datos dejan de existir | Usuario, huellas, memorias, consentimientos, PIN y token borrados | `test_delete_requires_password`, `test_delete_removes_the_account_and_all_its_data`, `test_deleted_token_no_longer_works`; `hu1.test.tsx`: «eliminar pide confirmación…» | Diálogo de confirmación | Cumplido |
+
+Recorrido completo contra el backend real (SQLite temporal) con Playwright: registro rechazado
+y luego aceptado, creación del PIN, bloqueo al abrir, 5 fallos → «espera 5:00», tras recargar
+sigue bloqueado (4:59), «¿Olvidaste tu PIN?» → entrar con contraseña, exportación del archivo y
+eliminación de la cuenta (después, «Correo o contraseña incorrectos»).
+
+> **Nota sobre la huella o el rostro (parcial).** Se implementó con WebAuthn y el autenticador
+> del dispositivo (Windows Hello, Touch ID, huella de Android). La verificación es local: el
+> navegador confirma a la persona y la app se desbloquea. El servidor no valida la firma, así
+> que protege frente a quien toma el celular desbloqueado, igual que el PIN de la interfaz,
+> pero no es un segundo factor del servidor. Falta probarlo en un celular real.
 
 ## HU2 · Registrar una huella sensorial (SCRUM-15)
 
@@ -229,7 +250,7 @@ Se completa al cerrar la HU8.
 
 | HU | Escenarios cumplidos | Subtareas cubiertas | Parciales |
 | --- | --- | --- | --- |
-| HU1 | — | — | — |
+| HU1 | 3 de 3 con PIN; huella o rostro parcial | SCRUM-27, SCRUM-28 y SCRUM-29 cubiertas | Huella o rostro: verificación local, sin prueba en un dispositivo real |
 | HU2 | — | — | — |
 | HU3 | — | — | — |
 | HU4 | — | — | — |

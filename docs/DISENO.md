@@ -205,7 +205,7 @@ Preparado y documentado; **no implementado en esta rama**.
 
 | HU | Uso previsto |
 | --- | --- |
-| HU1 | La pantalla del PIN y la de bloqueo usan el mismo `AnimatedBackground` (dentro de `AppShell` o directamente), con la tarjeta del teclado opaca encima |
+| HU1 | **Hecho.** La pantalla de bloqueo (`LockScreen`) y las de entrar, registrarse y crear el PIN (`AuthLayout`) usan el mismo `AnimatedBackground`, con el teclado y los formularios en una `GlassCard` |
 | HU2 | `EmotionChip` usa la esfera pequeña (`EmotionOrb size="sm" decorative`) como ícono de cada emoción; el selector de 8 emociones se ve como un conjunto de esferas |
 | HU3 | `TraceCard` muestra la esfera pequeña de la emoción de cada huella |
 | HU4 | La leyenda de la gráfica usa esferas pequeñas; las líneas y puntos siguen usando los tokens de color, no las imágenes |

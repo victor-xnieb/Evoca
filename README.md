@@ -172,7 +172,12 @@ npm run preview
 | POST | `/api/v1/auth/register/` | Crea una cuenta adulta y registra tres consentimientos |
 | POST | `/api/v1/auth/login/` | Devuelve un token |
 | POST | `/api/v1/auth/logout/` | Revoca el token actual |
-| GET | `/api/v1/auth/me/` | Devuelve el perfil autenticado |
+| GET | `/api/v1/auth/me/` | Devuelve el perfil autenticado (incluye `has_pin`) |
+| GET/PUT | `/api/v1/auth/pin/` | Estado del PIN o crearlo / cambiarlo (cambiarlo pide `password`) |
+| POST | `/api/v1/auth/pin/verify/` | Verifica el PIN; tras 5 fallos responde 423 durante 5 minutos |
+| GET | `/api/v1/auth/consents/` | Autorizaciones dadas, con versión y fecha |
+| GET | `/api/v1/auth/export/` | Descarga un archivo JSON con todos los datos propios |
+| DELETE | `/api/v1/auth/account/` | Elimina la cuenta y todos sus datos (pide `password`) |
 | GET/POST | `/api/v1/traces/` | Lista o crea huellas del usuario |
 | GET/PATCH/DELETE | `/api/v1/traces/{id}/` | Consulta, modifica o elimina una huella propia |
 

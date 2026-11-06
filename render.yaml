@@ -1,0 +1,80 @@
+# Blueprint de Render para Evoca (ver docs/DESPLIEGUE.md).
+#
+# Dos servicios desde la rama `dev`:
+#   - evoca-naranja-api: backend Django con gunicorn. Usa la base de Neon que ya existe.
+#   - evoca-naranja-web: frontend (PWA) como sitio estático.
+#
+# Los valores marcados `sync: false` son secretos o dependen de tu cuenta: Render los pide al
+# crear el Blueprint. Nunca se escriben en este archivo.
+#
+# Las direcciones de abajo asumen que Render asigna los nombres evoca-naranja-api y
+# evoca-naranja-web. Si te asigna otro subdominio, corrige DJANGO_CORS_ALLOWED_ORIGINS (API)
+# y VITE_API_URL (web) y vuelve a desplegar.
+
+services:
+  - type: web
+    name: evoca-naranja-api
+    runtime: python
+    plan: free
+    branch: dev
+    autoDeployTrigger: commit
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: bash scripts/render_start.sh
+    # `/api/v1/` responde sin tocar la base: Render lo consulta seguido y así no mantiene despierto a Neon.
+    healthCheckPath: /api/v1/
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.5
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      # Base de Neon (rama `development`): la cadena CON `-pooler` en el host.
+      - key: DATABASE_URL
+        sync: false
+      # Origen del frontend, sin barra final y sin comodines.
+      - key: DJANGO_CORS_ALLOWED_ORIGINS
+        value: https://evoca-naranja-web.onrender.com
+      # Sugerencia de emoción con Gemini (HU8). Sin clave, la app funciona sin sugerencia.
+      - key: EVOCA_AI_API_KEY
+        sync: false
+      # Cuentas de demostración: "true" crea las que falten al arrancar; "reset" las recrea
+      # (déjalo así un solo despliegue); cualquier otro valor no hace nada.
+      - key: EVOCA_SEED_DEMO
+        value: "false"
+      - key: EVOCA_DEMO_PASSWORD
+        sync: false
+      - key: EVOCA_DEMO_PIN
+        sync: false
+
+  - type: web
+    name: evoca-naranja-web
+    runtime: static
+    branch: dev
+    autoDeployTrigger: commit
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      # Dirección de la API. Vite la incrusta al compilar: si cambia, hay que volver a desplegar.
+      - key: VITE_API_URL
+        value: https://evoca-naranja-api.onrender.com/api/v1
+    routes:
+      # Las rutas de la app (/ajustes, /animo...) las resuelve React: se sirve siempre index.html.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      # El service worker y la página principal no se guardan en caché, para que una
+      # versión nueva llegue en la siguiente visita.
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable

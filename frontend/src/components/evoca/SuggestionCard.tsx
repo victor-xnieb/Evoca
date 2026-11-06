@@ -50,13 +50,14 @@ export function SuggestionCard({ loading = false, suggestion, applied = false, o
                 Intensidad {suggestion.intensity} · {INTENSITY_LABELS[suggestion.intensity - 1]}
               </span>
               {applied ? (
-                <span className="ml-auto inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold">
+                <span className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border px-4 text-sm font-semibold">
                   <Check aria-hidden="true" className="size-4" />
-                  En uso: puedes cambiarla abajo
+                  Aceptada · puedes cambiarla abajo
                 </span>
               ) : (
-                <Button type="button" variant="secondary" className="ml-auto h-11 rounded-full px-5" onClick={onAccept}>
-                  Usar sugerencia
+                <Button type="button" className="ml-auto h-11 gap-2 rounded-full px-5 font-semibold" onClick={onAccept}>
+                  <Check aria-hidden="true" className="size-4" />
+                  Aceptar sugerencia
                 </Button>
               )}
             </div>

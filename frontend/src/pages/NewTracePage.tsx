@@ -50,7 +50,7 @@ export function NewTracePage() {
   )
   const [errors, setErrors] = useState<Partial<Record<Field | "form", string>>>({})
   const [saving, setSaving] = useState(false)
-  // HU8: la IA propone emoción e intensidad; solo se aplican si la persona toca «Usar sugerencia».
+  // HU8: la IA propone emoción e intensidad; solo se aplican si la persona toca «Aceptar sugerencia».
   const { loading: suggesting, suggestion } = useEmotionSuggestion(form.note)
 
   // Primera vez = todavía no tiene huellas y no ha visto el ejemplo en este dispositivo.

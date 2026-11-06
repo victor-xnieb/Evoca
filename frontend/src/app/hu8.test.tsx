@@ -105,7 +105,7 @@ describe("HU8 · Escenario 1: con 10 palabras o más, al terminar de escribir ll
 
     await user.type(note, " y sonreí")
     // Mientras la nota nueva no tiene su sugerencia, la anterior ya no se ofrece.
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Usar sugerencia" })).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Aceptar sugerencia" })).not.toBeInTheDocument())
 
     await waitFor(() => expect(calls).toBe(2), { timeout: 3000 })
     const card = await screen.findByRole("region", { name: "Sugerencia de la IA" }, { timeout: 3000 })
@@ -133,11 +133,11 @@ describe("HU8 · Escenario 2: si acepto o cambio la sugerencia, se guarda mi ele
 
     await user.click(await screen.findByRole("radio", { name: "Aroma" }))
     await user.type(screen.getByLabelText("Escribe una nota corta"), TEN_WORDS)
-    await user.click(await screen.findByRole("button", { name: "Usar sugerencia" }, { timeout: 3000 }))
+    await user.click(await screen.findByRole("button", { name: "Aceptar sugerencia" }, { timeout: 3000 }))
 
     expect(screen.getByRole("radio", { name: "Nostalgia" })).toBeChecked()
     expect(screen.getByRole("radio", { name: /4 de 5/ })).toBeChecked()
-    expect(screen.getByText("En uso: puedes cambiarla abajo")).toBeInTheDocument()
+    expect(screen.getByText("Aceptada · puedes cambiarla abajo")).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Guardar huella" }))
 
     await waitFor(() =>
@@ -157,11 +157,11 @@ describe("HU8 · Escenario 2: si acepto o cambio la sugerencia, se guarda mi ele
 
     await user.click(await screen.findByRole("radio", { name: "Aroma" }))
     await user.type(screen.getByLabelText("Escribe una nota corta"), TEN_WORDS)
-    await user.click(await screen.findByRole("button", { name: "Usar sugerencia" }, { timeout: 3000 }))
+    await user.click(await screen.findByRole("button", { name: "Aceptar sugerencia" }, { timeout: 3000 }))
     await user.click(screen.getByRole("radio", { name: "Gratitud" }))
     await user.click(screen.getByRole("radio", { name: /2 de 5/ }))
 
-    expect(screen.getByRole("button", { name: "Usar sugerencia" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Aceptar sugerencia" })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Guardar huella" }))
 
     await waitFor(() => expect(sentBody(fetchMock, "POST traces/")).toMatchObject({ emotion: "gratitud", mood_intensity: 2 }))

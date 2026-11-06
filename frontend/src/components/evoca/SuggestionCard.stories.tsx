@@ -27,7 +27,7 @@ type Story = StoryObj<typeof meta>
 
 export const Sugerencia: Story = {}
 
-export const EnUso: Story = { name: "Sugerencia en uso", args: { applied: true } }
+export const Aceptada: Story = { name: "Sugerencia aceptada", args: { applied: true } }
 
 export const Leyendo: Story = { name: "La IA está leyendo", args: { suggestion: null, loading: true } }
 

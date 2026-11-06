@@ -5,6 +5,7 @@ import { EvocaLoader } from "@/components/evoca/EvocaLoader"
 import { useAuth } from "@/hooks/use-auth"
 
 import { AppLock } from "./AppLock"
+import { ReminderScheduler } from "./ReminderScheduler"
 
 function FullScreenLoader() {
   return (
@@ -25,8 +26,13 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   if (status === "loading") return <FullScreenLoader />
   if (status === "anonymous") return <Navigate to="/entrar" replace state={{ from: location.pathname }} />
   if (!user?.has_pin) return <Navigate to="/crear-pin" replace />
-  if (locked) return <AppLock />
-  return children
+  // El recordatorio funciona aunque la app esté bloqueada (al tocarlo se pide el PIN).
+  return (
+    <>
+      <ReminderScheduler />
+      {locked ? <AppLock /> : children}
+    </>
+  )
 }
 
 /** Crear el PIN: solo con sesión y mientras todavía no hay PIN. */

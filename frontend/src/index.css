@@ -239,6 +239,15 @@
   }
 }
 
+/* Listas con desplazamiento interno: barra delgada y un desvanecido abajo que avisa que hay más. */
+.evoca-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--foreground) 30%, transparent) transparent;
+}
+.evoca-scroll-fade {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2.5rem), transparent);
+}
+
 /* ---------- Cursor interactivo (InteractiveCursor) ---------- */
 .evoca-cursor-dot,
 .evoca-cursor-ring {

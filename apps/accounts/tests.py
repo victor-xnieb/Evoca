@@ -478,21 +478,21 @@ class DailyReminderTests(APITestCase):
 
 @override_settings(DEBUG=True)
 class SeedDemoTests(TestCase):
-    """Datos de demostración: tres cuentas listas para mostrar cada HU, sin duplicarse."""
+    """Datos de demostración: cuatro cuentas listas para mostrar cada HU, sin duplicarse."""
 
     def run_seed(self, *args):
         call_command("seed_demo", *args, stdout=StringIO())
 
-    def test_creates_three_complete_accounts_with_at_least_fifteen_traces(self):
+    def test_creates_four_complete_accounts_with_at_least_fifteen_traces(self):
         self.run_seed()
 
         users = User.objects.filter(email__endswith=".demo@example.com")
-        self.assertEqual(users.count(), 3)
+        self.assertEqual(users.count(), 4)
         for user in users:
             self.assertGreaterEqual(user.traces.count(), 15)
             self.assertEqual(user.consents.count(), 3)
             self.assertTrue(AccessPin.objects.filter(user=user).exists())
-            self.assertTrue(DailyReminder.objects.get(user=user).enabled)
+            self.assertTrue(DailyReminder.objects.filter(user=user).exists())
             # Las huellas salen en el orden en que ocurrieron.
             listed = list(user.traces.values_list("happened_at", flat=True))
             self.assertEqual(listed, sorted(listed, reverse=True))
@@ -509,16 +509,62 @@ class SeedDemoTests(TestCase):
         self.assertTrue(maria.traces.filter(happened_at__gte=start_of_today).exists())
         self.assertFalse(juliana.traces.filter(happened_at__gte=start_of_today).exists())
 
+    def test_the_second_hu6_account_meets_the_orientation_rule_with_a_fresh_state(self):
+        """Pedido del equipo: 14 o más fechas distintas en los últimos 21 días, ánimo 1 o 2 y mensaje sin mostrar."""
+        self.run_seed()
+
+        valentina = User.objects.get(email="valentina.demo@example.com")
+        today = timezone.localdate()
+        window_start = today - timedelta(days=20)
+        in_window = [
+            (timezone.localdate(at), intensity)
+            for at, intensity in valentina.traces.values_list("happened_at", "mood_intensity")
+            if timezone.localdate(at) >= window_start
+        ]
+        distinct_days = {day for day, _ in in_window}
+        self.assertGreaterEqual(len(distinct_days), 14)
+        # Un solo día con muchas huellas no sirve: hay una huella baja por cada fecha distinta.
+        self.assertEqual(len(in_window), len(distinct_days))
+        self.assertTrue(all(intensity in (1, 2) for _, intensity in in_window))
+
+        status = orientation_status(valentina)
+        self.assertTrue(status["show"])
+        self.assertEqual(status["reason"], "low_mood")
+        self.assertGreaterEqual(status["low_days"], 14)
+        self.assertFalse(valentina.support_events.exists())
+
+    def test_reset_brings_the_orientation_back_after_it_was_answered(self):
+        self.run_seed()
+        valentina = User.objects.get(email="valentina.demo@example.com")
+        valentina.support_events.create(kind="orientation_dismissed")
+        self.assertFalse(orientation_status(valentina)["show"])
+
+        self.run_seed("--reset")
+
+        self.assertTrue(orientation_status(User.objects.get(email="valentina.demo@example.com"))["show"])
+
     def test_running_twice_does_not_duplicate_and_reset_recreates(self):
         self.run_seed()
         self.run_seed()
-        self.assertEqual(Trace.objects.filter(user__email__endswith=".demo@example.com").count(), 30 + 18 + 16)
+        self.assertEqual(Trace.objects.filter(user__email__endswith=".demo@example.com").count(), 30 + 18 + 16 + 19)
 
         maria = User.objects.get(email="maria.demo@example.com")
         maria.traces.all().delete()
         self.run_seed("--reset")
 
         self.assertEqual(User.objects.get(email="maria.demo@example.com").traces.count(), 30)
+
+    def test_without_reset_it_only_adds_the_missing_account(self):
+        """Lo que pasa en Render al cargar la cuenta nueva: las demás cuentas no se tocan."""
+        self.run_seed()
+        mateo = User.objects.get(email="mateo.demo@example.com")
+        mateo.support_events.create(kind="orientation_dismissed")
+        User.objects.get(email="valentina.demo@example.com").delete()
+
+        self.run_seed()
+
+        self.assertTrue(User.objects.filter(email="valentina.demo@example.com").exists())
+        self.assertEqual(User.objects.get(email="mateo.demo@example.com").support_events.count(), 1)
 
 
     @override_settings(DEBUG=False)

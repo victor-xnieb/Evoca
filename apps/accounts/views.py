@@ -114,7 +114,11 @@ class PinVerifyView(APIView):
         remaining = pin.remaining_attempts
         return Response(
             {
-                "detail": f"PIN incorrecto. Te quedan {remaining} intento{'s' if remaining != 1 else ''}.",
+                "detail": (
+                    f"PIN incorrecto. Te queda {remaining} intento."
+                    if remaining == 1
+                    else f"PIN incorrecto. Te quedan {remaining} intentos."
+                ),
                 **pin_status(pin),
             },
             status=status.HTTP_400_BAD_REQUEST,

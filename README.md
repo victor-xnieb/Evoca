@@ -171,6 +171,11 @@ npm run build
 npm run preview
 ```
 
+## Despliegue
+
+El despliegue en Render (backend, frontend y la misma base de Neon) está descrito en
+[`render.yaml`](render.yaml) y se explica paso a paso en [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md).
+
 ## Datos de demostración
 
 Para mostrar la app sin usar datos reales, carga tres cuentas de ejemplo con huellas inventadas.
@@ -181,9 +186,10 @@ python manage.py seed_demo           # crea las que falten
 python manage.py seed_demo --reset   # borra y vuelve a crear las tres (por ejemplo, el día de la demo)
 ```
 
-La contraseña y el PIN de las tres cuentas están en
+En local, la contraseña y el PIN de las tres cuentas están en
 `apps/accounts/management/commands/seed_demo.py` (`DEMO_PASSWORD` y `DEMO_PIN`). En un
-despliegue público, cámbialos con las variables `EVOCA_DEMO_PASSWORD` y `EVOCA_DEMO_PIN`.
+despliegue (con `DJANGO_DEBUG=False`) el comando **exige** definir `EVOCA_DEMO_PASSWORD` y
+`EVOCA_DEMO_PIN`, para no publicar cuentas con claves que están en el repositorio.
 
 | Cuenta | Huellas | Qué mostrar |
 | --- | --- | --- |

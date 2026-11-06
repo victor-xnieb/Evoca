@@ -4,7 +4,8 @@ from unittest import mock
 
 from django.conf import settings
 from django.core.management import call_command
-from django.test import TestCase
+from django.core.management.base import CommandError
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -475,6 +476,7 @@ class DailyReminderTests(APITestCase):
         self.assertTrue(response.data["daily_reminder"]["enabled"])
 
 
+@override_settings(DEBUG=True)
 class SeedDemoTests(TestCase):
     """Datos de demostración: tres cuentas listas para mostrar cada HU, sin duplicarse."""
 
@@ -517,3 +519,25 @@ class SeedDemoTests(TestCase):
         self.run_seed("--reset")
 
         self.assertEqual(User.objects.get(email="maria.demo@example.com").traces.count(), 30)
+
+
+    @override_settings(DEBUG=False)
+    def test_in_a_deployment_it_refuses_the_default_credentials(self):
+        with mock.patch.dict("os.environ", {"EVOCA_DEMO_PASSWORD": "", "EVOCA_DEMO_PIN": ""}):
+            with self.assertRaises(CommandError):
+                self.run_seed()
+        self.assertFalse(User.objects.filter(email__endswith=".demo@example.com").exists())
+
+    @override_settings(DEBUG=False)
+    def test_in_a_deployment_it_uses_the_given_credentials(self):
+        with mock.patch.dict("os.environ", {"EVOCA_DEMO_PASSWORD": "OtraClaveDeDemo!2026", "EVOCA_DEMO_PIN": "1357"}):
+            self.run_seed()
+
+        maria = User.objects.get(email="maria.demo@example.com")
+        self.assertTrue(maria.check_password("OtraClaveDeDemo!2026"))
+        self.assertEqual(maria.access_pin.verify("1357"), "ok")
+
+    def test_the_pin_must_have_four_digits(self):
+        with mock.patch.dict("os.environ", {"EVOCA_DEMO_PIN": "12a4"}):
+            with self.assertRaises(CommandError):
+                self.run_seed()

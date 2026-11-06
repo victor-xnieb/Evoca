@@ -66,6 +66,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: false,
     setupFiles: ["./src/test/setup.ts"],
+    // Pruebas de flujo completo (escriben letra por letra): 5 s se quedaba corto con el equipo cargado.
+    testTimeout: 15_000,
     css: false,
     include: ["src/**/*.test.{ts,tsx}"],
   },

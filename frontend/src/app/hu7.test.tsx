@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it } from "vitest"
+import { beforeAll, describe, expect, it } from "vitest"
 
 import { toIsoDate } from "@/lib/age"
 import type { CalendarData } from "@/lib/traces"
@@ -49,6 +49,12 @@ function mockCalendar(extra: Record<string, unknown> = {}) {
 
 // La primera prueba importa en frío la página y Recharts: se da más margen.
 const calendar = async () => screen.findByRole("grid", { name: /Calendario de ánimo de/ }, { timeout: 5000 })
+
+// «Mi ánimo» se carga en diferido junto con Recharts: se importa antes para que las pruebas
+// midan la pantalla y no la importación en frío (lenta si el equipo está ocupado).
+beforeAll(async () => {
+  await import("@/pages/MoodPage")
+}, 60_000)
 
 describe("HU7 · Escenario 1: cada día con el color de su emoción dominante y meses anteriores", () => {
   it("pinta cada día con registros con su emoción dominante (color + ícono + nombre)", async () => {

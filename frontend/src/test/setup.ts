@@ -4,6 +4,7 @@ import { afterEach, vi } from "vitest"
 
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
   window.localStorage.clear()
   document.documentElement.className = ""
   delete document.documentElement.dataset.motion

@@ -1,16 +1,42 @@
-import { BellRing } from "lucide-react"
+import { BellRing, Clock, Repeat } from "lucide-react"
 import { useEffect, useId, useState } from "react"
 
 import { GlassCard } from "@/components/evoca/GlassCard"
 import { cn } from "@/lib/utils"
-import { notificationsSupported, REMINDER_CHANGED_EVENT, reminderApi, type DailyReminder } from "@/lib/reminder"
+import {
+  HOURLY_WINDOW,
+  notificationsSupported,
+  REMINDER_CHANGED_EVENT,
+  reminderApi,
+  type DailyReminder,
+  type ReminderFrequency,
+} from "@/lib/reminder"
 
 const BLOCKED =
   "Tu navegador bloqueó las notificaciones de Evoca. Actívalas en la configuración del sitio para recibir el recordatorio."
 
-/** HU5: activar o desactivar el recordatorio diario y elegir su hora. */
+const FREQUENCIES: Array<{ value: ReminderFrequency; label: string; hint: string; icon: typeof Clock }> = [
+  { value: "daily", label: "Una vez al día", hint: "A la hora que elijas", icon: Clock },
+  {
+    value: "hourly",
+    label: "Cada hora",
+    hint: `De ${HOURLY_WINDOW.first} a ${HOURLY_WINDOW.last}`,
+    icon: Repeat,
+  },
+]
+
+function enabledNotice(reminder: DailyReminder) {
+  return reminder.frequency === "hourly"
+    ? `Te recordaremos cada hora, de ${HOURLY_WINDOW.first} a ${HOURLY_WINDOW.last}, hasta que registres una huella ese día.`
+    : `Te recordaremos a las ${reminder.time} si ese día no has registrado una huella.`
+}
+
+type Changes = Partial<Pick<DailyReminder, "enabled" | "time" | "frequency">>
+
+/** HU5: activar o desactivar el recordatorio y elegir si avisa a una hora o cada hora. */
 export function ReminderSection() {
   const timeId = useId()
+  const frequencyName = useId()
   const [reminder, setReminder] = useState<DailyReminder | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
@@ -31,18 +57,14 @@ export function ReminderSection() {
     }
   }, [])
 
-  const save = async (changes: Partial<Pick<DailyReminder, "enabled" | "time">>) => {
+  const save = async (changes: Changes) => {
     setBusy(true)
     setWarning(null)
     try {
       const saved = await reminderApi.save(changes)
       setReminder(saved)
       window.dispatchEvent(new Event(REMINDER_CHANGED_EVENT))
-      setNotice(
-        saved.enabled
-          ? `Te recordaremos a las ${saved.time} si ese día no has registrado una huella.`
-          : "Desactivaste el recordatorio diario.",
-      )
+      setNotice(saved.enabled ? enabledNotice(saved) : "Desactivaste el recordatorio diario.")
       return saved
     } catch (error) {
       setWarning((error as Error).message)
@@ -73,14 +95,14 @@ export function ReminderSection() {
             Recordatorio diario
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Un aviso a la hora que elijas para crear el hábito. Si ese día ya registraste una huella, no te
-            molestamos.
+            Un aviso para crear el hábito. Si ese día ya registraste una huella, no te molestamos.
           </p>
         </div>
       </div>
 
       {reminder && (
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-col gap-3">
+          {/* Toda la fila es el interruptor: el área táctil es amplia y el texto es su nombre. */}
           <button
             type="button"
             role="switch"
@@ -88,44 +110,80 @@ export function ReminderSection() {
             disabled={busy}
             onClick={toggle}
             className={cn(
-              "inline-flex min-h-11 items-center gap-3 rounded-full border px-4 font-semibold transition-colors",
-              "focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60",
-              reminder.enabled ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card",
+              "flex min-h-14 w-full items-center justify-between gap-4 rounded-2xl border border-border bg-background/60 px-4 py-2 text-left font-semibold",
+              "transition-colors hover:bg-background/80 disabled:opacity-60",
+              "focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring",
             )}
           >
+            Recordarme registrar mi huella
             <span
               aria-hidden="true"
               className={cn(
-                "relative h-6 w-10 rounded-full transition-colors",
-                reminder.enabled ? "bg-primary-foreground/30" : "bg-input",
+                "inline-flex h-8 w-14 shrink-0 items-center rounded-full p-1 ring-1 transition-colors duration-300 ring-inset",
+                reminder.enabled ? "bg-primary ring-primary" : "bg-input ring-muted-foreground/60",
               )}
             >
               <span
                 className={cn(
-                  "absolute top-1 size-4 rounded-full bg-current transition-transform",
-                  reminder.enabled ? "translate-x-5" : "translate-x-1",
+                  "size-6 rounded-full shadow-sm transition-transform duration-300 ease-spring",
+                  reminder.enabled ? "translate-x-6 bg-primary-foreground" : "translate-x-0 bg-background",
                 )}
               />
             </span>
-            Recordarme registrar mi huella
           </button>
 
-          <label htmlFor={timeId} className="flex items-center gap-2 text-sm font-semibold">
-            Hora
-            <input
-              id={timeId}
-              type="time"
-              step={60}
-              value={reminder.time}
-              disabled={busy}
-              onChange={(event) => {
-                const time = event.target.value
-                setReminder({ ...reminder, time })
-                if (time) void save({ time })
-              }}
-              className="h-11 rounded-2xl border border-input bg-background/70 px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            />
-          </label>
+          {reminder.enabled && (
+            <fieldset className="flex flex-col gap-3" disabled={busy}>
+              <legend className="mb-2 text-sm font-semibold">¿Cada cuánto te aviso?</legend>
+              <div className="grid grid-cols-2 gap-1 rounded-3xl bg-muted p-1">
+                {FREQUENCIES.map((option) => {
+                  const checked = reminder.frequency === option.value
+                  return (
+                    <label
+                      key={option.value}
+                      className={cn(
+                        "grid min-h-14 cursor-pointer grid-cols-[auto_1fr] content-center items-center gap-x-2 rounded-[1.25rem] px-3 py-2 leading-tight transition-colors",
+                        "has-focus-visible:outline-3 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
+                        checked ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name={frequencyName}
+                        value={option.value}
+                        checked={checked}
+                        onChange={() => void save({ frequency: option.value })}
+                        className="sr-only"
+                      />
+                      <option.icon aria-hidden="true" className="row-span-2 size-4" />
+                      <span className="text-sm font-semibold">{option.label}</span>
+                      <span className="text-xs">{option.hint}</span>
+                    </label>
+                  )
+                })}
+              </div>
+
+              {reminder.frequency === "daily" && (
+                <div className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-background/60 px-4 py-2">
+                  <label htmlFor={timeId} className="text-sm font-semibold">
+                    Hora
+                  </label>
+                  <input
+                    id={timeId}
+                    type="time"
+                    step={60}
+                    value={reminder.time}
+                    onChange={(event) => {
+                      const time = event.target.value
+                      setReminder({ ...reminder, time })
+                      if (time) void save({ time })
+                    }}
+                    className="h-11 rounded-xl border border-input bg-background px-3 text-base font-semibold tabular-nums outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:scheme-dark"
+                  />
+                </div>
+              )}
+            </fieldset>
+          )}
         </div>
       )}
 

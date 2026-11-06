@@ -5,7 +5,7 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { msUntil, REMINDER_TEXT, type ReminderStatus } from "@/lib/reminder"
+import { msUntil, msUntilNextCheck, msUntilNextHour, REMINDER_TEXT, type ReminderStatus } from "@/lib/reminder"
 import { mockApi, SAMPLE_USER, sentBody } from "@/test/api-mock"
 import { renderApp } from "@/test/render-app"
 
@@ -41,7 +41,9 @@ const HOME = {
 }
 
 function status(overrides: Partial<ReminderStatus>): { body: ReminderStatus } {
-  return { body: { due: false, reason: "early", enabled: true, time: "20:00", last_notified_on: null, ...overrides } }
+  return {
+    body: { due: false, reason: "early", enabled: true, time: "20:00", frequency: "daily", last_notified_on: null, ...overrides },
+  }
 }
 
 afterEach(() => {
@@ -51,7 +53,7 @@ afterEach(() => {
 describe("HU5 · Escenario 1: activar el recordatorio, elegir la hora y desactivarlo", () => {
   it("al activarlo pide permiso de notificaciones y guarda la hora; luego se puede desactivar", async () => {
     useFakeNotifications("default")
-    let saved = { enabled: false, time: "20:00", last_notified_on: null }
+    let saved = { enabled: false, time: "20:00", frequency: "daily", last_notified_on: null }
     const fetchMock = mockApi({
       "GET auth/consents/": { body: [] },
       "GET auth/reminder/": () => ({ body: saved }),
@@ -82,12 +84,42 @@ describe("HU5 · Escenario 1: activar el recordatorio, elegir la hora y desactiv
     expect(saved).toMatchObject({ enabled: false, time: "21:30" })
   })
 
+  it("también puede avisar cada hora en vez de a una hora fija", async () => {
+    useFakeNotifications()
+    let saved = { enabled: true, time: "20:00", frequency: "daily", last_notified_on: null }
+    const fetchMock = mockApi({
+      "GET auth/consents/": { body: [] },
+      "GET auth/reminder/": () => ({ body: saved }),
+      "PUT auth/reminder/": ({ body }) => {
+        saved = { ...saved, ...(body as object) }
+        return { body: saved }
+      },
+      "GET auth/reminder/status/": status({ reason: "early" }),
+    })
+    const user = userEvent.setup()
+    renderApp({ path: "/ajustes", user: SAMPLE_USER, locked: false })
+
+    const daily = await screen.findByRole("radio", { name: /Una vez al día/ }, { timeout: 5000 })
+    expect(daily).toBeChecked()
+    expect(screen.getByLabelText("Hora")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("radio", { name: /Cada hora/ }))
+
+    expect(
+      await screen.findByText("Te recordaremos cada hora, de 8:00 a 21:00, hasta que registres una huella ese día."),
+    ).toBeInTheDocument()
+    expect(sentBody(fetchMock, "PUT auth/reminder/")).toEqual({ frequency: "hourly" })
+    expect(screen.getByRole("radio", { name: /Cada hora/ })).toBeChecked()
+    // La hora fija solo aplica a «una vez al día».
+    expect(screen.queryByLabelText("Hora")).not.toBeInTheDocument()
+  })
+
   it("si el navegador bloquea las notificaciones, lo dice", async () => {
     useFakeNotifications("denied")
     mockApi({
       "GET auth/consents/": { body: [] },
-      "GET auth/reminder/": { body: { enabled: false, time: "20:00", last_notified_on: null } },
-      "PUT auth/reminder/": { body: { enabled: true, time: "20:00", last_notified_on: null } },
+      "GET auth/reminder/": { body: { enabled: false, time: "20:00", frequency: "daily", last_notified_on: null } },
+      "PUT auth/reminder/": { body: { enabled: true, time: "20:00", frequency: "daily", last_notified_on: null } },
     })
     const user = userEvent.setup()
     renderApp({ path: "/ajustes", user: SAMPLE_USER, locked: false })
@@ -102,6 +134,39 @@ describe("HU5 · Escenario 2: a la hora elegida, sin huella hoy, llega la notifi
   it("calcula la espera exacta hasta la hora elegida", () => {
     expect(msUntil("20:00", new Date(2026, 10, 6, 19, 59, 59))).toBe(1000)
     expect(msUntil("20:00", new Date(2026, 10, 6, 20, 0, 1))).toBe(24 * 3600 * 1000 - 1000)
+  })
+
+  it("cada hora: la próxima revisión es en la siguiente hora en punto", () => {
+    expect(msUntilNextHour(new Date(2026, 10, 6, 9, 59, 59))).toBe(1000)
+    expect(msUntilNextHour(new Date(2026, 10, 6, 10, 0, 0))).toBe(3600 * 1000)
+    expect(msUntilNextCheck({ frequency: "hourly", time: "20:00" }, new Date(2026, 10, 6, 9, 30))).toBe(30 * 60 * 1000)
+    expect(msUntilNextCheck({ frequency: "daily", time: "20:00" }, new Date(2026, 10, 6, 19, 30))).toBe(30 * 60 * 1000)
+  })
+
+  it("cada hora: al cambiar de hora vuelve a avisar si sigue sin huella", async () => {
+    useFakeNotifications()
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(2026, 10, 6, 9, 59, 58))
+    let checks = 0
+    mockApi({
+      ...HOME,
+      "GET auth/reminder/status/": () => {
+        checks += 1
+        return checks === 1
+          ? status({ frequency: "hourly", reason: "already_notified" })
+          : status({ frequency: "hourly", due: true, reason: "due" })
+      },
+      "POST auth/reminder/ack/": { body: {} },
+    })
+    renderApp({ path: "/", user: SAMPLE_USER, locked: false })
+
+    await waitFor(() => expect(checks).toBe(1))
+    expect(FakeNotification.created).toHaveLength(0)
+
+    await act(() => vi.advanceTimersByTimeAsync(3000))
+
+    await waitFor(() => expect(FakeNotification.created).toHaveLength(1))
+    expect(FakeNotification.created[0].options.data).toEqual({ url: "/nueva-huella" })
   })
 
   it("cuando llega la hora muestra la notificación y la marca para no repetirla hoy", async () => {

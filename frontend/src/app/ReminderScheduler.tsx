@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router"
 
 import {
-  msUntil,
+  msUntilNextCheck,
   notificationsSupported,
   REMINDER_CHANGED_EVENT,
   REMINDER_URL,
@@ -11,9 +11,9 @@ import {
 } from "@/lib/reminder"
 
 /**
- * Lanza la notificación del recordatorio diario (HU5) a la hora elegida, mientras Evoca está
- * abierta o en segundo plano. El servidor decide si toca: hora alcanzada, sin aviso hoy y
- * sin huella hoy. También revisa al abrir la app y al volver a ella, por si la hora pasó.
+ * Lanza la notificación del recordatorio (HU5) a la hora elegida o cada hora en punto,
+ * mientras Evoca está abierta o en segundo plano. El servidor decide si toca: hora alcanzada,
+ * sin aviso pendiente y sin huella hoy. También revisa al abrir la app y al volver a ella.
  */
 export function ReminderScheduler() {
   const navigate = useNavigate()
@@ -37,7 +37,7 @@ export function ReminderScheduler() {
         await reminderApi.ack().catch(() => {})
       }
       window.clearTimeout(run.timer)
-      if (status.enabled) run.timer = window.setTimeout(check, msUntil(status.time) + 500)
+      if (status.enabled) run.timer = window.setTimeout(check, msUntilNextCheck(status) + 500)
     }
 
     const onVisible = () => {

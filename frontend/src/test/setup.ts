@@ -3,11 +3,13 @@ import { cleanup } from "@testing-library/react"
 import { afterEach, vi } from "vitest"
 
 import { resetCatalogCache } from "@/hooks/use-catalog"
+import { resetSupportContentCache } from "@/hooks/use-support-content"
 
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
   resetCatalogCache()
+  resetSupportContentCache()
   window.localStorage.clear()
   document.documentElement.className = ""
   delete document.documentElement.dataset.motion

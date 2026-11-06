@@ -28,6 +28,7 @@ import { labelOf, tracesApi } from "@/lib/traces"
 import type { Trace } from "@/lib/types"
 
 import { NoteField } from "./traces/NoteField"
+import { RiskHelp } from "./traces/RiskHelp"
 
 type Field = "note" | "emotion" | "mood_intensity"
 type Load = { status: "loading" } | { status: "missing" } | { status: "error"; message: string } | { status: "ready"; trace: Trace }
@@ -177,6 +178,7 @@ export function TraceDetailPage() {
             sensoryType={trace.sensory_type}
             error={errors.note}
           />
+          <RiskHelp text={form.note} initialText={trace.note} />
           {catalog && (
             <EmotionPicker
               options={catalog.emotions}

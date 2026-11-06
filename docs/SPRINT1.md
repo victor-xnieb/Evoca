@@ -29,8 +29,8 @@ Cada HU tiene tres subtareas en Jira: **Desarrollo** (backend), **Interfaz** (pa
 | 3 | HU3 · Ver y editar mis huellas | SCRUM-12 | 5 | High | Registro de huellas | SCRUM-33 | SCRUM-34 | SCRUM-35 | `feature/hu3-ver-editar-huellas` | En dev (completa con HU7) |
 | 4 | HU4 · Ver mi gráfica de ánimo | SCRUM-13 | 3 | High | Seguimiento del ánimo | SCRUM-36 | SCRUM-37 | SCRUM-38 | `feature/hu4-grafica-animo` | En dev |
 | 5 | HU7 · Ver mi calendario de ánimo por colores | SCRUM-17 | 3 | High | Seguimiento del ánimo | SCRUM-45 | SCRUM-46 | SCRUM-47 | `feature/hu7-calendario-animo` | En dev |
-| 6 | HU5 · Recibir un recordatorio diario | SCRUM-14 | 2 | Medium | Registro de huellas | SCRUM-39 | SCRUM-40 | SCRUM-41 | `feature/hu5-recordatorio-diario` | En revisión (parcial: app cerrada) |
-| 7 | HU6 · Recibir orientación hacia ayuda profesional | SCRUM-16 | 5 | High | Seguimiento del ánimo | SCRUM-42 | SCRUM-43 | SCRUM-44 | `feature/hu6-orientacion-ayuda` | Pendiente |
+| 6 | HU5 · Recibir un recordatorio diario | SCRUM-14 | 2 | Medium | Registro de huellas | SCRUM-39 | SCRUM-40 | SCRUM-41 | `feature/hu5-recordatorio-diario` | En dev (parcial: app cerrada) |
+| 7 | HU6 · Recibir orientación hacia ayuda profesional | SCRUM-16 | 5 | High | Seguimiento del ánimo | SCRUM-42 | SCRUM-43 | SCRUM-44 | `feature/hu6-orientacion-ayuda` | En revisión |
 | 8 | HU8 · Sugerir la emoción con IA desde mi nota | SCRUM-18 | 5 | Medium | Registro de huellas | SCRUM-48 | SCRUM-49 | SCRUM-50 | `feature/hu8-sugerencia-emocion-ia` | Pendiente |
 
 El orden respeta dependencias: la gráfica y el calendario necesitan huellas; la IA va al
@@ -262,7 +262,26 @@ cuándo y cómo buscar apoyo profesional sin recibir diagnósticos.
 
 **Subtareas:** Desarrollo SCRUM-42 · Interfaz SCRUM-43 · Pruebas SCRUM-44.
 
-**Evidencia:** pendiente.
+**Evidencia** (rama `feature/hu6-orientacion-ayuda`):
+
+| Escenario | Medida | Prueba automática | Pantalla | Estado |
+| --- | --- | --- | --- | --- |
+| 1 · Con ánimo de 2 o menos en 14 de los últimos 21 días, al abrir la app veo un mensaje de orientación cálido y sin diagnóstico | Ánimo del día = promedio de la intensidad de sus huellas; 14 días bajos sí, 13 no; ventana de 21 días en hora de Bogotá; los días sin huellas no cuentan | `apps/support/tests.py` (`OrientationTests`: `test_shows_with_fourteen_low_days_in_the_last_twenty_one`, `test_thirteen_low_days_are_not_enough`, `test_a_day_is_low_when_its_average_is_two_or_less`, `test_only_the_last_twenty_one_days_count`, `test_days_without_traces_do_not_count_as_low`, `test_never_counts_other_peoples_traces`); `frontend/src/app/hu6.test.tsx` (escenario 1: sin palabras de diagnóstico; sin mensaje si no se cumple la regla) | Inicio ([captura](capturas/hu6-orientacion.jpg)) | Cumplido |
+| 1 · …puedo cerrarlo con «Ahora no» y la app registra si abrí la ruta de ayuda | Eventos `orientation_shown`, `orientation_dismissed` y `help_opened`, sin texto; tras responder no vuelve a aparecer en 7 días | `test_now_not_closes_it_for_seven_days`, `test_records_when_the_help_route_is_opened`, `test_events_only_store_the_kind_never_text`, `test_export_includes_and_account_deletion_removes_the_events`; `hu6.test.tsx` («Ahora no» y ruta de ayuda) | `/ayuda` ([captura](capturas/hu6-ruta-ayuda.jpg)) | Cumplido |
+| 2 · Al escribir una palabra de riesgo aparece de inmediato una pantalla con líneas oficiales, sin pasos intermedios | Se abre con la letra que completa la frase, sin guardar ni enviar la nota; las líneas se llaman con un toque (`tel:`) y el foco va a la primera; sin importar mayúsculas, tildes ni signos, y no dentro de otras palabras | `hu6.test.tsx` (escenario 2: al completar la frase; no se reabre por la misma frase pero sí por una nueva; al editar, lo ya escrito no la abre; normalización) | Pantalla completa ([claro](capturas/hu6-ayuda-inmediata.jpg), [oscuro](capturas/hu6-ayuda-oscuro.jpg)) | Cumplido |
+| 3 · Cuando el psicólogo asesor aprueba y actualiza textos y palabras, la app usa la nueva versión sin publicarse de nuevo | La app pide el contenido al servidor cada vez que lo usa; se sirve la versión aprobada más reciente; un borrador nuevo no reemplaza a la aprobada | `SupportContentTests` (`test_an_approved_version_replaces_the_previous_one`, `test_a_newer_draft_does_not_replace_the_approved_version`, `test_approval_needs_who_approved_it`, `test_each_line_needs_a_name_and_a_phone`); `hu6.test.tsx` (escenario 3: palabra y texto nuevos; sin conexión usa la última versión) | Administrador de Django, «Contenidos de orientación» | Cumplido |
+
+Recorrido completo con Playwright contra el backend real:
+
+- Una cuenta con 14 días de ánimo 1 o 2 vio el mensaje al abrir la app. Al tocar «Ver opciones de ayuda» llegó a `/ayuda` con las líneas `tel:192`, `tel:106` y `tel:123`. Quedaron registrados `orientation_shown → help_opened`, y el servidor dejó de mostrar el mensaje.
+- Otra cuenta en la misma situación tocó «Ahora no»: el mensaje se cerró y no volvió a aparecer al abrir de nuevo la app.
+- Al escribir «Hoy siento que quiero morir» a ritmo humano, la pantalla de ayuda apareció **43 ms** después de la última letra (57 ms en escritorio oscuro). El foco quedó en la primera línea y, al tocar «Volver a mi nota», volvió a la nota con el texto intacto. Solo se registró `risk_screen_shown`, sin la nota ni la palabra.
+- Se aprobó una versión 2 en el servidor, con un título y una frase nuevos. Sin recompilar la app, la frase nueva abrió la pantalla en 44 ms con el título nuevo y sin la marca de provisional.
+
+> **Contenido en borrador.** Los textos, las líneas (192 opción 4, 106 y 123) y la lista de
+> palabras se cargaron como versión 1 **sin aprobar**: la app los muestra con la marca
+> «Contenido provisional · pendiente de revisión profesional». El psicólogo asesor debe
+> revisarlos y aprobarlos en el administrador («Contenidos de orientación»).
 
 ## HU7 · Ver mi calendario de ánimo por colores (SCRUM-17)
 
@@ -339,7 +358,7 @@ Se completa al cerrar la HU8.
 | HU3 | 3 de 3 | SCRUM-33, SCRUM-34 y SCRUM-35 cubiertas | — (el escenario 2 se completó con HU4 y HU7) |
 | HU4 | 3 de 3 | SCRUM-36, SCRUM-37 y SCRUM-38 cubiertas | — |
 | HU5 | 1 y 3 completos; 2 parcial | SCRUM-39, SCRUM-40 y SCRUM-41 cubiertas | Escenario 2: la notificación llega con la app abierta o en segundo plano; con la app cerrada requiere Web Push |
-| HU6 | — | — | — |
+| HU6 | 3 de 3 | SCRUM-42, SCRUM-43 y SCRUM-44 cubiertas | — (los textos, las líneas y las palabras son un borrador hasta que los apruebe el psicólogo asesor) |
 | HU7 | 3 de 3 | SCRUM-45, SCRUM-46 y SCRUM-47 cubiertas | — |
 | HU8 | — | — | — |
 

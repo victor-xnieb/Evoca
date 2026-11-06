@@ -20,6 +20,7 @@ import { fadeIn, riseIn, staggerContainer } from "@/lib/motion"
 import { tracesApi } from "@/lib/traces"
 import type { Trace } from "@/lib/types"
 
+import { OrientationPrompt } from "./home/OrientationPrompt"
 import { RecentTraces } from "./home/RecentTraces"
 
 const STEPS: Array<{ icon: LucideIcon; title: string; text: string; accent: EmotionSlug }> = [
@@ -70,6 +71,7 @@ export function HomePage() {
 
   return (
     <PageTransition className="gap-14 sm:gap-20">
+      <OrientationPrompt />
       {/* Foco principal: el saludo y la invitación a registrar. En escritorio, lado a lado. */}
       <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
         <section className="relative isolate flex min-h-[19rem] flex-col items-center justify-center px-2 py-8 text-center sm:min-h-[25rem]">

@@ -1,5 +1,5 @@
 import { HeartHandshake, Phone } from "lucide-react"
-import { useId } from "react"
+import { useId, type ReactNode } from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -21,7 +21,46 @@ export interface SupportCardProps {
   onOpenHelp?: (line: HelpLine) => void
   /** Marca visible de contenido provisional, pendiente de revisión del psicólogo asesor. */
   draft?: boolean
+  /** Acción principal opcional (por ejemplo, abrir la ruta de ayuda). */
+  action?: ReactNode
   className?: string
+}
+
+/** Líneas de ayuda como enlaces para llamar, con área táctil amplia. */
+export function HelpLineList({ lines, onOpen }: { lines: HelpLine[]; onOpen?: (line: HelpLine) => void }) {
+  return (
+    <ul className="flex flex-col gap-2">
+      {lines.map((line) => (
+        <li key={`${line.name}-${line.phone}`}>
+          <a
+            href={`tel:${line.phone.replace(/[^\d+]/g, "")}`}
+            onClick={() => onOpen?.(line)}
+            className={cn(
+              "flex min-h-14 items-center gap-3 rounded-2xl bg-card/80 px-4 py-3 text-foreground",
+              "focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring",
+            )}
+          >
+            <Phone aria-hidden="true" className="size-5 shrink-0 text-support-ink" />
+            <span className="flex flex-col">
+              <span className="font-semibold">
+                {line.name} · <span className="tabular-nums">{line.phone}</span>
+              </span>
+              {line.description && <span className="text-sm text-muted-foreground">{line.description}</span>}
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** Marca de contenido provisional, pendiente de revisión del psicólogo asesor. */
+export function DraftBadge() {
+  return (
+    <span className="rounded-full border border-current/30 px-3 py-1 text-xs font-medium">
+      Contenido provisional · pendiente de revisión profesional
+    </span>
+  )
 }
 
 /**
@@ -36,6 +75,7 @@ export function SupportCard({
   dismissLabel = "Ahora no",
   onOpenHelp,
   draft = false,
+  action,
   className,
 }: SupportCardProps) {
   const titleId = useId()
@@ -57,37 +97,11 @@ export function SupportCard({
         </div>
       </div>
 
-      {lines.length > 0 && (
-        <ul className="flex flex-col gap-2">
-          {lines.map((line) => (
-            <li key={`${line.name}-${line.phone}`}>
-              <a
-                href={`tel:${line.phone.replace(/[^\d+]/g, "")}`}
-                onClick={() => onOpenHelp?.(line)}
-                className={cn(
-                  "flex min-h-14 items-center gap-3 rounded-2xl bg-card/80 px-4 py-3 text-foreground",
-                  "focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                )}
-              >
-                <Phone aria-hidden="true" className="size-5 shrink-0 text-support-ink" />
-                <span className="flex flex-col">
-                  <span className="font-semibold">
-                    {line.name} · <span className="tabular-nums">{line.phone}</span>
-                  </span>
-                  {line.description && <span className="text-sm text-muted-foreground">{line.description}</span>}
-                </span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
+      {lines.length > 0 && <HelpLineList lines={lines} onOpen={onOpenHelp} />}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {draft && (
-          <span className="rounded-full border border-current/30 px-3 py-1 text-xs font-medium">
-            Contenido provisional · pendiente de revisión profesional
-          </span>
-        )}
+        {draft && <DraftBadge />}
+        {action}
         {onDismiss && (
           <button
             type="button"

@@ -8,6 +8,7 @@ import { AuthLayout } from "./AuthLayout"
 import {
   CreatePinPage,
   Deferred,
+  HelpPage,
   MoodPage,
   MyTracesPage,
   NewTracePage,
@@ -94,6 +95,14 @@ export const routes: RouteObject[] = [
         element: (
           <Deferred>
             <MoodPage />
+          </Deferred>
+        ),
+      },
+      {
+        path: "ayuda",
+        element: (
+          <Deferred>
+            <HelpPage />
           </Deferred>
         ),
       },

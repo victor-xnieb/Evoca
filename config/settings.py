@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.accounts",
     "apps.traces",
+    "apps.support",
 ]
 
 MIDDLEWARE = [

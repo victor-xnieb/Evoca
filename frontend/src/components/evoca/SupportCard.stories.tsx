@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { fn } from "storybook/test"
 
+import { Button } from "@/components/ui/button"
 import { DRAFT_HELP_LINES } from "@/mocks/fixtures"
 
 import { SupportCard } from "./SupportCard"
@@ -37,3 +38,11 @@ export const Orientacion: Story = { name: "Orientación (borrador)" }
 export const SinCerrar: Story = { name: "Sin opción de cerrar", args: { onDismiss: undefined } }
 
 export const SinLineas: Story = { name: "Sin líneas", args: { lines: [] } }
+
+export const ConRutaDeAyuda: Story = {
+  name: "Orientación con ruta de ayuda",
+  args: {
+    lines: [],
+    action: <Button className="h-11 rounded-full px-5">Ver opciones de ayuda</Button>,
+  },
+}

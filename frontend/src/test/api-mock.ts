@@ -8,7 +8,7 @@ export interface MockReply {
   body?: unknown
 }
 
-type Handler = MockReply | ((request: { body: unknown }) => MockReply)
+type Handler = MockReply | ((request: { body: unknown; query: URLSearchParams }) => MockReply)
 
 /**
  * Sustituye fetch por respuestas fijas por ruta: { "POST auth/pin/verify/": {...} }.
@@ -16,12 +16,12 @@ type Handler = MockReply | ((request: { body: unknown }) => MockReply)
  */
 export function mockApi(handlers: Record<string, Handler>) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input).replace(`${API_URL}/`, "").split("?")[0]
+    const [url, search = ""] = String(input).replace(`${API_URL}/`, "").split("?")
     const key = `${init?.method ?? "GET"} ${url}`
     const handler = handlers[key]
     if (!handler) return new Response(JSON.stringify({ detail: `Sin simulación para ${key}` }), { status: 500 })
     const body = init?.body ? JSON.parse(String(init.body)) : undefined
-    const reply = typeof handler === "function" ? handler({ body }) : handler
+    const reply = typeof handler === "function" ? handler({ body, query: new URLSearchParams(search) }) : handler
     const status = reply.status ?? 200
     if (status === 204) return new Response(null, { status })
     return new Response(JSON.stringify(reply.body ?? {}), {

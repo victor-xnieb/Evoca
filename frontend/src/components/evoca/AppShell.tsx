@@ -38,7 +38,7 @@ export interface AppShellProps {
 }
 
 /**
- * Estructura de las pantallas principales: encabezado con la marca y el cambio de tema,
+ * Estructura de las pantallas principales: encabezado con el cambio de tema,
  * fondo animado (con el degradado de la emoción reciente debajo mientras carga) y
  * navegación inferior (también en escritorio, como un dock flotante).
  */
@@ -52,10 +52,10 @@ export function AppShell({ children, accentEmotion, background = "animated", cla
     <div className="evoca-backdrop relative isolate flex min-h-dvh flex-col" style={style}>
       <AnimatedBackground variant={background} />
       <InteractiveCursor />
-      {/* Refuerzo detrás del encabezado: el logo y el interruptor nunca quedan sobre el video crudo. */}
+      {/* En oscuro, refuerzo suave detrás del interruptor de tema. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-28 bg-linear-to-b from-background/85 via-background/55 to-transparent"
+        className="pointer-events-none fixed inset-x-0 top-0 -z-10 hidden h-28 bg-linear-to-b from-background/85 via-background/55 to-transparent dark:block"
       />
       <a
         href="#contenido"
@@ -63,10 +63,8 @@ export function AppShell({ children, accentEmotion, background = "animated", cla
       >
         Saltar al contenido
       </a>
-      <header className="mx-auto flex w-full max-w-2xl items-center lg:max-w-5xl justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-2">
-        <NavLink to="/" className="flex min-h-11 items-center font-display text-2xl font-semibold tracking-tight" aria-label="Evoca, inicio">
-          evoca<span className="text-(--accent-emotion)">.</span>
-        </NavLink>
+      {/* La marca vive en el hero de Inicio; aquí solo el cambio de tema (no se repite). */}
+      <header className="mx-auto flex w-full max-w-2xl items-center justify-end px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-2 lg:max-w-5xl">
         <ThemeSwitch />
       </header>
 

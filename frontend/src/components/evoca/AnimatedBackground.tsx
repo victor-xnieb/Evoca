@@ -62,7 +62,7 @@ function BackgroundLayer({ image, video }: LayerProps) {
 
   return (
     <motion.div
-      className="evoca-bg-layer absolute inset-0"
+      className="absolute inset-0"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -73,7 +73,7 @@ function BackgroundLayer({ image, video }: LayerProps) {
         alt=""
         decoding="async"
         fetchPriority="low"
-        className="evoca-bg-media absolute inset-0 size-full object-cover"
+        className="absolute inset-0 size-full object-cover"
       />
       {video && (
         <video
@@ -92,7 +92,7 @@ function BackgroundLayer({ image, video }: LayerProps) {
           preload="metadata"
           poster={video.poster}
           tabIndex={-1}
-          className="evoca-bg-media absolute inset-0 size-full object-cover"
+          className="absolute inset-0 size-full object-cover"
         >
           {video.sources.map((source) => (
             <source key={source.src} src={source.src} type={source.type} />

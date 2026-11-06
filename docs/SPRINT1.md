@@ -228,6 +228,10 @@ Recorrido completo con Playwright, con el build de producción y su service work
 - Desde Ajustes se activó el recordatorio para un minuto después, y la hora quedó guardada en el servidor.
 - A esa hora, la cuenta sin huellas hoy recibió la notificación (`tag: evoca-recordatorio`, con enlace a `/nueva-huella`), y el servidor la marcó como avisada.
 - Otra cuenta con la misma hora, pero con una huella hoy, no recibió ninguna.
+- Tras un aviso, al elegir una hora más tarde el mismo día llegó un segundo aviso a la nueva
+  hora (04:54 y 04:55). Una hora más temprana no repite el aviso
+  (`test_choosing_a_later_time_after_a_reminder_notifies_again`,
+  `test_choosing_an_earlier_time_after_a_reminder_does_not_repeat_it`).
 
 > **Nota sobre el escenario 2 (parcial).** La notificación la lanza la app mientras Evoca está
 > abierta o en segundo plano en el dispositivo (también como PWA instalada en segundo plano).

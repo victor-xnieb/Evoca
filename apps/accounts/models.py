@@ -155,8 +155,11 @@ class DailyReminder(models.Model):
         """
         Decide si toca avisar ahora. Devuelve "due" o el motivo para no hacerlo:
         "disabled", "early" (aún no llega la hora), "late" (en el modo «cada hora», ya pasó
-        el último aviso del día), "already_notified" (ya se avisó hoy o, cada hora, en esta
-        hora) o "already_registered" (hoy ya registró una huella).
+        el último aviso del día), "already_notified" (ya se avisó por la hora elegida de hoy
+        o, cada hora, en esta hora) o "already_registered" (hoy ya registró una huella).
+
+        Si se elige una hora más tarde después de un aviso, la nueva hora vuelve a avisar: lo
+        que cuenta es si hubo aviso desde la hora elegida, no si hubo alguno en el día.
         """
         from apps.traces.models import Trace
 
@@ -174,7 +177,8 @@ class DailyReminder(models.Model):
         else:
             if local.time() < self.time:
                 return "early"
-            if self.last_notified_on == local.date():
+            scheduled = timezone.make_aware(datetime.combine(local.date(), self.time))
+            if self.last_notified_at and self.last_notified_at >= scheduled:
                 return "already_notified"
         start = timezone.make_aware(datetime.combine(local.date(), time.min))
         registered_today = (

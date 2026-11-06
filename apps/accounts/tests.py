@@ -400,6 +400,25 @@ class DailyReminderTests(APITestCase):
         with mock.patch("django.utils.timezone.now", return_value=moment):
             self.client.post(reverse("reminder-ack"))
 
+    def test_choosing_a_later_time_after_a_reminder_notifies_again(self):
+        self.enable("04:35")
+        today = date(2026, 11, 6)
+        self.ack_at(self.at(today, 4, 35))
+
+        self.enable("04:50")
+
+        self.assertEqual(self.status_at(self.at(today, 4, 49, 59))["reason"], "early")
+        self.assertTrue(self.status_at(self.at(today, 4, 50))["due"])
+
+    def test_choosing_an_earlier_time_after_a_reminder_does_not_repeat_it(self):
+        self.enable("20:00")
+        today = date(2026, 11, 6)
+        self.ack_at(self.at(today, 20, 0))
+
+        self.enable("19:00")
+
+        self.assertEqual(self.status_at(self.at(today, 20, 30))["reason"], "already_notified")
+
     def test_starts_once_a_day_and_can_switch_to_every_hour(self):
         self.assertEqual(self.client.get(reverse("reminder")).data["frequency"], "daily")
 

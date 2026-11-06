@@ -6,6 +6,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.support.serializers import SupportEventSerializer
 from apps.traces.models import Memory
 from apps.traces.serializers import TraceSerializer
 
@@ -144,6 +145,7 @@ class ExportView(APIView):
             "account": UserSerializer(user).data,
             "consents": ConsentSerializer(user.consents.all(), many=True).data,
             "daily_reminder": DailyReminderSerializer(own_reminder(user)).data,
+            "support_events": SupportEventSerializer(user.support_events.all(), many=True).data,
             "traces": TraceSerializer(user.traces.all(), many=True).data,
             "memories": [
                 {

@@ -181,6 +181,9 @@ npm run preview
 | GET/PUT | `/api/v1/auth/reminder/` | Recordatorio: activo, `frequency` (`daily` a la hora `HH:MM` elegida u `hourly` de 8:00 a 21:00, hora de Bogotá) |
 | GET | `/api/v1/auth/reminder/status/` | Si toca avisar ahora (hora alcanzada, sin aviso pendiente y sin huella hoy) |
 | POST | `/api/v1/auth/reminder/ack/` | Marca el aviso para no repetirlo hoy (o, cada hora, en esta hora) |
+| GET | `/api/v1/support/content/` | Textos, líneas de ayuda y palabras de riesgo vigentes (la versión aprobada más reciente) |
+| GET | `/api/v1/support/orientation/` | Si toca mostrar la orientación (ánimo de 2 o menos en 14 de los últimos 21 días) |
+| POST | `/api/v1/support/events/` | Registra qué hizo la persona con la orientación (solo el tipo de evento) |
 | GET/POST | `/api/v1/traces/` | Lista (la más reciente primero; filtros `?sensory_type=`, `?emotion=` y `?date=AAAA-MM-DD`) o crea huellas del usuario |
 | GET | `/api/v1/traces/catalog/` | Tipos sensoriales y emociones válidos, con su etiqueta |
 | GET | `/api/v1/traces/mood/?period=week|month` | Gráfica de ánimo: un punto por huella de los últimos 7 o 30 días y el promedio |

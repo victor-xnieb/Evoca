@@ -1,5 +1,5 @@
-import time
-from datetime import date, timedelta
+import time as clock
+from datetime import date, datetime, time, timedelta
 
 from django.utils import timezone
 from rest_framework import status
@@ -401,12 +401,123 @@ class MoodChartTests(APITestCase):
             trace.created_at = self.now - timedelta(days=index // 4, hours=index % 4)
         Trace.objects.bulk_update(created, ["created_at"])
 
-        started = time.perf_counter()
+        started = clock.perf_counter()
         with self.assertNumQueries(2):
             response = self.client.get(self.url, {"period": "month"})
-        elapsed = time.perf_counter() - started
+        elapsed = clock.perf_counter() - started
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 120)
         self.assertIsNotNone(response.data["average"])
         self.assertLess(elapsed, 2.0)
+
+
+class MoodCalendarTests(APITestCase):
+    """HU7: calendario de ánimo por colores (y HU3: la edición se refleja en el calendario)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="calendario@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1)
+        )
+        self.client.force_authenticate(self.user)
+        self.url = "/api/v1/traces/calendar/"
+
+    def add(self, day, hour, emotion, intensity, user=None):
+        moment = timezone.make_aware(datetime.combine(day, time(hour)))
+        return Trace.objects.create(
+            user=user or self.user, sensory_type="aroma", note=f"{emotion} {hour}h", emotion=emotion,
+            mood_intensity=intensity, happened_at=moment,
+        )
+
+    def days(self, month):
+        return {item["date"]: item for item in self.client.get(self.url, {"month": month}).data["days"]}
+
+    def test_each_day_takes_its_dominant_emotion(self):
+        day = date(2026, 10, 14)
+        self.add(day, 8, "calma", 3)
+        self.add(day, 12, "alegria", 5)
+        self.add(day, 20, "calma", 2)
+
+        item = self.days("2026-10")["2026-10-14"]
+
+        self.assertEqual(item["dominant_emotion"], "calma")
+        self.assertEqual(item["count"], 3)
+        self.assertEqual(item["average_intensity"], 3.3)
+
+    def test_tie_goes_to_higher_total_intensity_then_most_recent(self):
+        stronger = date(2026, 10, 2)
+        self.add(stronger, 9, "tristeza", 2)
+        self.add(stronger, 18, "gratitud", 4)
+        later = date(2026, 10, 3)
+        self.add(later, 9, "miedo", 3)
+        self.add(later, 18, "nostalgia", 3)
+
+        days = self.days("2026-10")
+
+        self.assertEqual(days["2026-10-02"]["dominant_emotion"], "gratitud")
+        self.assertEqual(days["2026-10-03"]["dominant_emotion"], "nostalgia")
+
+    def test_days_without_records_are_not_sent(self):
+        self.add(date(2026, 10, 14), 8, "calma", 3)
+
+        days = self.days("2026-10")
+
+        self.assertEqual(list(days), ["2026-10-14"])
+
+    def test_previous_months_can_be_opened(self):
+        self.add(date(2026, 8, 30), 10, "enojo", 4)
+        self.add(date(2026, 10, 1), 10, "calma", 3)
+
+        response = self.client.get(self.url, {"month": "2026-08"})
+
+        self.assertEqual(response.data["month"], "2026-08")
+        self.assertEqual([item["date"] for item in response.data["days"]], ["2026-08-30"])
+        self.assertEqual(response.data["first_month"], "2026-08")
+
+    def test_month_limits_use_local_time(self):
+        # 11:30 p. m. del 31 de octubre en Bogotá (ya es 1 de noviembre en UTC) es octubre.
+        self.add(date(2026, 10, 31), 23, "calma", 3)
+
+        self.assertIn("2026-10-31", self.days("2026-10"))
+        self.assertEqual(self.days("2026-11"), {})
+
+    def test_never_includes_other_peoples_traces(self):
+        other = User.objects.create_user(
+            email="otra-cal@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1)
+        )
+        self.add(date(2026, 10, 14), 8, "miedo", 5, user=other)
+
+        self.assertEqual(self.days("2026-10"), {})
+
+    def test_rejects_bad_month(self):
+        for bad in ("2026-13", "10-2026", "2026/10"):
+            self.assertEqual(self.client.get(self.url, {"month": bad}).status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_list_filters_the_traces_of_a_day(self):
+        day = date(2026, 10, 14)
+        self.add(day, 8, "calma", 3)
+        self.add(day, 21, "alegria", 5)
+        self.add(date(2026, 10, 15), 8, "miedo", 2)
+
+        response = self.client.get("/api/v1/traces/", {"date": "2026-10-14"})
+
+        self.assertEqual(sorted(item["emotion"] for item in response.data["results"]), ["alegria", "calma"])
+        self.assertEqual(
+            self.client.get("/api/v1/traces/", {"date": "14/10/2026"}).status_code, status.HTTP_400_BAD_REQUEST
+        )
+
+    def test_editing_a_trace_changes_the_color_of_its_day(self):
+        day = date(2026, 10, 14)
+        trace = self.add(day, 8, "tristeza", 2)
+
+        self.client.patch(f"/api/v1/traces/{trace.id}/", {"emotion": "alegria", "mood_intensity": 5}, format="json")
+
+        item = self.days("2026-10")["2026-10-14"]
+        self.assertEqual((item["dominant_emotion"], item["average_intensity"]), ("alegria", 5.0))
+
+    def test_deleting_the_only_trace_leaves_the_day_neutral(self):
+        trace = self.add(date(2026, 10, 14), 8, "tristeza", 2)
+
+        self.client.delete(f"/api/v1/traces/{trace.id}/")
+
+        self.assertNotIn("2026-10-14", self.days("2026-10"))

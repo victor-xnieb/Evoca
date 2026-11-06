@@ -28,7 +28,7 @@ const meta = {
     <AppShell {...args}>
       <PageTransition className="gap-6">
         <h1 className="text-3xl font-semibold">Inicio</h1>
-        <div className="rounded-3xl border bg-card/80">
+        <div className="rounded-3xl border bg-card/92 backdrop-blur-sm">
           <EmptyState
             title="Aún no tienes huellas"
             description="Cuando registres la primera, aquí verás tus recuerdos."

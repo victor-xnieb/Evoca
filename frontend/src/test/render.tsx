@@ -9,13 +9,14 @@ interface Options extends RenderOptions {
   /** Por defecto las pruebas corren con movimiento reducido para ser deterministas. */
   reducedMotion?: boolean
   route?: string
+  theme?: "light" | "dark"
 }
 
 /** Renderiza con los mismos proveedores que la app (tema, movimiento y router). */
-export function renderWithProviders(ui: ReactElement, { reducedMotion = true, route = "/", ...options }: Options = {}) {
+export function renderWithProviders(ui: ReactElement, { reducedMotion = true, route = "/", theme = "light", ...options }: Options = {}) {
   function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <ThemeProvider initialPreference="light">
+      <ThemeProvider initialPreference={theme}>
         <MotionPreferenceProvider override={reducedMotion}>
           <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
         </MotionPreferenceProvider>

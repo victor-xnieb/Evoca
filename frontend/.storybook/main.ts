@@ -7,6 +7,8 @@ import type { StorybookConfig } from "@storybook/react-vite"
 const config: StorybookConfig = {
   stories: ["../src/**/*.stories.@(ts|tsx)"],
   addons: ["@storybook/addon-docs", "@storybook/addon-a11y"],
+  // Sirve public/ (videos y posters de fondo) igual que la app.
+  staticDirs: ["../public"],
   framework: { name: "@storybook/react-vite", options: {} },
   core: { disableTelemetry: true },
   async viteFinal(viteConfig) {

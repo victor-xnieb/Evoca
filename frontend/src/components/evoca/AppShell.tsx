@@ -8,6 +8,7 @@ import { getEmotionVisual } from "@/lib/emotions"
 import { spring } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 
+import { AnimatedBackground } from "./AnimatedBackground"
 import { ThemeSwitch } from "./ThemeSwitch"
 
 export interface NavItem {
@@ -30,22 +31,30 @@ export interface AppShellProps {
   children: ReactNode
   /** Última emoción registrada: tiñe suavemente el fondo. */
   accentEmotion?: string | null
+  /** "static" muestra el fondo sin video (pantallas que deben ser calmadas, como la de ayuda). */
+  background?: "animated" | "static"
   className?: string
 }
 
 /**
  * Estructura de las pantallas principales: encabezado con la marca y el cambio de tema,
- * fondo con degradado de la emoción reciente y navegación inferior (también en escritorio,
- * como un dock flotante).
+ * fondo animado (con el degradado de la emoción reciente debajo mientras carga) y
+ * navegación inferior (también en escritorio, como un dock flotante).
  */
-export function AppShell({ children, accentEmotion, className }: AppShellProps) {
+export function AppShell({ children, accentEmotion, background = "animated", className }: AppShellProps) {
   const reduced = useReducedMotion()
   const style = accentEmotion
     ? ({ "--accent-emotion": getEmotionVisual(accentEmotion).color } as CSSProperties)
     : undefined
 
   return (
-    <div className="evoca-backdrop flex min-h-dvh flex-col" style={style}>
+    <div className="evoca-backdrop relative isolate flex min-h-dvh flex-col" style={style}>
+      <AnimatedBackground variant={background} />
+      {/* Refuerzo detrás del encabezado: el logo y el interruptor nunca quedan sobre el video crudo. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-28 bg-linear-to-b from-background/85 via-background/55 to-transparent"
+      />
       <a
         href="#contenido"
         className="sr-only z-50 rounded-full bg-primary px-4 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:top-3 focus:left-3"

@@ -5,6 +5,7 @@ import { MotionPreferenceProvider } from "../src/providers/MotionPreferenceProvi
 import { ThemeProvider } from "../src/providers/ThemeProvider"
 
 import "../src/index.css"
+import "./preview.css"
 
 /** Aplica el tema (claro/oscuro) y la preferencia de movimiento elegidos en la barra. */
 const withEvocaProviders: Decorator = (Story, context) => {
@@ -16,7 +17,7 @@ const withEvocaProviders: Decorator = (Story, context) => {
     <ThemeProvider key={theme} initialPreference={theme}>
       <MotionPreferenceProvider override={override}>
         <MemoryRouter>
-          <div className="evoca-backdrop min-h-full p-6 text-foreground">
+          <div className="evoca-story-backdrop min-h-full p-6 text-foreground">
             <Story />
           </div>
         </MemoryRouter>

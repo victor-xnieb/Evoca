@@ -33,6 +33,13 @@ if (!("ResizeObserver" in window)) {
   Object.defineProperty(window, "ResizeObserver", { value: ResizeObserverStub })
 }
 
+// jsdom no reproduce video: play() y pause() se simulan para poder verificar las llamadas.
+Object.defineProperty(HTMLMediaElement.prototype, "play", {
+  configurable: true,
+  value: vi.fn(() => Promise.resolve()),
+})
+Object.defineProperty(HTMLMediaElement.prototype, "pause", { configurable: true, value: vi.fn() })
+
 // El reproductor Lottie no aporta nada en jsdom: se sustituye por uno vacío.
 vi.mock("lottie-web/build/player/lottie_light", () => ({
   default: { loadAnimation: () => ({ goToAndStop: () => {}, destroy: () => {} }) },

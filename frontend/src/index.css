@@ -85,6 +85,30 @@
     var(--background);
 }
 
+/*
+ * Capa de refuerzo sobre el fondo animado (crema 35 % en claro, marrón 45 % en oscuro):
+ * baja la intensidad del video para que el texto suelto (logo, títulos) siga legible.
+ * Conserva el leve tinte de la emoción reciente que antes daba .evoca-backdrop.
+ */
+.evoca-video-scrim {
+  background:
+    radial-gradient(120% 70% at 85% -10%, color-mix(in oklab, var(--accent-emotion) 16%, transparent), transparent 62%),
+    color-mix(in oklab, var(--background) 35%, transparent);
+}
+.dark .evoca-video-scrim {
+  background:
+    radial-gradient(120% 70% at 85% -10%, color-mix(in oklab, var(--accent-emotion) 12%, transparent), transparent 62%),
+    color-mix(in oklab, var(--background) 45%, transparent);
+}
+
+/* Resplandor del color de la emoción detrás de cada esfera; más visible en modo oscuro. */
+.evoca-orb {
+  filter: drop-shadow(0 0 calc(var(--orb-size, 96px) * 0.07) color-mix(in oklab, var(--orb-color) 45%, transparent));
+}
+.dark .evoca-orb {
+  filter: drop-shadow(0 0 calc(var(--orb-size, 96px) * 0.1) color-mix(in oklab, var(--orb-color) 70%, transparent));
+}
+
 @keyframes ripple {
   0%,
   100% {

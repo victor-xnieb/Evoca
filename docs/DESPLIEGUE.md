@@ -88,9 +88,9 @@ El plan gratuito no tiene terminal, así que se hace con una variable:
 
 1. En **`evoca-naranja-api`** → *Environment*: cambia `EVOCA_SEED_DEMO` a **`true`** y guarda
    (Render reinicia el servicio).
-2. En los *Logs* verás `maria.demo@example.com: 30 huellas`, y lo mismo para Mateo, Juliana y Valentina.
+2. En los *Logs* verás `maria.demo@example.com: 30 huellas`, y lo mismo para Mateo, Juliana, Valentina y Santiago.
 3. Entra con `maria.demo@example.com`, `mateo.demo@example.com`, `juliana.demo@example.com` o
-   `valentina.demo@example.com`, con
+   `valentina.demo@example.com` o `santiago.demo@example.com`, con
    la contraseña y el PIN que pusiste. La guía de qué mostrar con cada cuenta está en el
    [README](../README.md#datos-de-demostración).
 
@@ -131,7 +131,7 @@ Las cuentas nuevas toman la contraseña y el PIN que ya tienes en `EVOCA_DEMO_PA
   Úsalo solo con datos de ejemplo.
 - **Datos compartidos:** como la base es la rama `development` de Neon, las cuentas que se creen
   en Render aparecen también para el equipo. Las cuentas demo no afectan a otras: `reset` solo
-  borra y recrea las cuatro.
+  borra y recrea las cinco.
 - **Seguridad:** `DEBUG` está apagado y `DJANGO_SECRET_KEY` la genera Render. HSTS y la
   redirección SSL de Django no se activan: Render ya redirige HTTP a HTTPS en su borde.
 - **Versión de Python:** `PYTHON_VERSION` en `render.yaml` es 3.13.5. Si Render no la ofrece, usa

@@ -178,15 +178,15 @@ El despliegue en Render (backend, frontend y la misma base de Neon) está descri
 
 ## Datos de demostración
 
-Para mostrar la app sin usar datos reales, carga cuatro cuentas de ejemplo con huellas inventadas.
+Para mostrar la app sin usar datos reales, carga cinco cuentas de ejemplo con huellas inventadas.
 Las fechas se calculan desde el día en que se ejecuta, así que la demo siempre se ve actual.
 
 ```powershell
 python manage.py seed_demo           # crea las que falten
-python manage.py seed_demo --reset   # borra y vuelve a crear las cuatro (por ejemplo, el día de la demo)
+python manage.py seed_demo --reset   # borra y vuelve a crear las cinco (por ejemplo, el día de la demo)
 ```
 
-En local, la contraseña y el PIN de las cuatro cuentas están en
+En local, la contraseña y el PIN de las cinco cuentas están en
 `apps/accounts/management/commands/seed_demo.py` (`DEMO_PASSWORD` y `DEMO_PIN`). En un
 despliegue (con `DJANGO_DEBUG=False`) el comando **exige** definir `EVOCA_DEMO_PASSWORD` y
 `EVOCA_DEMO_PIN`, para no publicar cuentas con claves que están en el repositorio.
@@ -197,8 +197,9 @@ despliegue (con `DJANGO_DEBUG=False`) el comando **exige** definir `EVOCA_DEMO_P
 | `mateo.demo@example.com` | 18 | **HU6**: ánimo bajo 15 de los últimos 21 días, así que al abrir aparece la orientación («Ver opciones de ayuda» o «Ahora no»). **HU5**: recordatorio «cada hora» y sin huella hoy, así que avisa al abrir |
 | `juliana.demo@example.com` | 16 | **HU5**: sin huella hoy y recordatorio diario a las 8:00, así que avisa al abrir. Buena cuenta para registrar en vivo: **HU2**, **HU8** (sugerencia de la IA) y **HU6** (pantalla de ayuda al escribir, por ejemplo, «quiero morir») |
 | `valentina.demo@example.com` | 19 | **HU6**: segunda cuenta para la orientación. Tiene ánimo 1 o 2 en **16 días distintos** de los últimos 21 (la regla cuenta días distintos: 14 huellas de un mismo día no sirven) y el mensaje sin mostrar, así que al abrir aparece «Aquí hay apoyo si lo necesitas». No tiene recordatorio, para que nada se interponga. Sirve cuando la orientación de Mateo ya se mostró o se descartó |
+| `santiago.demo@example.com` | 17 | **HU6**: tercera cuenta para la orientación, igual que la de Valentina pero con **15 días distintos** de ánimo 1 o 2 en los últimos 21 y sin recordatorio. Al abrir aparece «Aquí hay apoyo si lo necesitas». Sirve para mostrarla varias veces sin recargar con `--reset` |
 
-Con cualquiera de las cuatro se puede mostrar **HU1**: entrar, el bloqueo con PIN al volver a la
+Con cualquiera de las cinco se puede mostrar **HU1**: entrar, el bloqueo con PIN al volver a la
 app, y en Ajustes la autorización de datos sensibles, exportar los datos y eliminar la cuenta.
 Después de una demo, `--reset` las deja como al principio (por ejemplo, si se tocó «Ahora no»
 en la orientación de Mateo, que la pausa 7 días).

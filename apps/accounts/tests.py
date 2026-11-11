@@ -10,10 +10,10 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.authtoken.models import Token
-from rest_framework.test import APITestCase
+from rest_framework.test import APIClient, APITestCase
 
 from apps.support.models import orientation_status
-from apps.traces.models import Memory, Trace
+from apps.traces.models import Memory, MemoryTrace, Trace
 
 from .models import AccessPin, ConsentRecord, DailyReminder, User
 
@@ -534,6 +534,37 @@ class SeedDemoTests(TestCase):
                 self.assertEqual(status["reason"], "low_mood")
                 self.assertGreaterEqual(status["low_days"], 14)
                 self.assertFalse(user.support_events.exists())
+
+    def test_the_map_accounts_have_accepted_memories_of_their_own_traces(self):
+        """HU10: María, Mateo y Juliana tienen recuerdos aceptados para ver el mapa de esferas."""
+        self.run_seed()
+
+        expected = {"maria.demo@example.com": 7, "mateo.demo@example.com": 4, "juliana.demo@example.com": 4}
+        for email, count in expected.items():
+            with self.subTest(email=email):
+                user = User.objects.get(email=email)
+                memories = user.memories.filter(status=Memory.Status.ACCEPTED)
+                self.assertEqual(memories.count(), count)
+                for memory in memories:
+                    self.assertGreaterEqual(memory.traces.count(), 2)
+                    self.assertFalse(memory.traces.exclude(user=user).exists())
+        maria = self.client_for("maria.demo@example.com")
+        colors = {sphere["emotion"] for sphere in maria.get("/api/v1/memories/").data["results"]}
+        # Un mapa variado: esferas de varios colores.
+        self.assertGreaterEqual(len(colors), 5)
+        self.assertFalse(User.objects.get(email="valentina.demo@example.com").memories.exists())
+
+    def test_reset_recreates_the_memories_without_duplicates(self):
+        self.run_seed()
+        self.run_seed("--reset")
+
+        self.assertEqual(Memory.objects.filter(user__email__endswith=".demo@example.com").count(), 7 + 4 + 4)
+        self.assertEqual(MemoryTrace.objects.filter(memory__user__email="maria.demo@example.com").count(), 28)
+
+    def client_for(self, email):
+        client = APIClient()
+        client.force_authenticate(User.objects.get(email=email))
+        return client
 
     def test_reset_brings_the_orientation_back_after_it_was_answered(self):
         self.run_seed()

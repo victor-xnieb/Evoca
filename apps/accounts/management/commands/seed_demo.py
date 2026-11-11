@@ -21,7 +21,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import AccessPin, ConsentRecord, DailyReminder, User
-from apps.traces.models import Trace
+from apps.traces.models import Memory, MemoryTrace, Trace
 
 DEMO_PASSWORD = "EvocaDemo!2026"
 DEMO_PIN = "2468"
@@ -150,6 +150,32 @@ SANTIAGO = [
     (36, 16, 10, "color", "calma", 4, "El azul del mar desde el muelle en el viaje de fin de año."),
 ]
 
+# Recuerdos aceptados para el mapa (HU10): (nombre, explicación, posiciones de sus huellas en la
+# lista de arriba). El color de cada esfera sale de la emoción dominante de sus huellas.
+MARIA_MEMORIES = [
+    ("Días de calma", "Momentos tranquilos con colores suaves, lluvia y texturas que abrigan.", [2, 4, 13, 18, 23, 28]),
+    ("Lo que se fue", "Lugares, canciones y objetos que traen de vuelta a quienes ya no están cerca.", [5, 12, 17, 22, 24]),
+    ("Fiestas y amigos", "Música, atardeceres y planes compartidos con amigos.", [7, 14, 27, 29]),
+    ("Tardes de nervios", "Situaciones de espera, prisa o peligro que aceleraron el corazón.", [6, 10, 16, 26]),
+    ("Sabores de la infancia", "Comidas caseras que recuerdan a la familia.", [3, 9, 25]),
+    ("La familia y sus abrazos", "Gestos de la mamá, el papá y la hermana.", [1, 15, 19]),
+    ("Paisajes que me abrazan", "Flores, playa y montañas vistas con calma.", [8, 11, 20]),
+]
+
+MATEO_MEMORIES = [
+    ("Noches en silencio", "Noches solo, con música triste y el cielo gris.", [0, 3, 8, 12, 14]),
+    ("Lo que extraño", "Lugares, sabores y aromas que recuerdan a personas que ya no están.", [1, 5, 6, 10]),
+    ("Antes de cada cita", "Esperas, reuniones y entrevistas que generan inquietud.", [2, 4, 9, 13]),
+    ("Domingos con los míos", "Ratos con la familia y los amigos del barrio.", [15, 16, 17]),
+]
+
+JULIANA_MEMORIES = [
+    ("Mañanas frescas", "Aromas, neblina y música suave de las mañanas.", [0, 7, 8, 12]),
+    ("Lo que guardo de la familia", "Sabores, canciones y fiestas con la familia.", [1, 2, 9, 15]),
+    ("Sustos del día a día", "Momentos de tensión en la clase, el ascensor y el bus.", [3, 10, 13]),
+    ("Gente que me cuida", "Personas que ayudaron o regalaron algo hecho a mano.", [4, 11]),
+]
+
 DEMO_USERS = [
     {
         "email": "maria.demo@example.com",
@@ -157,8 +183,9 @@ DEMO_USERS = [
         "last_name": "Gómez",
         "date_of_birth": date(1999, 3, 14),
         "traces": MARIA,
+        "memories": MARIA_MEMORIES,
         "reminder": {"enabled": True, "frequency": "daily", "time": time(20, 0)},
-        "shows": "ánimo variado: lista y filtros, gráfica semanal y mensual, calendario de tres meses; ya registró hoy",
+        "shows": "ánimo variado: lista y filtros, gráfica semanal y mensual, calendario de tres meses, mapa con 7 recuerdos; ya registró hoy",
     },
     {
         "email": "mateo.demo@example.com",
@@ -166,6 +193,7 @@ DEMO_USERS = [
         "last_name": "Rincón",
         "date_of_birth": date(1996, 8, 2),
         "traces": MATEO,
+        "memories": MATEO_MEMORIES,
         "reminder": {"enabled": True, "frequency": "hourly", "time": time(20, 0)},
         "shows": "ánimo bajo 15 de los últimos 21 días: orientación al abrir; recordatorio cada hora sin huella hoy",
     },
@@ -175,6 +203,7 @@ DEMO_USERS = [
         "last_name": "Herrera",
         "date_of_birth": date(2001, 11, 25),
         "traces": JULIANA,
+        "memories": JULIANA_MEMORIES,
         "reminder": {"enabled": True, "frequency": "daily", "time": time(8, 0)},
         "shows": "sin huella hoy: el recordatorio diario de las 8:00 avisa al abrir; buena cuenta para registrar en vivo",
     },
@@ -281,6 +310,16 @@ class Command(BaseCommand):
             # Cada huella figura registrada el día en que ocurrió, para que las listas salgan en orden.
             for trace, at in zip(traces, moments):
                 Trace.objects.filter(pk=trace.pk).update(created_at=at, updated_at=at)
-            self.stdout.write(self.style.SUCCESS(f"· {spec['email']}: {len(moments)} huellas · {spec['shows']}"))
+            memories = spec.get("memories", [])
+            for name, explanation, positions in memories:
+                memory = Memory.objects.create(
+                    user=user, name=name, explanation=explanation, status=Memory.Status.ACCEPTED
+                )
+                MemoryTrace.objects.bulk_create([MemoryTrace(memory=memory, trace=traces[index]) for index in positions])
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"· {spec['email']}: {len(moments)} huellas, {len(memories)} recuerdos · {spec['shows']}"
+                )
+            )
 
         self.stdout.write("La contraseña y el PIN están en apps/accounts/management/commands/seed_demo.py (o en EVOCA_DEMO_*).")

@@ -193,11 +193,13 @@ despliegue (con `DJANGO_DEBUG=False`) el comando **exige** definir `EVOCA_DEMO_P
 
 | Cuenta | Huellas | Qué mostrar |
 | --- | --- | --- |
-| `maria.demo@example.com` | 30, en 3 meses | **HU2/HU3**: lista, filtros por tipo y emoción, editar y borrar. **HU4**: gráfica semanal y mensual. **HU7**: calendario de colores con meses anteriores. Ya registró hoy, así que el recordatorio no avisa (HU5 · escenario 3) |
-| `mateo.demo@example.com` | 18 | **HU6**: ánimo bajo 15 de los últimos 21 días, así que al abrir aparece la orientación («Ver opciones de ayuda» o «Ahora no»). **HU5**: recordatorio «cada hora» y sin huella hoy, así que avisa al abrir |
-| `juliana.demo@example.com` | 16 | **HU5**: sin huella hoy y recordatorio diario a las 8:00, así que avisa al abrir. Buena cuenta para registrar en vivo: **HU2**, **HU8** (sugerencia de la IA) y **HU6** (pantalla de ayuda al escribir, por ejemplo, «quiero morir») |
+| `maria.demo@example.com` | 30, en 3 meses | **HU2/HU3**: lista, filtros por tipo y emoción, editar y borrar. **HU4**: gráfica semanal y mensual. **HU7**: calendario de colores con meses anteriores. **HU10**: mapa con 7 recuerdos de 6 colores (filtros y huellas de cada uno). Ya registró hoy, así que el recordatorio no avisa (HU5 · escenario 3) |
+| `mateo.demo@example.com` | 18 | **HU6**: ánimo bajo 15 de los últimos 21 días, así que al abrir aparece la orientación («Ver opciones de ayuda» o «Ahora no»). **HU5**: recordatorio «cada hora» y sin huella hoy, así que avisa al abrir. **HU10**: 4 recuerdos |
+| `juliana.demo@example.com` | 16 | **HU5**: sin huella hoy y recordatorio diario a las 8:00, así que avisa al abrir. Buena cuenta para registrar en vivo: **HU2**, **HU8** (sugerencia de la IA) y **HU6** (pantalla de ayuda al escribir, por ejemplo, «quiero morir»). **HU10**: 4 recuerdos |
 | `valentina.demo@example.com` | 19 | **HU6**: segunda cuenta para la orientación. Tiene ánimo 1 o 2 en **16 días distintos** de los últimos 21 (la regla cuenta días distintos: 14 huellas de un mismo día no sirven) y el mensaje sin mostrar, así que al abrir aparece «Aquí hay apoyo si lo necesitas». No tiene recordatorio, para que nada se interponga. Sirve cuando la orientación de Mateo ya se mostró o se descartó |
 | `santiago.demo@example.com` | 17 | **HU6**: tercera cuenta para la orientación, igual que la de Valentina pero con **15 días distintos** de ánimo 1 o 2 en los últimos 21 y sin recordatorio. Al abrir aparece «Aquí hay apoyo si lo necesitas». Sirve para mostrarla varias veces sin recargar con `--reset` |
+
+Valentina y Santiago no tienen recuerdos: sirven para mostrar el mapa vacío de **HU10**.
 
 Con cualquiera de las cinco se puede mostrar **HU1**: entrar, el bloqueo con PIN al volver a la
 app, y en Ajustes la autorización de datos sensibles, exportar los datos y eliminar la cuenta.
@@ -229,6 +231,8 @@ en la orientación de Mateo, que la pausa 7 días).
 | GET | `/api/v1/traces/mood/?period=week|month` | Gráfica de ánimo: un punto por huella de los últimos 7 o 30 días y el promedio |
 | GET | `/api/v1/traces/calendar/?month=AAAA-MM` | Calendario: por día, la emoción dominante, la intensidad promedio y cuántas huellas hay |
 | GET/PATCH/DELETE | `/api/v1/traces/{id}/` | Consulta, modifica o elimina una huella propia |
+| GET | `/api/v1/memories/` | Mapa de recuerdos (HU10): los aceptados como esferas (emoción dominante y número de huellas), sin orden cronológico; filtros `?sensory_type=` y `?emotion=` |
+| GET | `/api/v1/memories/{id}/` | Un recuerdo propio con sus huellas, de la más reciente a la más antigua |
 
 Para rutas privadas, envía:
 
@@ -272,6 +276,14 @@ npm run typecheck
 npm test
 npm run build
 npm run build-storybook
+```
+
+Pruebas en el navegador (Playwright) sobre la versión compilada, con la API simulada. La
+primera vez descarga el navegador con `npx playwright install chromium`, o usa el Chrome
+instalado con `$env:PLAYWRIGHT_CHANNEL = "chrome"`:
+
+```powershell
+npm run test:e2e
 ```
 
 ## Migraciones automáticas al integrar en `dev`

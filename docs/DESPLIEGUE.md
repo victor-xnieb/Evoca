@@ -113,7 +113,9 @@ aparecen hasta que se cargan** (el despliegue no toca los datos):
    `true` solo crea las cuentas que falten: las demás no se tocan.
 3. En los *Logs*, mira las líneas `· <cuenta>: N huellas` de las cuentas nuevas. Las que ya
    existían dicen `ya existe`.
-4. Si además quieres que todas las cuentas vuelvan a su estado inicial (por ejemplo, la
+4. Si el cambio agrega datos a cuentas que **ya existen** (por ejemplo, los recuerdos de HU10
+   para María, Mateo y Juliana), usa `reset` una vez: `true` no toca las cuentas existentes.
+5. Si además quieres que todas las cuentas vuelvan a su estado inicial (por ejemplo, la
    orientación de Mateo ya se mostró), usa `reset` en lugar de `true`.
 
 Las cuentas nuevas toman la contraseña y el PIN que ya tienes en `EVOCA_DEMO_PASSWORD` y

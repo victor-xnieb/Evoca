@@ -23,7 +23,7 @@ describe("App", () => {
     expect(await screen.findByRole("link", { name: "Registrar mi primera huella" })).toHaveAttribute("href", "/nueva-huella")
   })
 
-  it("tiene la navegación inferior con las 5 secciones acordadas", () => {
+  it("tiene la navegación inferior con las 6 secciones acordadas (Recuerdos llega con HU10)", () => {
     renderApp()
     const nav = screen.getByRole("navigation", { name: "Navegación principal" })
     const links = within(nav).getAllByRole("link")
@@ -31,6 +31,7 @@ describe("App", () => {
       "Inicio",
       "Nueva huella",
       "Mis huellas",
+      "Recuerdos",
       "Ánimo",
       "Ajustes",
     ])

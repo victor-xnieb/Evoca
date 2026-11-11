@@ -9,6 +9,7 @@ import {
   CreatePinPage,
   Deferred,
   HelpPage,
+  MemoriesPage,
   MoodPage,
   MyTracesPage,
   NewTracePage,
@@ -87,6 +88,14 @@ export const routes: RouteObject[] = [
         element: (
           <Deferred>
             <TraceDetailPage />
+          </Deferred>
+        ),
+      },
+      {
+        path: "recuerdos",
+        element: (
+          <Deferred>
+            <MemoriesPage />
           </Deferred>
         ),
       },

@@ -1,4 +1,4 @@
-import { CalendarHeart, House, Library, Plus, Settings, type LucideIcon } from "lucide-react"
+import { CalendarHeart, House, Library, Orbit, Plus, Settings, type LucideIcon } from "lucide-react"
 import { motion } from "motion/react"
 import type { CSSProperties, ReactNode } from "react"
 import { NavLink } from "react-router"
@@ -24,6 +24,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Inicio", icon: House },
   { to: "/nueva-huella", label: "Nueva huella", icon: Plus, primary: true },
   { to: "/mis-huellas", label: "Mis huellas", icon: Library },
+  { to: "/recuerdos", label: "Recuerdos", icon: Orbit },
   { to: "/animo", label: "Ánimo", icon: CalendarHeart },
   { to: "/ajustes", label: "Ajustes", icon: Settings },
 ]

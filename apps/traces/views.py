@@ -13,7 +13,7 @@ from rest_framework.throttling import ScopedRateThrottle
 
 from . import ai
 
-from .models import Trace
+from .models import Memory, MemoryTrace, Trace
 from .serializers import TraceSerializer, choice_list
 
 FILTERS = {
@@ -187,3 +187,78 @@ class TraceViewSet(viewsets.ModelViewSet):
                 ],
             }
         )
+
+
+def memory_entries(memory_ids):
+    """
+    Las huellas de varios recuerdos en una sola consulta, agrupadas por recuerdo:
+    (momento, emoción, intensidad, tipo sensorial) de cada una.
+    """
+    rows = (
+        MemoryTrace.objects.filter(memory_id__in=memory_ids)
+        .annotate(at=Coalesce("trace__happened_at", "trace__created_at"))
+        .values_list("memory_id", "at", "trace__emotion", "trace__mood_intensity", "trace__sensory_type")
+    )
+    by_memory = defaultdict(list)
+    for memory_id, moment, emotion, intensity, sensory_type in rows:
+        by_memory[memory_id].append((moment, emotion, intensity, sensory_type))
+    return by_memory
+
+
+def memory_sphere(memory, entries):
+    """
+    Un recuerdo como esfera del mapa: su color es la emoción dominante de sus huellas (la
+    misma regla del calendario) y su tamaño, cuántas huellas tiene.
+    """
+    present = {entry[3] for entry in entries}
+    return {
+        "id": str(memory.id),
+        "name": memory.name,
+        "explanation": memory.explanation,
+        "emotion": dominant_emotion(entry[:3] for entry in entries) if entries else None,
+        "trace_count": len(entries),
+        "sensory_types": [value for value in Trace.SensoryType.values if value in present],
+    }
+
+
+class MemoryViewSet(viewsets.ReadOnlyModelViewSet):
+    """HU10: mapa de recuerdos de la persona autenticada (nunca los de otras)."""
+
+    def get_queryset(self):
+        return Memory.objects.filter(user=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        """
+        Todos los recuerdos aceptados (sin paginar: el mapa los muestra juntos), sin orden
+        cronológico. Se filtran por tipo de sensación (alguna de sus huellas es de ese tipo)
+        o por emoción (la de la esfera). `total` cuenta los recuerdos sin filtros.
+        """
+        wanted = {}
+        for name, (choices, message) in FILTERS.items():
+            value = request.query_params.get(name)
+            if value and value not in choices.values:
+                raise ValidationError({name: message})
+            wanted[name] = value
+        memories = list(
+            self.get_queryset().filter(status=Memory.Status.ACCEPTED).only("id", "name", "explanation")
+        )
+        entries = memory_entries([memory.id for memory in memories])
+        # Un recuerdo cuyas huellas se borraron todas no tiene color ni tamaño: no se dibuja.
+        spheres = [memory_sphere(memory, entries[memory.id]) for memory in memories if entries[memory.id]]
+        total = len(spheres)
+        if wanted["sensory_type"]:
+            spheres = [sphere for sphere in spheres if wanted["sensory_type"] in sphere["sensory_types"]]
+        if wanted["emotion"]:
+            spheres = [sphere for sphere in spheres if sphere["emotion"] == wanted["emotion"]]
+        spheres.sort(key=lambda sphere: (-sphere["trace_count"], sphere["name"].lower()))
+        return Response({"total": total, "count": len(spheres), "results": spheres})
+
+    def retrieve(self, request, *args, **kwargs):
+        """Un recuerdo con sus huellas, de la más reciente a la más antigua."""
+        memory = self.get_object()
+        traces = with_moment(memory.traces.filter(user=request.user)).order_by("-at")
+        entries = [(trace.at, trace.emotion, trace.mood_intensity, trace.sensory_type) for trace in traces]
+        data = memory_sphere(memory, entries)
+        data["status"] = memory.status
+        data["traces"] = TraceSerializer(traces, many=True).data
+        return Response(data)

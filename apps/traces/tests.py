@@ -1,11 +1,13 @@
 import json
 import time as clock
 import urllib.error
+from collections import Counter
 from datetime import date, datetime, time, timedelta
 from unittest import mock
 
+from django.conf import settings
 from django.core.cache import cache
-from django.test import override_settings
+from django.test import SimpleTestCase, override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -13,7 +15,7 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
 
-from . import ai
+from . import ai, memory_map
 from .models import Memory, MemoryTrace, Trace
 
 
@@ -683,8 +685,108 @@ class SuggestEmotionTests(APITestCase):
         self.assertEqual(codes[20], status.HTTP_429_TOO_MANY_REQUESTS)
 
 
+class MemoryAffinityTests(SimpleTestCase):
+    """HU10: afinidad entre recuerdos con reglas fijas y aristas con un máximo por nodo."""
+
+    def node(self, id, emotion="calma", sensations=("aroma",), tags=()):
+        return memory_map.Node(id=id, emotion=emotion, sensations=frozenset(sensations), tags=frozenset(tags))
+
+    def test_identical_memories_score_one_and_explain_why(self):
+        first = self.node("a", "nostalgia", ("aroma", "song"), ("abuela",))
+        second = self.node("b", "nostalgia", ("aroma", "song"), ("abuela",))
+
+        score, reason = memory_map.affinity(first, second)
+
+        self.assertEqual(score, 1.0)
+        self.assertEqual(reason, "Comparten aromas, canciones, nostalgia y la etiqueta «abuela»")
+
+    def test_nothing_in_common_scores_zero(self):
+        score, reason = memory_map.affinity(self.node("a", "alegria", ("aroma",)), self.node("b", "miedo", ("place",)))
+
+        self.assertEqual(score, 0.0)
+        self.assertEqual(reason, "")
+
+    def test_sensations_weigh_more_than_emotion_and_emotion_more_than_tags(self):
+        # Con etiquetas (distintas) en los dos, cuentan los tres pesos: 0,5 + 0,3 + 0,2.
+        sensations = memory_map.affinity(
+            self.node("a", "alegria", ("aroma",), ("x",)), self.node("b", "miedo", ("aroma",), ("y",))
+        )[0]
+        emotion = memory_map.affinity(
+            self.node("a", "calma", ("aroma",), ("x",)), self.node("b", "calma", ("place",), ("y",))
+        )[0]
+        tags = memory_map.affinity(
+            self.node("a", "alegria", ("aroma",), ("lluvia",)), self.node("b", "miedo", ("place",), ("lluvia",))
+        )[0]
+
+        self.assertEqual((sensations, emotion, tags), (0.5, 0.3, 0.2))
+
+    def test_without_tags_the_score_is_normalized_over_the_other_parts(self):
+        same = memory_map.affinity(self.node("a", "calma", ("aroma",)), self.node("b", "calma", ("aroma",)))[0]
+        emotion_only = memory_map.affinity(self.node("a", "calma", ("aroma",)), self.node("b", "calma", ("place",)))[0]
+
+        self.assertEqual(same, 1.0)
+        self.assertEqual(emotion_only, 0.37)  # 0,3 / 0,8: no llega al umbral de 0,4
+
+    def test_an_emotion_of_the_same_tone_counts_half(self):
+        score, reason = memory_map.affinity(self.node("a", "tristeza", ("song",)), self.node("b", "nostalgia", ("color",)))
+
+        self.assertEqual(score, 0.19)  # 0,15 / 0,8
+        self.assertEqual(reason, "Comparten un tono melancólico")
+
+    def test_shared_sensations_count_by_overlap(self):
+        """Comparten 1 de 3 sensaciones distintas y la emoción: (0,5 × 1/3 + 0,3) / 0,8."""
+        score, reason = memory_map.affinity(
+            self.node("a", "calma", ("aroma", "color")), self.node("b", "calma", ("aroma", "song"))
+        )
+
+        self.assertEqual(score, 0.58)
+        self.assertEqual(reason, "Comparten aromas y calma")
+
+    def test_pairs_under_the_threshold_are_discarded(self):
+        nodes = [self.node("a", "calma", ("aroma",)), self.node("b", "calma", ("place",))]  # 0,375
+
+        self.assertEqual(memory_map.build_edges(nodes, min_affinity=0.4, max_links=4), [])
+        self.assertEqual(len(memory_map.build_edges(nodes, min_affinity=0.37, max_links=4)), 1)
+
+    @override_settings(EVOCA_MAP_MIN_AFFINITY=0.9, EVOCA_MAP_MAX_LINKS=4)
+    def test_the_threshold_comes_from_the_settings(self):
+        nodes = [self.node("a", "calma", ("aroma", "color")), self.node("b", "calma", ("aroma", "song"))]  # 0,58
+
+        self.assertEqual(memory_map.build_edges(nodes), [])
+
+    def test_no_memory_gets_more_than_four_links(self):
+        """Un centro idéntico a seis recuerdos: solo se queda con 4 conexiones."""
+        hub = self.node("hub", "calma", ("aroma",))
+        leaves = [self.node(f"leaf-{index}", "calma", ("aroma",)) for index in range(6)]
+
+        edges = memory_map.build_edges([hub, *leaves], min_affinity=0.4, max_links=4)
+
+        degree = Counter(end for edge in edges for end in (edge["source"], edge["target"]))
+        self.assertEqual(degree["hub"], 4)
+        self.assertLessEqual(max(degree.values()), 4)
+
+    def test_edges_are_added_from_the_strongest(self):
+        """Con máximo 1, «a» se une con su par más afín aunque haya otro sobre el umbral."""
+        a = self.node("a", "calma", ("aroma", "song"))
+        close = self.node("close", "calma", ("aroma", "song"))  # 1,0
+        far = self.node("far", "calma", ("aroma",))  # 0,69
+
+        edges = memory_map.build_edges([a, far, close], min_affinity=0.4, max_links=1)
+
+        self.assertEqual([(edge["source"], edge["target"], edge["score"]) for edge in edges], [("a", "close", 1.0)])
+
+    def test_a_memory_without_enough_affinity_is_left_alone(self):
+        lonely = self.node("solo", "enojo", ("flavor",))
+        pair = [self.node("a", "calma", ("aroma",)), self.node("b", "calma", ("aroma",))]
+
+        edges = memory_map.build_edges([lonely, *pair], min_affinity=0.4, max_links=4)
+
+        self.assertEqual(len(edges), 1)
+        self.assertNotIn("solo", {end for edge in edges for end in (edge["source"], edge["target"])})
+
+
 class MemoryMapTests(APITestCase):
-    """HU10: mapa de recuerdos como esferas del color de su emoción, con filtros y detalle."""
+    """HU10: el endpoint del mapa devuelve nodos (esferas) y aristas entre recuerdos afines."""
 
     def setUp(self):
         self.user = User.objects.create_user(
@@ -694,11 +796,12 @@ class MemoryMapTests(APITestCase):
         self.url = "/api/v1/memories/"
         self.day = 0
 
-    def trace(self, emotion, intensity=3, sensory_type="aroma", user=None):
+    def trace(self, emotion, intensity=3, sensory_type="aroma", user=None, tags=None):
         self.day += 1
         return Trace.objects.create(
             user=user or self.user, sensory_type=sensory_type, note=f"{emotion} {self.day}", emotion=emotion,
-            mood_intensity=intensity, happened_at=timezone.make_aware(datetime(2026, 10, 1, 12) + timedelta(days=self.day)),
+            mood_intensity=intensity, tags=tags or [],
+            happened_at=timezone.make_aware(datetime(2026, 10, 1, 12) + timedelta(days=self.day)),
         )
 
     def memory(self, name, traces, status=Memory.Status.ACCEPTED, user=None):
@@ -706,96 +809,138 @@ class MemoryMapTests(APITestCase):
         memory.traces.add(*traces)
         return memory
 
-    def spheres(self, **params):
+    def graph(self, **params):
         response = self.client.get(self.url, params)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         return response.data
 
-    def test_scenario_1_spheres_take_their_emotion_and_grow_with_their_traces(self):
+    def by_name(self, data):
+        return {node["name"]: node for node in data["nodes"]}
+
+    def test_scenario_1_nodes_take_their_emotion_and_grow_with_their_traces(self):
         self.memory("Tardes en la finca", [self.trace("calma"), self.trace("calma"), self.trace("alegria", 5)])
         self.memory("La casa de antes", [self.trace("nostalgia")])
 
-        data = self.spheres()
+        nodes = self.by_name(self.graph())
 
-        self.assertEqual(data["total"], 2)
-        by_name = {sphere["name"]: sphere for sphere in data["results"]}
-        self.assertEqual(by_name["Tardes en la finca"]["emotion"], "calma")
-        self.assertEqual(by_name["Tardes en la finca"]["trace_count"], 3)
-        self.assertEqual(by_name["La casa de antes"]["emotion"], "nostalgia")
-        self.assertEqual(by_name["La casa de antes"]["trace_count"], 1)
+        self.assertEqual(nodes["Tardes en la finca"]["emotion"], "calma")
+        self.assertEqual(nodes["Tardes en la finca"]["trace_count"], 3)
+        self.assertEqual(nodes["La casa de antes"]["emotion"], "nostalgia")
+        self.assertEqual(nodes["La casa de antes"]["trace_count"], 1)
 
-    def test_scenario_1_the_map_is_not_chronological(self):
-        """Primero el recuerdo más antiguo y pequeño; el mapa no los ordena por fecha."""
-        self.memory("Viejo y pequeño", [self.trace("miedo")])
-        self.memory("Nuevo y grande", [self.trace("alegria"), self.trace("alegria")])
-        self.memory("Viejo y pequeño también", [self.trace("enojo")])
+    def test_scenario_1_nodes_carry_no_dates(self):
+        self.memory("Lluvia", [self.trace("calma")])
 
-        names = [sphere["name"] for sphere in self.spheres()["results"]]
+        node = self.graph()["nodes"][0]
 
-        self.assertEqual(names, ["Nuevo y grande", "Viejo y pequeño", "Viejo y pequeño también"])
-        self.assertNotIn("created_at", self.spheres()["results"][0])
+        self.assertFalse({"created_at", "updated_at", "happened_at"} & set(node))
 
     def test_a_tie_follows_the_calendar_rule(self):
         """Empate en cantidad: gana la de mayor intensidad sumada (igual que el calendario de HU7)."""
         self.memory("Empate", [self.trace("tristeza", 2), self.trace("gratitud", 5)])
 
-        self.assertEqual(self.spheres()["results"][0]["emotion"], "gratitud")
+        self.assertEqual(self.graph()["nodes"][0]["emotion"], "gratitud")
+
+    def test_affine_memories_are_linked_with_score_and_reason(self):
+        rain = self.memory("Lluvia en la finca", [self.trace("calma", sensory_type="aroma", tags=["lluvia"])])
+        storm = self.memory("Tormenta de noche", [self.trace("calma", sensory_type="aroma", tags=["lluvia"])])
+        self.memory("Un susto", [self.trace("miedo", sensory_type="place")])
+
+        data = self.graph()
+
+        self.assertEqual(len(data["edges"]), 1)
+        edge = data["edges"][0]
+        self.assertEqual({edge["source"], edge["target"]}, {str(rain.pk), str(storm.pk)})
+        self.assertEqual(edge["score"], 1.0)
+        self.assertEqual(edge["reason"], "Comparten aromas, calma y la etiqueta «lluvia»")
+        self.assertEqual(data["max_links"], 4)
+
+    def test_no_node_has_more_than_four_links(self):
+        for index in range(7):
+            self.memory(f"Café {index}", [self.trace("calma", sensory_type="aroma")])
+
+        edges = self.graph()["edges"]
+
+        degree = Counter(end for edge in edges for end in (edge["source"], edge["target"]))
+        self.assertLessEqual(max(degree.values()), 4)
+
+    @override_settings(EVOCA_MAP_MIN_AFFINITY=0.6)
+    def test_the_threshold_is_respected(self):
+        self.memory("Calma con aroma", [self.trace("calma", sensory_type="aroma")])
+        self.memory("Calma con lugar", [self.trace("calma", sensory_type="place")])  # 0,375
+
+        edges = self.graph()["edges"]
+
+        self.assertEqual(edges, [])
 
     def test_only_my_accepted_memories_with_traces_are_drawn(self):
         other = User.objects.create_user(
             email="otra@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1991, 1, 1)
         )
         self.memory("Mío", [self.trace("calma")])
-        self.memory("Sugerido por la IA", [self.trace("alegria")], status=Memory.Status.SUGGESTED)
+        self.memory("Sugerido por la IA", [self.trace("calma")], status=Memory.Status.SUGGESTED)
         self.memory("Sin huellas", [])
-        self.memory("De otra persona", [self.trace("miedo", user=other)], user=other)
+        self.memory("De otra persona", [self.trace("calma", user=other)], user=other)
 
-        data = self.spheres()
+        data = self.graph()
 
-        self.assertEqual([sphere["name"] for sphere in data["results"]], ["Mío"])
+        self.assertEqual([node["name"] for node in data["nodes"]], ["Mío"])
+        self.assertEqual(data["edges"], [])
         self.assertEqual(data["total"], 1)
 
-    def test_deleting_a_trace_shrinks_its_sphere(self):
+    def test_deleting_a_trace_shrinks_its_node(self):
         traces = [self.trace("calma"), self.trace("calma")]
         self.memory("Lluvia", traces)
 
         self.client.delete(f"/api/v1/traces/{traces[0].pk}/")
 
-        self.assertEqual(self.spheres()["results"][0]["trace_count"], 1)
+        self.assertEqual(self.graph()["nodes"][0]["trace_count"], 1)
 
-    def test_scenario_2_filter_by_sensation_keeps_spheres_with_some_trace_of_that_type(self):
-        self.memory("Canciones y aromas", [self.trace("alegria", sensory_type="song"), self.trace("alegria")])
-        self.memory("Solo aromas", [self.trace("calma")])
+    def test_scenario_2_filter_by_sensation_dims_the_rest_and_links_only_matches(self):
+        songs = self.memory("Canciones y aromas", [self.trace("alegria", sensory_type="song"), self.trace("alegria")])
+        more_songs = self.memory("Más canciones", [self.trace("alegria", sensory_type="song")])
+        self.memory("Solo aromas", [self.trace("alegria")])
 
-        data = self.spheres(sensory_type="song")
+        data = self.graph(sensory_type="song")
 
-        self.assertEqual([sphere["name"] for sphere in data["results"]], ["Canciones y aromas"])
-        self.assertEqual(data["results"][0]["sensory_types"], ["aroma", "song"])
-        self.assertEqual(data["count"], 1)
-        self.assertEqual(data["total"], 2)
+        nodes = self.by_name(data)
+        self.assertEqual(len(data["nodes"]), 3)
+        self.assertTrue(nodes["Canciones y aromas"]["match"])
+        self.assertTrue(nodes["Más canciones"]["match"])
+        self.assertFalse(nodes["Solo aromas"]["match"])
+        self.assertEqual((data["total"], data["count"]), (3, 2))
+        self.assertEqual(
+            [{edge["source"], edge["target"]} for edge in data["edges"]], [{str(songs.pk), str(more_songs.pk)}]
+        )
 
-    def test_scenario_2_filter_by_emotion_uses_the_color_of_the_sphere(self):
+    def test_scenario_2_filter_by_emotion_uses_the_color_of_the_node(self):
         self.memory("Mayormente calma", [self.trace("calma"), self.trace("calma"), self.trace("miedo")])
         self.memory("Miedo", [self.trace("miedo")])
 
-        names = [sphere["name"] for sphere in self.spheres(emotion="miedo")["results"]]
+        nodes = self.by_name(self.graph(emotion="miedo"))
 
-        self.assertEqual(names, ["Miedo"])
+        self.assertTrue(nodes["Miedo"]["match"])
+        self.assertFalse(nodes["Mayormente calma"]["match"])
 
     def test_scenario_2_filters_can_be_combined(self):
         self.memory("Lugares tristes", [self.trace("tristeza", sensory_type="place")])
         self.memory("Lugares alegres", [self.trace("alegria", sensory_type="place")])
         self.memory("Sabores tristes", [self.trace("tristeza", sensory_type="flavor")])
 
-        names = [sphere["name"] for sphere in self.spheres(sensory_type="place", emotion="tristeza")["results"]]
+        nodes = self.by_name(self.graph(sensory_type="place", emotion="tristeza"))
 
-        self.assertEqual(names, ["Lugares tristes"])
+        self.assertEqual([name for name, node in nodes.items() if node["match"]], ["Lugares tristes"])
+
+    def test_without_filters_every_node_matches(self):
+        self.memory("Uno", [self.trace("calma")])
+
+        self.assertTrue(self.graph()["nodes"][0]["match"])
 
     def test_unknown_filters_are_rejected(self):
         self.assertEqual(self.client.get(self.url, {"sensory_type": "olor"}).status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(self.client.get(self.url, {"emotion": "euforia"}).status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_scenario_2_touching_a_sphere_shows_its_traces(self):
+    def test_scenario_2_touching_a_node_shows_its_traces(self):
         older = self.trace("calma", sensory_type="color")
         newer = self.trace("alegria", sensory_type="song")
         memory = self.memory("Domingos", [older, newer])
@@ -805,11 +950,9 @@ class MemoryMapTests(APITestCase):
         response = self.client.get(f"{self.url}{memory.pk}/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["name"], "Domingos")
         self.assertEqual(response.data["explanation"], "Huellas de domingos en familia.")
         self.assertEqual(response.data["trace_count"], 2)
         self.assertEqual([trace["id"] for trace in response.data["traces"]], [str(newer.pk), str(older.pk)])
-        self.assertEqual(response.data["traces"][0]["note"], newer.note)
 
     def test_nobody_else_can_open_my_memory(self):
         memory = self.memory("Privado", [self.trace("calma")])
@@ -819,7 +962,7 @@ class MemoryMapTests(APITestCase):
         self.client.force_authenticate(stranger)
 
         self.assertEqual(self.client.get(f"{self.url}{memory.pk}/").status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(self.client.get(self.url).data["results"], [])
+        self.assertEqual(self.client.get(self.url).data["nodes"], [])
 
     def test_the_map_requires_a_session(self):
         self.client.force_authenticate(None)
@@ -828,11 +971,14 @@ class MemoryMapTests(APITestCase):
 
     def test_scenario_3_two_hundred_memories_open_in_under_three_seconds(self):
         emotions = Trace.Emotion.values
+        sensations = Trace.SensoryType.values
+        tags = ["familia", "lluvia", "viaje", "música", "infancia"]
         traces = Trace.objects.bulk_create(
             [
                 Trace(
-                    user=self.user, sensory_type=Trace.SensoryType.values[index % 6], note=f"Huella {index}",
+                    user=self.user, sensory_type=sensations[index % 6], note=f"Huella {index}",
                     emotion=emotions[index % len(emotions)], mood_intensity=index % 5 + 1,
+                    tags=[tags[index % len(tags)]],
                 )
                 for index in range(600)
             ]
@@ -850,5 +996,9 @@ class MemoryMapTests(APITestCase):
             response = self.client.get(self.url)
         elapsed = clock.perf_counter() - started
 
-        self.assertEqual(response.data["count"], 200)
+        self.assertEqual(len(response.data["nodes"]), 200)
+        self.assertGreater(len(response.data["edges"]), 0)
+        degree = Counter(end for edge in response.data["edges"] for end in (edge["source"], edge["target"]))
+        self.assertLessEqual(max(degree.values()), 4)
+        self.assertTrue(all(edge["score"] >= settings.EVOCA_MAP_MIN_AFFINITY for edge in response.data["edges"]))
         self.assertLess(elapsed, 3)

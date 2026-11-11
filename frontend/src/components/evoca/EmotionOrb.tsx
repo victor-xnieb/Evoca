@@ -181,3 +181,46 @@ export function EmotionOrb({
     </motion.span>
   )
 }
+
+export interface StaticEmotionOrbProps {
+  emotion: EmotionSlug
+  size: number
+  decorative?: boolean
+  className?: string
+}
+
+/**
+ * Solo la imagen de la esfera, sin flotación ni atracción al puntero: para listas largas
+ * (como el mapa de recuerdos), donde cientos de esferas animadas cansarían al teléfono.
+ */
+export function StaticEmotionOrb({ emotion, size, decorative = false, className }: StaticEmotionOrbProps) {
+  const asset = EMOTION_ORBS[emotion]
+  return (
+    <span
+      className={cn("relative inline-block shrink-0", className)}
+      style={
+        {
+          width: size,
+          height: size,
+          "--orb-color": EMOTION_VISUALS[emotion].color,
+          "--orb-size": `${size}px`,
+        } as CSSProperties
+      }
+      data-testid="emotion-orb"
+    >
+      <img
+        src={size <= SMALL_IMAGE_MAX ? asset.srcSm : asset.src}
+        srcSet={`${asset.srcSm} 128w, ${asset.src} 500w`}
+        sizes={`${size}px`}
+        width={size}
+        height={size}
+        alt={decorative ? "" : asset.alt}
+        aria-hidden={decorative || undefined}
+        loading="lazy"
+        decoding="async"
+        draggable={false}
+        className="evoca-orb size-full select-none"
+      />
+    </span>
+  )
+}

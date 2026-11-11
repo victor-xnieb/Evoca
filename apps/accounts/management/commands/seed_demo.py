@@ -150,6 +150,16 @@ SANTIAGO = [
     (36, 16, 10, "color", "calma", 4, "El azul del mar desde el muelle en el viaje de fin de año."),
 ]
 
+# Etiquetas de algunas huellas (posición en la lista de arriba): son parte de la afinidad entre
+# recuerdos del mapa (HU10), así que se ven como motivo de las conexiones («la etiqueta «familia»»).
+MARIA_TAGS = {
+    1: ["familia"], 3: ["familia"], 9: ["familia"], 15: ["familia"], 19: ["familia"], 24: ["familia"],
+    13: ["lluvia"], 23: ["lluvia"], 28: ["lluvia"],
+    7: ["amigos"], 12: ["amigos"], 14: ["amigos"], 27: ["amigos"],
+}
+MATEO_TAGS = {0: ["noche"], 3: ["noche"], 8: ["noche"], 12: ["noche"], 13: ["espera"], 9: ["espera"], 1: ["noche"]}
+JULIANA_TAGS = {1: ["familia"], 2: ["familia"], 4: ["familia"], 11: ["familia"], 15: ["familia"]}
+
 # Recuerdos aceptados para el mapa (HU10): (nombre, explicación, posiciones de sus huellas en la
 # lista de arriba). El color de cada esfera sale de la emoción dominante de sus huellas.
 MARIA_MEMORIES = [
@@ -170,10 +180,10 @@ MATEO_MEMORIES = [
 ]
 
 JULIANA_MEMORIES = [
-    ("Mañanas frescas", "Aromas, neblina y música suave de las mañanas.", [0, 7, 8, 12]),
-    ("Lo que guardo de la familia", "Sabores, canciones y fiestas con la familia.", [1, 2, 9, 15]),
+    ("Mañanas frescas", "Aromas, neblina, agua tibia y música suave de las mañanas.", [0, 5, 7, 8, 12]),
+    ("Lo que guardo de la familia", "Sabores, canciones y fiestas con la familia.", [1, 9, 15]),
     ("Sustos del día a día", "Momentos de tensión en la clase, el ascensor y el bus.", [3, 10, 13]),
-    ("Gente que me cuida", "Personas que ayudaron o regalaron algo hecho a mano.", [4, 11]),
+    ("Gente que me cuida", "Personas que cocinaron, ayudaron o regalaron algo hecho a mano.", [2, 4, 11]),
 ]
 
 DEMO_USERS = [
@@ -184,6 +194,7 @@ DEMO_USERS = [
         "date_of_birth": date(1999, 3, 14),
         "traces": MARIA,
         "memories": MARIA_MEMORIES,
+        "tags": MARIA_TAGS,
         "reminder": {"enabled": True, "frequency": "daily", "time": time(20, 0)},
         "shows": "ánimo variado: lista y filtros, gráfica semanal y mensual, calendario de tres meses, mapa con 7 recuerdos; ya registró hoy",
     },
@@ -194,6 +205,7 @@ DEMO_USERS = [
         "date_of_birth": date(1996, 8, 2),
         "traces": MATEO,
         "memories": MATEO_MEMORIES,
+        "tags": MATEO_TAGS,
         "reminder": {"enabled": True, "frequency": "hourly", "time": time(20, 0)},
         "shows": "ánimo bajo 15 de los últimos 21 días: orientación al abrir; recordatorio cada hora sin huella hoy",
     },
@@ -204,6 +216,7 @@ DEMO_USERS = [
         "date_of_birth": date(2001, 11, 25),
         "traces": JULIANA,
         "memories": JULIANA_MEMORIES,
+        "tags": JULIANA_TAGS,
         "reminder": {"enabled": True, "frequency": "daily", "time": time(8, 0)},
         "shows": "sin huella hoy: el recordatorio diario de las 8:00 avisa al abrir; buena cuenta para registrar en vivo",
     },
@@ -303,8 +316,9 @@ class Command(BaseCommand):
                         mood_intensity=intensity,
                         note=note,
                         happened_at=at,
+                        tags=spec.get("tags", {}).get(position, []),
                     )
-                    for (_, _, _, sensory, emotion, intensity, note), at in zip(spec["traces"], moments)
+                    for position, ((_, _, _, sensory, emotion, intensity, note), at) in enumerate(zip(spec["traces"], moments))
                 ]
             )
             # Cada huella figura registrada el día en que ocurrió, para que las listas salgan en orden.

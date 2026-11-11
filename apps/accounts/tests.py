@@ -536,7 +536,7 @@ class SeedDemoTests(TestCase):
                 self.assertFalse(user.support_events.exists())
 
     def test_the_map_accounts_have_accepted_memories_of_their_own_traces(self):
-        """HU10: María, Mateo y Juliana tienen recuerdos aceptados para ver el mapa de esferas."""
+        """HU10: María, Mateo y Juliana tienen recuerdos aceptados y conectados por afinidad en el mapa."""
         self.run_seed()
 
         expected = {"maria.demo@example.com": 7, "mateo.demo@example.com": 4, "juliana.demo@example.com": 4}
@@ -548,10 +548,15 @@ class SeedDemoTests(TestCase):
                 for memory in memories:
                     self.assertGreaterEqual(memory.traces.count(), 2)
                     self.assertFalse(memory.traces.exclude(user=user).exists())
-        maria = self.client_for("maria.demo@example.com")
-        colors = {sphere["emotion"] for sphere in maria.get("/api/v1/memories/").data["results"]}
-        # Un mapa variado: esferas de varios colores.
-        self.assertGreaterEqual(len(colors), 5)
+        graph = self.client_for("maria.demo@example.com").get("/api/v1/memories/").data
+        # Un mapa variado: esferas de varios colores, unidas por afinidad y con al menos una sola.
+        self.assertGreaterEqual(len({node["emotion"] for node in graph["nodes"]}), 5)
+        self.assertGreaterEqual(len(graph["edges"]), 4)
+        linked = {end for edge in graph["edges"] for end in (edge["source"], edge["target"])}
+        self.assertLess(len(linked), len(graph["nodes"]))
+        self.assertTrue(any("«familia»" in edge["reason"] for edge in graph["edges"]))
+        for email in ("mateo.demo@example.com", "juliana.demo@example.com"):
+            self.assertGreaterEqual(len(self.client_for(email).get("/api/v1/memories/").data["edges"]), 1)
         self.assertFalse(User.objects.get(email="valentina.demo@example.com").memories.exists())
 
     def test_reset_recreates_the_memories_without_duplicates(self):

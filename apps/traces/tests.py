@@ -681,3 +681,174 @@ class SuggestEmotionTests(APITestCase):
 
         self.assertEqual(codes[:20], [status.HTTP_200_OK] * 20)
         self.assertEqual(codes[20], status.HTTP_429_TOO_MANY_REQUESTS)
+
+
+class MemoryMapTests(APITestCase):
+    """HU10: mapa de recuerdos como esferas del color de su emoción, con filtros y detalle."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="mapa@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1)
+        )
+        self.client.force_authenticate(self.user)
+        self.url = "/api/v1/memories/"
+        self.day = 0
+
+    def trace(self, emotion, intensity=3, sensory_type="aroma", user=None):
+        self.day += 1
+        return Trace.objects.create(
+            user=user or self.user, sensory_type=sensory_type, note=f"{emotion} {self.day}", emotion=emotion,
+            mood_intensity=intensity, happened_at=timezone.make_aware(datetime(2026, 10, 1, 12) + timedelta(days=self.day)),
+        )
+
+    def memory(self, name, traces, status=Memory.Status.ACCEPTED, user=None):
+        memory = Memory.objects.create(user=user or self.user, name=name, status=status)
+        memory.traces.add(*traces)
+        return memory
+
+    def spheres(self, **params):
+        response = self.client.get(self.url, params)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return response.data
+
+    def test_scenario_1_spheres_take_their_emotion_and_grow_with_their_traces(self):
+        self.memory("Tardes en la finca", [self.trace("calma"), self.trace("calma"), self.trace("alegria", 5)])
+        self.memory("La casa de antes", [self.trace("nostalgia")])
+
+        data = self.spheres()
+
+        self.assertEqual(data["total"], 2)
+        by_name = {sphere["name"]: sphere for sphere in data["results"]}
+        self.assertEqual(by_name["Tardes en la finca"]["emotion"], "calma")
+        self.assertEqual(by_name["Tardes en la finca"]["trace_count"], 3)
+        self.assertEqual(by_name["La casa de antes"]["emotion"], "nostalgia")
+        self.assertEqual(by_name["La casa de antes"]["trace_count"], 1)
+
+    def test_scenario_1_the_map_is_not_chronological(self):
+        """Primero el recuerdo más antiguo y pequeño; el mapa no los ordena por fecha."""
+        self.memory("Viejo y pequeño", [self.trace("miedo")])
+        self.memory("Nuevo y grande", [self.trace("alegria"), self.trace("alegria")])
+        self.memory("Viejo y pequeño también", [self.trace("enojo")])
+
+        names = [sphere["name"] for sphere in self.spheres()["results"]]
+
+        self.assertEqual(names, ["Nuevo y grande", "Viejo y pequeño", "Viejo y pequeño también"])
+        self.assertNotIn("created_at", self.spheres()["results"][0])
+
+    def test_a_tie_follows_the_calendar_rule(self):
+        """Empate en cantidad: gana la de mayor intensidad sumada (igual que el calendario de HU7)."""
+        self.memory("Empate", [self.trace("tristeza", 2), self.trace("gratitud", 5)])
+
+        self.assertEqual(self.spheres()["results"][0]["emotion"], "gratitud")
+
+    def test_only_my_accepted_memories_with_traces_are_drawn(self):
+        other = User.objects.create_user(
+            email="otra@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1991, 1, 1)
+        )
+        self.memory("Mío", [self.trace("calma")])
+        self.memory("Sugerido por la IA", [self.trace("alegria")], status=Memory.Status.SUGGESTED)
+        self.memory("Sin huellas", [])
+        self.memory("De otra persona", [self.trace("miedo", user=other)], user=other)
+
+        data = self.spheres()
+
+        self.assertEqual([sphere["name"] for sphere in data["results"]], ["Mío"])
+        self.assertEqual(data["total"], 1)
+
+    def test_deleting_a_trace_shrinks_its_sphere(self):
+        traces = [self.trace("calma"), self.trace("calma")]
+        self.memory("Lluvia", traces)
+
+        self.client.delete(f"/api/v1/traces/{traces[0].pk}/")
+
+        self.assertEqual(self.spheres()["results"][0]["trace_count"], 1)
+
+    def test_scenario_2_filter_by_sensation_keeps_spheres_with_some_trace_of_that_type(self):
+        self.memory("Canciones y aromas", [self.trace("alegria", sensory_type="song"), self.trace("alegria")])
+        self.memory("Solo aromas", [self.trace("calma")])
+
+        data = self.spheres(sensory_type="song")
+
+        self.assertEqual([sphere["name"] for sphere in data["results"]], ["Canciones y aromas"])
+        self.assertEqual(data["results"][0]["sensory_types"], ["aroma", "song"])
+        self.assertEqual(data["count"], 1)
+        self.assertEqual(data["total"], 2)
+
+    def test_scenario_2_filter_by_emotion_uses_the_color_of_the_sphere(self):
+        self.memory("Mayormente calma", [self.trace("calma"), self.trace("calma"), self.trace("miedo")])
+        self.memory("Miedo", [self.trace("miedo")])
+
+        names = [sphere["name"] for sphere in self.spheres(emotion="miedo")["results"]]
+
+        self.assertEqual(names, ["Miedo"])
+
+    def test_scenario_2_filters_can_be_combined(self):
+        self.memory("Lugares tristes", [self.trace("tristeza", sensory_type="place")])
+        self.memory("Lugares alegres", [self.trace("alegria", sensory_type="place")])
+        self.memory("Sabores tristes", [self.trace("tristeza", sensory_type="flavor")])
+
+        names = [sphere["name"] for sphere in self.spheres(sensory_type="place", emotion="tristeza")["results"]]
+
+        self.assertEqual(names, ["Lugares tristes"])
+
+    def test_unknown_filters_are_rejected(self):
+        self.assertEqual(self.client.get(self.url, {"sensory_type": "olor"}).status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.client.get(self.url, {"emotion": "euforia"}).status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_scenario_2_touching_a_sphere_shows_its_traces(self):
+        older = self.trace("calma", sensory_type="color")
+        newer = self.trace("alegria", sensory_type="song")
+        memory = self.memory("Domingos", [older, newer])
+        memory.explanation = "Huellas de domingos en familia."
+        memory.save()
+
+        response = self.client.get(f"{self.url}{memory.pk}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["name"], "Domingos")
+        self.assertEqual(response.data["explanation"], "Huellas de domingos en familia.")
+        self.assertEqual(response.data["trace_count"], 2)
+        self.assertEqual([trace["id"] for trace in response.data["traces"]], [str(newer.pk), str(older.pk)])
+        self.assertEqual(response.data["traces"][0]["note"], newer.note)
+
+    def test_nobody_else_can_open_my_memory(self):
+        memory = self.memory("Privado", [self.trace("calma")])
+        stranger = User.objects.create_user(
+            email="extrano@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1993, 3, 3)
+        )
+        self.client.force_authenticate(stranger)
+
+        self.assertEqual(self.client.get(f"{self.url}{memory.pk}/").status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(self.client.get(self.url).data["results"], [])
+
+    def test_the_map_requires_a_session(self):
+        self.client.force_authenticate(None)
+
+        self.assertEqual(self.client.get(self.url).status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_scenario_3_two_hundred_memories_open_in_under_three_seconds(self):
+        emotions = Trace.Emotion.values
+        traces = Trace.objects.bulk_create(
+            [
+                Trace(
+                    user=self.user, sensory_type=Trace.SensoryType.values[index % 6], note=f"Huella {index}",
+                    emotion=emotions[index % len(emotions)], mood_intensity=index % 5 + 1,
+                )
+                for index in range(600)
+            ]
+        )
+        memories = Memory.objects.bulk_create(
+            [Memory(user=self.user, name=f"Recuerdo {index}", status=Memory.Status.ACCEPTED) for index in range(200)]
+        )
+        MemoryTrace.objects.bulk_create(
+            [MemoryTrace(memory=memory, trace=traces[index * 3 + offset]) for index, memory in enumerate(memories) for offset in range(3)]
+        )
+
+        started = clock.perf_counter()
+        # Dos consultas sin importar cuántos recuerdos haya: los recuerdos y sus huellas.
+        with self.assertNumQueries(2):
+            response = self.client.get(self.url)
+        elapsed = clock.perf_counter() - started
+
+        self.assertEqual(response.data["count"], 200)
+        self.assertLess(elapsed, 3)

@@ -180,6 +180,11 @@ EVOCA_AI_THINKING_LEVEL = os.getenv("EVOCA_AI_THINKING_LEVEL", "minimal")
 EVOCA_AI_TIMEOUT = float(os.getenv("EVOCA_AI_TIMEOUT", "2.0"))
 EVOCA_AI_MIN_CONFIDENCE = float(os.getenv("EVOCA_AI_MIN_CONFIDENCE", "0.6"))
 
+# Mapa de recuerdos (HU10): afinidad mínima (0 a 1) para unir dos recuerdos con una línea y
+# máximo de conexiones por recuerdo, para que el grafo siga siendo legible.
+EVOCA_MAP_MIN_AFFINITY = float(os.getenv("EVOCA_MAP_MIN_AFFINITY", "0.4"))
+EVOCA_MAP_MAX_LINKS = int(os.getenv("EVOCA_MAP_MAX_LINKS", "4"))
+
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG

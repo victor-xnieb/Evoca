@@ -44,6 +44,11 @@ export default defineConfig({
       devOptions: { enabled: false },
     }),
   ],
+  server: {
+    // Lo que generan las pruebas e2e y Storybook no es código fuente: vigilarlo dejaba a Vite
+    // recalculando sin parar (y en OneDrive cada compilación dispara muchos cambios).
+    watch: { ignored: ["**/dist-e2e/**", "**/storybook-static/**", "**/test-results/**", "**/playwright-report/**"] },
+  },
   resolve: {
     alias: { "@": path.resolve(import.meta.dirname, "./src") },
   },

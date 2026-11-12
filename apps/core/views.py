@@ -18,6 +18,7 @@ class RootView(APIView):
                     "register": "/api/v1/auth/register/",
                     "login": "/api/v1/auth/login/",
                     "traces": "/api/v1/traces/",
+                    "memories": "/api/v1/memories/",
                 },
             }
         )

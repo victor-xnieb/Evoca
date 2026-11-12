@@ -111,6 +111,16 @@
   filter: drop-shadow(0 0 calc(var(--orb-size, 96px) * 0.1) color-mix(in oklab, var(--orb-color) 70%, transparent));
 }
 
+/* Mapa de recuerdos (HU10): al alejar el grafo, los nombres crecen un poco para seguir
+   legibles; los del recuerdo elegido y sus vecinos compensan el zoom por completo. */
+.evoca-graph-layer [data-sphere-label] {
+  transform: scale(clamp(1, calc(1 / var(--graph-k, 1)), 1.25));
+  transform-origin: top center;
+}
+.evoca-graph-layer [data-emphasis] [data-sphere-label] {
+  transform: scale(max(1, calc(1 / var(--graph-k, 1))));
+}
+
 /* Punto de la marca «evoca.»: capas de color que se funden por turnos (solo opacidad). */
 .evoca-dot-layer {
   opacity: 0;

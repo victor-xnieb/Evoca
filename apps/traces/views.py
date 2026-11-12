@@ -2,6 +2,7 @@ import re
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 
+from django.conf import settings
 from django.db.models import Avg
 from django.db.models.functions import Coalesce
 from django.utils import timezone
@@ -11,9 +12,9 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
-from . import ai
+from . import ai, memory_map
 
-from .models import Trace
+from .models import Memory, MemoryTrace, Trace
 from .serializers import TraceSerializer, choice_list
 
 FILTERS = {
@@ -187,3 +188,105 @@ class TraceViewSet(viewsets.ModelViewSet):
                 ],
             }
         )
+
+
+def memory_entries(memory_ids):
+    """
+    Las huellas de varios recuerdos en una sola consulta, agrupadas por recuerdo:
+    (momento, emoción, intensidad, tipo sensorial, etiquetas) de cada una.
+    """
+    rows = (
+        MemoryTrace.objects.filter(memory_id__in=memory_ids)
+        .annotate(at=Coalesce("trace__happened_at", "trace__created_at"))
+        .values_list(
+            "memory_id", "at", "trace__emotion", "trace__mood_intensity", "trace__sensory_type", "trace__tags"
+        )
+    )
+    by_memory = defaultdict(list)
+    for memory_id, moment, emotion, intensity, sensory_type, tags in rows:
+        by_memory[memory_id].append((moment, emotion, intensity, sensory_type, tags or []))
+    return by_memory
+
+
+def memory_sphere(memory, entries):
+    """
+    Un recuerdo como esfera del mapa: su color es la emoción dominante de sus huellas (la
+    misma regla del calendario) y su tamaño, cuántas huellas tiene.
+    """
+    present = {entry[3] for entry in entries}
+    return {
+        "id": str(memory.id),
+        "name": memory.name,
+        "explanation": memory.explanation,
+        "emotion": dominant_emotion(entry[:3] for entry in entries) if entries else None,
+        "trace_count": len(entries),
+        "sensory_types": [value for value in Trace.SensoryType.values if value in present],
+    }
+
+
+def graph_node(sphere, entries):
+    """Lo que el cálculo de afinidad necesita de un recuerdo."""
+    return memory_map.Node(
+        id=sphere["id"],
+        emotion=sphere["emotion"],
+        sensations=frozenset(sphere["sensory_types"]),
+        tags=frozenset(tag for entry in entries for tag in entry[4]),
+    )
+
+
+class MemoryViewSet(viewsets.ReadOnlyModelViewSet):
+    """HU10: mapa de recuerdos de la persona autenticada (nunca los de otras)."""
+
+    def get_queryset(self):
+        return Memory.objects.filter(user=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        """
+        El grafo del mapa: todos los recuerdos aceptados como nodos (sin paginar ni orden
+        cronológico) y las aristas entre los afines, con su puntaje y motivo.
+
+        Con filtros por sensación (alguna de sus huellas es de ese tipo) o emoción (la del
+        nodo), todos los nodos siguen llegando, marcados con `match`, y las aristas se
+        calculan solo entre los que coinciden. `total` cuenta los nodos y `count`, los que
+        coinciden.
+        """
+        wanted = {}
+        for name, (choices, message) in FILTERS.items():
+            value = request.query_params.get(name)
+            if value and value not in choices.values:
+                raise ValidationError({name: message})
+            wanted[name] = value
+        memories = list(
+            self.get_queryset().filter(status=Memory.Status.ACCEPTED).only("id", "name", "explanation")
+        )
+        entries = memory_entries([memory.id for memory in memories])
+        # Un recuerdo cuyas huellas se borraron todas no tiene color ni tamaño: no se dibuja.
+        drawn = [memory for memory in memories if entries[memory.id]]
+        nodes, graph = [], []
+        for memory in sorted(drawn, key=lambda memory: str(memory.id)):
+            sphere = memory_sphere(memory, entries[memory.id])
+            sphere["match"] = (not wanted["sensory_type"] or wanted["sensory_type"] in sphere["sensory_types"]) and (
+                not wanted["emotion"] or sphere["emotion"] == wanted["emotion"]
+            )
+            nodes.append(sphere)
+            if sphere["match"]:
+                graph.append(graph_node(sphere, entries[memory.id]))
+        return Response(
+            {
+                "total": len(nodes),
+                "count": len(graph),
+                "nodes": nodes,
+                "edges": memory_map.build_edges(graph),
+                "max_links": settings.EVOCA_MAP_MAX_LINKS,
+            }
+        )
+
+    def retrieve(self, request, *args, **kwargs):
+        """Un recuerdo con sus huellas, de la más reciente a la más antigua."""
+        memory = self.get_object()
+        traces = with_moment(memory.traces.filter(user=request.user)).order_by("-at")
+        entries = [(trace.at, trace.emotion, trace.mood_intensity, trace.sensory_type) for trace in traces]
+        data = memory_sphere(memory, entries)
+        data["status"] = memory.status
+        data["traces"] = TraceSerializer(traces, many=True).data
+        return Response(data)

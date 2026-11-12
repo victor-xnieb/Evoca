@@ -23,6 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 
+# Pruebas e2e (Playwright)
+dist-e2e
+test-results
+playwright-report
+
 # Storybook y PWA
 storybook-static
 dev-dist

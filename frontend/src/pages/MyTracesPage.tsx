@@ -1,58 +1,22 @@
 import { CheckCircle2, X } from "lucide-react"
-import { createElement, useEffect, useState, type ReactNode } from "react"
+import { useEffect, useState } from "react"
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router"
 
-import { EmotionChip } from "@/components/evoca/EmotionChip"
 import { EmptyState } from "@/components/evoca/EmptyState"
 import { GlassCard } from "@/components/evoca/GlassCard"
 import { PageTransition } from "@/components/evoca/PageTransition"
 import { TraceCard, TraceCardSkeleton } from "@/components/evoca/TraceCard"
 import { Button } from "@/components/ui/button"
 import { useCatalog } from "@/hooks/use-catalog"
-import { getSensoryIcon, type Option } from "@/lib/sensory"
 import { labelOf, tracesApi } from "@/lib/traces"
 import type { Trace } from "@/lib/types"
-import { cn } from "@/lib/utils"
 
-const pill = (selected: boolean) =>
-  cn(
-    "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-semibold transition-colors",
-    "focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring",
-    selected ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-ring",
-  )
+import { SensationEmotionFilters } from "./traces/SensationEmotionFilters"
 
 type ListState =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; items: Trace[]; count: number; page: number; hasMore: boolean; loadingMore: boolean }
-
-function FilterRow({
-  label,
-  allLabel,
-  options,
-  value,
-  onChange,
-  renderOption,
-}: {
-  label: string
-  allLabel: string
-  options: Option[]
-  value: string | null
-  onChange: (value: string | null) => void
-  renderOption: (option: Option, selected: boolean) => ReactNode
-}) {
-  return (
-    <div role="group" aria-label={label} className="flex flex-col gap-2">
-      <span className="text-sm font-semibold text-muted-foreground">{label}</span>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" aria-pressed={value === null} className={pill(value === null)} onClick={() => onChange(null)}>
-          {allLabel}
-        </button>
-        {options.map((option) => renderOption(option, option.value === value))}
-      </div>
-    </div>
-  )
-}
 
 /** HU3: todas mis huellas, de la más reciente a la más antigua, filtrables por tipo y emoción. */
 export function MyTracesPage() {
@@ -130,45 +94,7 @@ export function MyTracesPage() {
       )}
 
       {catalog && (
-        <GlassCard as="section" aria-label="Filtros" className="flex flex-col gap-4 p-5">
-          <FilterRow
-            label="Tipo"
-            allLabel="Todos"
-            options={catalog.sensory_types}
-            value={type}
-            onChange={(value) => setFilter("tipo", value)}
-            renderOption={(option, selected) => (
-              <button
-                key={option.value}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => setFilter("tipo", selected ? null : option.value)}
-                className={pill(selected)}
-              >
-                {createElement(getSensoryIcon(option.value), { "aria-hidden": true, className: "size-4" })}
-                {option.label}
-              </button>
-            )}
-          />
-          <FilterRow
-            label="Emoción"
-            allLabel="Todas"
-            options={catalog.emotions}
-            value={emotion}
-            onChange={(value) => setFilter("emocion", value)}
-            renderOption={(option, selected) => (
-              <EmotionChip
-                key={option.value}
-                emotion={option.value}
-                label={option.label}
-                size="sm"
-                selected={selected}
-                onSelect={() => setFilter("emocion", selected ? null : option.value)}
-                className="min-h-11"
-              />
-            )}
-          />
-        </GlassCard>
+        <SensationEmotionFilters catalog={catalog} sensoryType={type} emotion={emotion} onChange={setFilter} />
       )}
 
       {list.status === "loading" && (

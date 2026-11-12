@@ -70,7 +70,7 @@ recuerdos afines se unen con líneas. La afinidad se calcula sin IA, con reglas 
   - Arrastrar el fondo desplaza; pellizcar, Ctrl + rueda o los botones acercan; arrastrar una
     esfera la mueve. Los nombres compensan el zoom para seguir legibles.
   - Estados de carga, vacío («Aún no tienes recuerdos»), sin coincidencias y error con reintento.
-- **Datos demo** (`seed_demo`): María (7 recuerdos, 5 conexiones, uno solo), Mateo y Juliana
+- **Datos demo** (`seed_demo`): María (40 recuerdos y 77 conexiones, para ver un mapa grande), Mateo y Juliana
   (4 recuerdos y 1 conexión cada uno). Valentina y Santiago muestran el mapa vacío. Los recuerdos
   y sus títulos están escritos a mano en la demo: en la app los creará HU9.
 

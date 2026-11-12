@@ -88,7 +88,7 @@ El plan gratuito no tiene terminal, así que se hace con una variable:
 
 1. En **`evoca-naranja-api`** → *Environment*: cambia `EVOCA_SEED_DEMO` a **`true`** y guarda
    (Render reinicia el servicio).
-2. En los *Logs* verás `maria.demo@example.com: 30 huellas`, y lo mismo para Mateo, Juliana, Valentina y Santiago.
+2. En los *Logs* verás `maria.demo@example.com: 125 huellas, 40 recuerdos`, y lo mismo para Mateo, Juliana, Valentina y Santiago.
 3. Entra con `maria.demo@example.com`, `mateo.demo@example.com`, `juliana.demo@example.com` o
    `valentina.demo@example.com` o `santiago.demo@example.com`, con
    la contraseña y el PIN que pusiste. La guía de qué mostrar con cada cuenta está en el

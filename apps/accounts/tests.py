@@ -1,3 +1,4 @@
+from collections import Counter
 from datetime import date, datetime, time, timedelta
 from io import StringIO
 from unittest import mock
@@ -539,7 +540,7 @@ class SeedDemoTests(TestCase):
         """HU10: María, Mateo y Juliana tienen recuerdos aceptados y conectados por afinidad en el mapa."""
         self.run_seed()
 
-        expected = {"maria.demo@example.com": 7, "mateo.demo@example.com": 4, "juliana.demo@example.com": 4}
+        expected = {"maria.demo@example.com": 40, "mateo.demo@example.com": 4, "juliana.demo@example.com": 4}
         for email, count in expected.items():
             with self.subTest(email=email):
                 user = User.objects.get(email=email)
@@ -549,11 +550,11 @@ class SeedDemoTests(TestCase):
                     self.assertGreaterEqual(memory.traces.count(), 2)
                     self.assertFalse(memory.traces.exclude(user=user).exists())
         graph = self.client_for("maria.demo@example.com").get("/api/v1/memories/").data
-        # Un mapa variado: esferas de varios colores, unidas por afinidad y con al menos una sola.
+        # Un mapa grande y variado: esferas de varios colores, unidas por afinidad, sin pasar de 4 líneas.
         self.assertGreaterEqual(len({node["emotion"] for node in graph["nodes"]}), 5)
         self.assertGreaterEqual(len(graph["edges"]), 4)
-        linked = {end for edge in graph["edges"] for end in (edge["source"], edge["target"])}
-        self.assertLess(len(linked), len(graph["nodes"]))
+        degree = Counter(end for edge in graph["edges"] for end in (edge["source"], edge["target"]))
+        self.assertLessEqual(max(degree.values()), 4)
         self.assertTrue(any("«familia»" in edge["reason"] for edge in graph["edges"]))
         for email in ("mateo.demo@example.com", "juliana.demo@example.com"):
             self.assertGreaterEqual(len(self.client_for(email).get("/api/v1/memories/").data["edges"]), 1)
@@ -563,8 +564,8 @@ class SeedDemoTests(TestCase):
         self.run_seed()
         self.run_seed("--reset")
 
-        self.assertEqual(Memory.objects.filter(user__email__endswith=".demo@example.com").count(), 7 + 4 + 4)
-        self.assertEqual(MemoryTrace.objects.filter(memory__user__email="maria.demo@example.com").count(), 28)
+        self.assertEqual(Memory.objects.filter(user__email__endswith=".demo@example.com").count(), 40 + 4 + 4)
+        self.assertEqual(MemoryTrace.objects.filter(memory__user__email="maria.demo@example.com").count(), 28 + 95)
 
     def client_for(self, email):
         client = APIClient()
@@ -585,13 +586,13 @@ class SeedDemoTests(TestCase):
     def test_running_twice_does_not_duplicate_and_reset_recreates(self):
         self.run_seed()
         self.run_seed()
-        self.assertEqual(Trace.objects.filter(user__email__endswith=".demo@example.com").count(), 30 + 18 + 16 + 19 + 17)
+        self.assertEqual(Trace.objects.filter(user__email__endswith=".demo@example.com").count(), 125 + 18 + 16 + 19 + 17)
 
         maria = User.objects.get(email="maria.demo@example.com")
         maria.traces.all().delete()
         self.run_seed("--reset")
 
-        self.assertEqual(User.objects.get(email="maria.demo@example.com").traces.count(), 30)
+        self.assertEqual(User.objects.get(email="maria.demo@example.com").traces.count(), 125)
 
     def test_without_reset_it_only_adds_the_missing_account(self):
         """Lo que pasa en Render al cargar la cuenta nueva: las demás cuentas no se tocan."""

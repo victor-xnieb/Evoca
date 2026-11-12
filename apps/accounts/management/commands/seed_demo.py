@@ -186,6 +186,191 @@ JULIANA_MEMORIES = [
     ("Gente que me cuida", "Personas que cocinaron, ayudaron o regalaron algo hecho a mano.", [2, 4, 11]),
 ]
 
+# Más recuerdos de María para ver el mapa (HU10) con muchas esferas: 33 recuerdos con sus propias
+# huellas, de hace más de un mes, para no cambiar lo que muestran el ánimo reciente (HU4), el
+# recordatorio (HU5) ni la orientación (HU6). Cada huella: (días atrás, hora, minuto, tipo,
+# emoción, intensidad, nota, etiquetas).
+MARIA_MORE = [
+    ("Navidades en casa de la abuela", "Comidas, villancicos y luces de diciembre con la familia.", [
+        (350, 20, 0, "aroma", "nostalgia", 4, "El olor a natilla y buñuelos en la cocina de la abuela.", ["familia", "navidad"]),
+        (349, 22, 30, "song", "alegria", 5, "Villancicos con los primos alrededor del pesebre.", ["familia", "navidad"]),
+        (348, 9, 0, "color", "calma", 4, "Las luces de colores del árbol todavía prendidas en la mañana.", ["navidad"]),
+    ]),
+    ("Año nuevo en la finca", "La medianoche y el primer día del año en la finca.", [
+        (340, 23, 50, "place", "alegria", 5, "Los abrazos de medianoche en el corredor de la finca.", ["familia", "finca"]),
+        (340, 23, 0, "flavor", "gratitud", 4, "Las doce uvas, una por cada deseo.", ["familia"]),
+        (339, 8, 30, "texture", "calma", 4, "La hamaca al amanecer del primero de enero.", ["finca"]),
+    ]),
+    ("Viaje a Cartagena", "Colores, mar y comida del viaje a la costa.", [
+        (300, 17, 0, "color", "alegria", 5, "Las fachadas amarillas y fucsias de la ciudad amurallada.", ["viaje", "mar"]),
+        (299, 18, 30, "aroma", "calma", 4, "El olor a mar en la muralla al atardecer.", ["viaje", "mar"]),
+        (298, 13, 0, "flavor", "alegria", 4, "Arroz con coco y pescado frito frente al agua.", ["viaje", "mar"]),
+    ]),
+    ("Tardes de lluvia en Bogotá", "Lluvia, música vieja y abrigo después de clase.", [
+        (280, 16, 0, "aroma", "calma", 4, "Olor a tierra mojada saliendo de clase.", ["lluvia"]),
+        (278, 15, 30, "song", "nostalgia", 3, "La lluvia contra la ventana y una canción vieja de rock en español.", ["lluvia", "música"]),
+        (275, 17, 10, "texture", "calma", 4, "El saco de lana mojado y luego el chocolate caliente.", ["lluvia"]),
+    ]),
+    ("Exámenes finales", "Noches de estudio, mucho café y el alivio de pasar.", [
+        (260, 23, 30, "color", "ansiedad", 2, "La pantalla del computador a medianoche con el informe sin terminar.", ["universidad"]),
+        (259, 7, 0, "flavor", "ansiedad", 3, "Tinto tras tinto antes del parcial de estadística.", ["universidad"]),
+        (255, 12, 0, "place", "alegria", 5, "El pasillo de la facultad cuando salieron las notas y pasé.", ["universidad"]),
+    ]),
+    ("Conciertos con amigas", "Música en vivo y recuerdos de esas noches.", [
+        (240, 21, 0, "song", "alegria", 5, "Cantar a grito todo el concierto con mis amigas.", ["amigos", "música"]),
+        (240, 23, 30, "texture", "gratitud", 4, "La pulsera de tela del concierto que todavía no me quito.", ["amigos", "música"]),
+        (238, 10, 0, "color", "nostalgia", 3, "Las fotos borrosas de las luces del escenario.", ["amigos", "música"]),
+    ]),
+    ("Domingos de mercado", "La plaza de mercado y lo que se cocinaba después.", [
+        (225, 9, 30, "aroma", "alegria", 4, "El olor a guayaba y mandarina en la plaza de mercado.", ["familia", "cocina"]),
+        (225, 10, 15, "color", "calma", 4, "Los colores de las frutas apiladas en los puestos.", ["cocina"]),
+        (224, 12, 0, "flavor", "gratitud", 4, "El caldo que preparó mi papá con lo que compramos.", ["familia", "cocina"]),
+    ]),
+    ("El hospital del abuelo", "Los días difíciles en el hospital y el alivio al final.", [
+        (210, 15, 0, "aroma", "miedo", 2, "El olor a desinfectante en el pasillo de urgencias.", ["abuelo"]),
+        (209, 19, 0, "place", "tristeza", 2, "La sala de espera vacía de noche.", ["abuelo"]),
+        (205, 11, 0, "texture", "gratitud", 4, "La mano de mi abuelo apretando la mía cuando le dieron de alta.", ["abuelo", "familia"]),
+    ]),
+    ("Mi perro Lucas", "Momentos con Lucas en la casa y en el parque.", [
+        (195, 7, 30, "texture", "alegria", 5, "El pelo suave de Lucas cuando me recibe en la puerta.", ["lucas"]),
+        (193, 18, 0, "place", "calma", 4, "Caminar con Lucas por el parque del barrio.", ["lucas"]),
+        (190, 20, 0, "song", "gratitud", 4, "Lucas dormido en mis pies mientras sonaba música suave.", ["lucas", "música"]),
+    ]),
+    ("Primer trabajo", "Los nervios y las alegrías del primer empleo.", [
+        (180, 8, 0, "place", "ansiedad", 3, "La recepción de la empresa el primer día.", ["trabajo"]),
+        (178, 13, 0, "flavor", "alegria", 4, "El primer almuerzo con el equipo nuevo.", ["trabajo", "amigos"]),
+        (170, 18, 0, "color", "gratitud", 5, "El primer sueldo y el regalo para mi mamá.", ["trabajo", "familia"]),
+    ]),
+    ("Paseo al Eje Cafetero", "Montañas, niebla y café en Salento.", [
+        (165, 6, 30, "color", "calma", 5, "El verde de las montañas cubiertas de niebla en Salento.", ["viaje", "campo"]),
+        (164, 9, 0, "aroma", "alegria", 5, "El olor del café recién tostado en la finca cafetera.", ["viaje", "campo"]),
+        (163, 16, 0, "place", "gratitud", 4, "El valle de Cocora con las palmas de cera.", ["viaje", "campo"]),
+    ]),
+    ("Cumpleaños de mi mamá", "La sorpresa que le preparamos entre todos.", [
+        (155, 19, 0, "flavor", "alegria", 5, "La torta de tres leches que hicimos a escondidas.", ["familia"]),
+        (155, 21, 0, "song", "gratitud", 5, "Toda la familia cantándole a mi mamá.", ["familia", "música"]),
+    ]),
+    ("Noches de insomnio", "Noches largas sin poder dormir.", [
+        (148, 2, 30, "color", "ansiedad", 2, "El techo oscuro y el celular a las dos de la mañana.", []),
+        (146, 3, 0, "texture", "tristeza", 2, "Las sábanas revueltas de una noche sin dormir.", []),
+        (140, 23, 0, "song", "calma", 3, "Música de lluvia para intentar dormir.", ["lluvia", "música"]),
+    ]),
+    ("Clases de baile", "La salsa de los jueves con el grupo de baile.", [
+        (135, 19, 30, "song", "alegria", 5, "La salsa en la clase de los jueves.", ["música", "amigos"]),
+        (133, 20, 0, "texture", "alegria", 4, "Los zapatos de baile que me prestó la profe.", ["música"]),
+        (128, 21, 0, "place", "gratitud", 4, "El salón de baile lleno de espejos y risas.", ["amigos"]),
+    ]),
+    ("La mudanza", "Dejar la casa de siempre y estrenar apartamento.", [
+        (120, 10, 0, "texture", "nostalgia", 3, "Las cajas de cartón con mis cosas de la infancia.", ["casa"]),
+        (118, 18, 0, "place", "ansiedad", 3, "El apartamento nuevo todavía vacío y con eco.", ["casa"]),
+        (110, 20, 0, "color", "calma", 4, "Pinté mi cuarto nuevo de verde salvia.", ["casa"]),
+    ]),
+    ("Recetas de la abuela", "Cocinar lo que ella me enseñó.", [
+        (105, 12, 0, "flavor", "nostalgia", 4, "El ajiaco con la receta escrita a mano de mi abuela.", ["familia", "abuela", "cocina"]),
+        (104, 16, 0, "aroma", "gratitud", 4, "El olor a guascas llenando el apartamento nuevo.", ["abuela", "cocina"]),
+        (100, 11, 0, "texture", "calma", 4, "Amasar arepas como ella me enseñó.", ["abuela", "cocina"]),
+    ]),
+    ("Partidos de fútbol", "El estadio, la hinchada y un mal rato de regreso.", [
+        (95, 15, 0, "place", "alegria", 5, "El estadio lleno cuando ganó el equipo.", ["amigos"]),
+        (95, 17, 0, "song", "alegria", 4, "Los cánticos de la hinchada camino a casa.", ["amigos", "música"]),
+        (93, 18, 0, "color", "enojo", 2, "La camiseta manchada después de la pelea en el bus.", []),
+    ]),
+    ("Caminatas en los cerros", "Subir temprano y ver la ciudad desde arriba.", [
+        (88, 6, 0, "aroma", "calma", 5, "El olor a eucalipto subiendo a Monserrate.", ["campo"]),
+        (86, 7, 30, "color", "gratitud", 5, "La ciudad entera desde arriba al amanecer.", ["campo"]),
+        (80, 8, 0, "texture", "calma", 4, "Las piedras frías del camino de los cerros.", ["campo"]),
+    ]),
+    ("Una pelea con mi hermana", "La discusión, los días sin hablarnos y las paces.", [
+        (76, 21, 0, "place", "enojo", 2, "La cocina donde discutimos por una tontería.", ["familia"]),
+        (75, 22, 0, "song", "tristeza", 2, "Una canción triste mientras no nos hablábamos.", ["música"]),
+        (72, 19, 0, "flavor", "gratitud", 4, "El helado que compartimos cuando hicimos las paces.", ["familia"]),
+    ]),
+    ("Atardeceres en la terraza", "El final de la tarde desde la terraza.", [
+        (68, 18, 0, "color", "calma", 5, "El cielo naranja y morado desde la terraza.", []),
+        (64, 18, 30, "aroma", "calma", 4, "El jazmín de la vecina al caer la tarde.", []),
+        (60, 18, 15, "song", "gratitud", 4, "Una canción suave mientras el sol se escondía.", ["música"]),
+    ]),
+    ("Vacaciones en Santa Marta", "Playa, mar transparente y jugos frente al agua.", [
+        (55, 11, 0, "texture", "alegria", 5, "La arena caliente de Playa Cristal.", ["viaje", "mar"]),
+        (54, 9, 0, "color", "calma", 5, "El azul transparente del agua en el Tayrona.", ["viaje", "mar"]),
+        (53, 20, 0, "flavor", "alegria", 4, "El jugo de corozo frente al mar.", ["viaje", "mar"]),
+    ]),
+    ("Mañanas de biblioteca", "Estudiar temprano en la biblioteca de la universidad.", [
+        (48, 8, 0, "place", "calma", 4, "La mesa del rincón en la biblioteca de la universidad.", ["universidad"]),
+        (46, 9, 30, "aroma", "calma", 4, "El olor a libros viejos de la sección de historia.", ["universidad"]),
+        (44, 10, 0, "texture", "alegria", 4, "Las hojas del cuaderno nuevo en el primer día de semestre.", ["universidad"]),
+    ]),
+    ("Un susto en la calle", "La noche del susto y la calma del día siguiente.", [
+        (42, 22, 0, "place", "miedo", 2, "El callejón oscuro saliendo de la estación.", []),
+        (42, 22, 30, "color", "miedo", 2, "Las luces de la moto que me siguió dos cuadras.", []),
+        (41, 9, 0, "texture", "calma", 3, "La cobija y el té a la mañana siguiente.", ["casa"]),
+    ]),
+    ("Serenata a mi mamá", "El aniversario de mis papás con mariachi en la sala.", [
+        (39, 20, 0, "song", "gratitud", 5, "El mariachi que le llevamos a mi mamá en su aniversario.", ["familia", "música"]),
+        (39, 21, 0, "color", "alegria", 4, "Los trajes brillantes de los músicos en la sala.", ["música"]),
+    ]),
+    ("Cocinar para mis amigos", "La primera comida que preparé para el grupo.", [
+        (37, 19, 0, "flavor", "alegria", 4, "La lasaña que me quedó cruda por dentro y aun así nos reímos.", ["amigos", "cocina"]),
+        (37, 21, 0, "aroma", "gratitud", 4, "El olor a pan de ajo llenando el apartamento.", ["amigos", "cocina"]),
+    ]),
+    ("La despedida de Laura", "El día que Laura se fue a estudiar al exterior.", [
+        (36, 17, 0, "place", "tristeza", 2, "El aeropuerto cuando Laura se fue a estudiar afuera.", ["amigos"]),
+        (36, 18, 0, "texture", "nostalgia", 3, "La bufanda que me dejó de recuerdo.", ["amigos"]),
+        (35, 21, 0, "song", "nostalgia", 3, "Nuestra canción de la adolescencia sonando en el taxi de vuelta.", ["amigos", "música"]),
+    ]),
+    ("Feria de las flores", "El viaje a Medellín en agosto.", [
+        (380, 11, 0, "color", "alegria", 5, "Los silleteros llenos de flores en el desfile de Medellín.", ["viaje"]),
+        (379, 12, 0, "aroma", "alegria", 4, "El olor de las flores frescas en la feria.", ["viaje"]),
+        (378, 20, 0, "song", "alegria", 4, "La música de la verbena hasta tarde.", ["viaje", "música"]),
+    ]),
+    ("Clases de pintura", "Las mañanas de acuarela en el taller.", [
+        (330, 10, 0, "color", "calma", 5, "Mezclar azules para pintar un cielo de acuarela.", []),
+        (326, 10, 30, "texture", "calma", 4, "El papel rugoso de acuarela bajo el pincel.", []),
+        (320, 11, 0, "aroma", "alegria", 4, "El olor a trementina en el taller.", []),
+    ]),
+    ("Noches de juegos de mesa", "Parqués, crispetas y risas en la sala.", [
+        (310, 20, 0, "texture", "alegria", 4, "Las fichas del parqués en la mesa de la sala.", ["amigos", "familia"]),
+        (305, 21, 0, "flavor", "alegria", 4, "Crispetas y gaseosa en la noche de juegos.", ["amigos"]),
+    ]),
+    ("La despedida de la tía Rosa", "El día que despedimos a la tía Rosa.", [
+        (290, 10, 0, "place", "tristeza", 1, "La iglesia fría en la despedida de la tía Rosa.", ["familia"]),
+        (290, 12, 0, "aroma", "tristeza", 2, "El olor a velas y flores blancas.", ["familia"]),
+        (288, 19, 0, "song", "nostalgia", 3, "El bolero que le gustaba a ella.", ["familia", "música"]),
+    ]),
+    ("Picnic en el parque", "Una tarde de agosto con amigos y cometas.", [
+        (270, 13, 0, "texture", "alegria", 4, "El pasto recién cortado bajo la manta del picnic.", ["amigos", "campo"]),
+        (270, 14, 0, "flavor", "alegria", 4, "Las fresas con crema que llevó Andrés.", ["amigos"]),
+        (270, 16, 0, "color", "calma", 4, "Las cometas de colores en el cielo de agosto.", ["campo"]),
+    ]),
+    ("La entrevista de trabajo", "Los nervios de la entrevista y la buena noticia.", [
+        (250, 8, 30, "texture", "ansiedad", 2, "Las manos sudadas sobre la carpeta con la hoja de vida.", ["trabajo"]),
+        (250, 9, 0, "place", "ansiedad", 2, "La oficina de vidrio donde esperaba mi turno.", ["trabajo"]),
+        (245, 17, 0, "color", "alegria", 5, "El correo que decía «Bienvenida al equipo».", ["trabajo"]),
+    ]),
+    ("Retiro de yoga", "Un fin de semana de calma en el campo.", [
+        (215, 7, 0, "aroma", "calma", 5, "El incienso de sándalo en el salón de yoga.", ["campo"]),
+        (214, 6, 30, "texture", "calma", 5, "El tapete húmedo de rocío en la clase al aire libre.", ["campo"]),
+        (213, 18, 0, "song", "gratitud", 4, "Los cuencos tibetanos al final de la meditación.", ["música"]),
+    ]),
+]
+
+
+def with_bundles(traces, tags, memories, bundles):
+    """Agrega recuerdos con sus propias huellas (y etiquetas) al final de las listas de una cuenta."""
+    traces, tags, memories = list(traces), dict(tags), list(memories)
+    for name, explanation, items in bundles:
+        positions = []
+        for *trace, trace_tags in items:
+            positions.append(len(traces))
+            if trace_tags:
+                tags[len(traces)] = trace_tags
+            traces.append(tuple(trace))
+        memories.append((name, explanation, positions))
+    return traces, tags, memories
+
+
+MARIA, MARIA_TAGS, MARIA_MEMORIES = with_bundles(MARIA, MARIA_TAGS, MARIA_MEMORIES, MARIA_MORE)
+
 DEMO_USERS = [
     {
         "email": "maria.demo@example.com",
@@ -196,7 +381,7 @@ DEMO_USERS = [
         "memories": MARIA_MEMORIES,
         "tags": MARIA_TAGS,
         "reminder": {"enabled": True, "frequency": "daily", "time": time(20, 0)},
-        "shows": "ánimo variado: lista y filtros, gráfica semanal y mensual, calendario de tres meses, mapa con 7 recuerdos; ya registró hoy",
+        "shows": "ánimo variado: lista y filtros, gráfica semanal y mensual, calendario de tres meses, mapa con 40 recuerdos de más de un año; ya registró hoy",
     },
     {
         "email": "mateo.demo@example.com",

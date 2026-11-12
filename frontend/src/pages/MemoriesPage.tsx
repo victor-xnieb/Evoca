@@ -1,25 +1,30 @@
 import { ChevronDown, SlidersHorizontal, X } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link, useSearchParams } from "react-router"
 
 import { EmotionOrbCluster } from "@/components/evoca/EmotionOrbCluster"
 import { EmptyState } from "@/components/evoca/EmptyState"
 import { GlassCard } from "@/components/evoca/GlassCard"
-import { MemoryMap, MemoryMapSkeleton } from "@/components/evoca/MemoryMap"
+import { MemoryGraph, MemoryGraphSkeleton } from "@/components/evoca/MemoryGraph"
 import { PageTransition } from "@/components/evoca/PageTransition"
 import { Button } from "@/components/ui/button"
 import { useCatalog } from "@/hooks/use-catalog"
-import { memoriesApi, type MemoryMap as MapData, type MemorySphere } from "@/lib/memories"
+import { memoriesApi, type MemoryGraph as GraphData } from "@/lib/memories"
 import { labelOf } from "@/lib/traces"
 
-import { MemoryDialog } from "./memories/MemoryDialog"
+import { MemoryPanel } from "./memories/MemoryPanel"
 import { SensationEmotionFilters } from "./traces/SensationEmotionFilters"
 
-type MapState = { status: "loading" } | { status: "error"; message: string } | ({ status: "ready" } & MapData)
+type GraphState = { status: "loading" } | { status: "error"; message: string } | ({ status: "ready" } & GraphData)
+
+const GRAPH_HEIGHT = "h-[clamp(420px,62dvh,720px)]"
+
+const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`
 
 /**
- * HU10: mis recuerdos como esferas del color de su emoción, sin orden cronológico. Se
- * filtran por sensación o emoción, y al tocar una esfera se ven sus huellas.
+ * HU10: mis recuerdos como un grafo de esferas. Cada esfera tiene el color de su emoción y el
+ * tamaño de sus huellas; las líneas unen los recuerdos afines. Los filtros atenúan lo que no
+ * coincide y, al tocar una esfera, se resaltan sus conexiones y se ven sus huellas.
  */
 export function MemoriesPage() {
   const [params, setParams] = useSearchParams()
@@ -27,50 +32,60 @@ export function MemoriesPage() {
   const type = params.get("tipo")
   const emotion = params.get("emocion")
   const filtered = Boolean(type || emotion)
-  const [map, setMap] = useState<MapState>({ status: "loading" })
+  const [graph, setGraph] = useState<GraphState>({ status: "loading" })
   const [attempt, setAttempt] = useState(0)
-  const [open, setOpen] = useState<MemorySphere | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   // En el teléfono el mapa es lo primero: los filtros se despliegan a pedido.
   const [showFilterPanel, setShowFilterPanel] = useState(filtered)
+  const panel = useRef<HTMLDivElement>(null)
 
+  // Al filtrar se conserva el grafo actual hasta que llega el nuevo: el mapa no parpadea ni
+  // pierde su disposición.
   useEffect(() => {
     const run = { cancelled: false }
     memoriesApi
-      .map({ sensory_type: type, emotion })
+      .graph({ sensory_type: type, emotion })
       .then((data) => {
-        if (!run.cancelled) setMap({ status: "ready", ...data })
+        if (!run.cancelled) setGraph({ status: "ready", ...data })
       })
       .catch((error: Error) => {
-        if (!run.cancelled) setMap({ status: "error", message: error.message })
+        if (!run.cancelled) setGraph({ status: "error", message: error.message })
       })
     return () => {
       run.cancelled = true
     }
   }, [type, emotion, attempt])
 
+  useEffect(() => {
+    if (selectedId) panel.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" })
+  }, [selectedId])
+
   const setFilter = (name: "tipo" | "emocion", value: string | null) => {
     const next = new URLSearchParams(params)
     if (value) next.set(name, value)
     else next.delete(name)
-    setMap({ status: "loading" })
+    // Otro filtro, otras conexiones: la esfera elegida antes ya no sirve de referencia.
+    setSelectedId(null)
     setParams(next, { replace: true })
   }
 
   const clearFilters = () => {
-    setMap({ status: "loading" })
+    setSelectedId(null)
     setParams(new URLSearchParams(), { replace: true })
   }
 
   const emotionLabel = (value: string) => labelOf(catalog?.emotions ?? [], value)
   // Los filtros se ocultan solo cuando ya se sabe que no hay recuerdos (y si falló la carga).
-  const showFilters = map.status === "loading" || (map.status === "ready" && map.total > 0)
+  const showFilters = graph.status === "loading" || (graph.status === "ready" && graph.total > 0)
+  const selected = graph.status === "ready" ? graph.nodes.find((node) => node.id === selectedId) : undefined
 
   return (
     <PageTransition className="mx-auto w-full max-w-2xl gap-6 lg:max-w-4xl">
       <header className="flex flex-col gap-2 self-start rounded-2xl bg-background/75 px-3 py-2 backdrop-blur-md">
         <h1 className="text-3xl font-semibold">Recuerdos</h1>
         <p className="text-base text-muted-foreground">
-          Cada esfera es un recuerdo: su color es la emoción que más sentiste y su tamaño, cuántas huellas guarda.
+          Cada esfera es un recuerdo: su color es la emoción que más sentiste y su tamaño, cuántas huellas guarda. Las
+          líneas unen los recuerdos que se parecen.
         </p>
       </header>
 
@@ -85,7 +100,11 @@ export function MemoriesPage() {
           >
             <SlidersHorizontal aria-hidden="true" />
             Filtrar por sensación o emoción
-            {filtered && <span className="rounded-full bg-primary px-2 text-xs text-primary-foreground">{Number(Boolean(type)) + Number(Boolean(emotion))}</span>}
+            {filtered && (
+              <span className="rounded-full bg-primary px-2 text-xs text-primary-foreground">
+                {Number(Boolean(type)) + Number(Boolean(emotion))}
+              </span>
+            )}
             <ChevronDown aria-hidden="true" className={showFilterPanel ? "rotate-180 transition-transform" : "transition-transform"} />
           </Button>
           {showFilterPanel && (
@@ -102,19 +121,19 @@ export function MemoriesPage() {
         </div>
       )}
 
-      {map.status === "loading" && <MemoryMapSkeleton />}
+      {graph.status === "loading" && <MemoryGraphSkeleton className={GRAPH_HEIGHT} />}
 
-      {map.status === "error" && (
+      {graph.status === "error" && (
         <GlassCard>
           <EmptyState
             variant="error"
             title="No pudimos cargar tus recuerdos"
-            description={map.message}
+            description={graph.message}
             action={
               <Button
                 className="h-11 rounded-full px-5"
                 onClick={() => {
-                  setMap({ status: "loading" })
+                  setGraph({ status: "loading" })
                   setAttempt((value) => value + 1)
                 }}
               >
@@ -125,7 +144,7 @@ export function MemoriesPage() {
         </GlassCard>
       )}
 
-      {map.status === "ready" && map.total === 0 && (
+      {graph.status === "ready" && graph.total === 0 && (
         <GlassCard>
           <EmptyState
             visual={<EmotionOrbCluster size={140} />}
@@ -140,29 +159,15 @@ export function MemoriesPage() {
         </GlassCard>
       )}
 
-      {map.status === "ready" && map.total > 0 && map.count === 0 && (
-        <GlassCard>
-          <EmptyState
-            compact
-            illustration="bloom"
-            title="Ningún recuerdo coincide"
-            description="Prueba con otra sensación u otra emoción."
-            action={
-              <Button variant="outline" className="h-11 rounded-full px-5" onClick={clearFilters}>
-                <X aria-hidden="true" />
-                Quitar filtros
-              </Button>
-            }
-          />
-        </GlassCard>
-      )}
-
-      {map.status === "ready" && map.count > 0 && (
-        <section aria-labelledby="esferas" className="flex flex-col gap-2">
+      {graph.status === "ready" && graph.total > 0 && (
+        <section aria-labelledby="esferas" className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3 rounded-2xl bg-background/75 px-3 py-1 backdrop-blur-md">
             <h2 id="esferas" className="text-base font-semibold">
-              {map.count} {map.count === 1 ? "recuerdo" : "recuerdos"}
-              {filtered && " con estos filtros"}
+              {filtered
+                ? `${graph.count} de ${plural(graph.total, "recuerdo", "recuerdos")} ${graph.count === 1 ? "coincide" : "coinciden"}`
+                : plural(graph.total, "recuerdo", "recuerdos")}
+              {" · "}
+              {plural(graph.edges.length, "conexión", "conexiones")}
             </h2>
             {filtered && (
               <Button variant="ghost" className="h-11 rounded-full px-3" onClick={clearFilters}>
@@ -171,11 +176,33 @@ export function MemoriesPage() {
               </Button>
             )}
           </div>
-          <MemoryMap memories={map.results} emotionLabel={emotionLabel} onOpen={setOpen} />
+
+          {graph.count === 0 && (
+            <p role="status" className="rounded-2xl bg-background/80 px-4 py-3 text-sm backdrop-blur-md">
+              <span className="font-semibold">Ningún recuerdo coincide.</span> Prueba con otra sensación u otra emoción.
+            </p>
+          )}
+
+          <MemoryGraph
+            nodes={graph.nodes}
+            edges={graph.edges}
+            emotionLabel={emotionLabel}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            className={GRAPH_HEIGHT}
+          />
+          <p id="mapa-ayuda" className="rounded-2xl bg-background/70 px-3 py-2 text-sm text-muted-foreground backdrop-blur-md">
+            Las líneas unen recuerdos afines: cuanto más marcadas, más se parecen. Toca una línea para ver por qué. Arrastra
+            para moverte, pellizca o usa Ctrl + rueda para acercar, y arrastra una esfera para acomodarla.
+          </p>
         </section>
       )}
 
-      <MemoryDialog memory={open} catalog={catalog} onClose={() => setOpen(null)} />
+      {graph.status === "ready" && selected && (
+        <div ref={panel} className="scroll-mt-4">
+          <MemoryPanel memory={selected} nodes={graph.nodes} edges={graph.edges} catalog={catalog} onSelect={setSelectedId} />
+        </div>
+      )}
     </PageTransition>
   )
 }

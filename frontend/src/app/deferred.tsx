@@ -2,11 +2,13 @@ import { lazy, Suspense, type ReactNode } from "react"
 
 import { EvocaLoader } from "@/components/evoca/EvocaLoader"
 
+import { loadMemoriesPage } from "./preload"
+
 // Pantallas que se cargan bajo demanda (formularios y diálogos que no hacen falta al abrir).
 export const RegisterPage = lazy(() => import("@/pages/auth/RegisterPage").then((m) => ({ default: m.RegisterPage })))
 export const CreatePinPage = lazy(() => import("@/pages/auth/CreatePinPage").then((m) => ({ default: m.CreatePinPage })))
 export const NewTracePage = lazy(() => import("@/pages/NewTracePage").then((m) => ({ default: m.NewTracePage })))
-export const MemoriesPage = lazy(() => import("@/pages/MemoriesPage").then((m) => ({ default: m.MemoriesPage })))
+export const MemoriesPage = lazy(() => loadMemoriesPage().then((m) => ({ default: m.MemoriesPage })))
 export const MyTracesPage = lazy(() => import("@/pages/MyTracesPage").then((m) => ({ default: m.MyTracesPage })))
 export const TraceDetailPage = lazy(() => import("@/pages/TraceDetailPage").then((m) => ({ default: m.TraceDetailPage })))
 export const MoodPage = lazy(() => import("@/pages/MoodPage").then((m) => ({ default: m.MoodPage })))

@@ -1,7 +1,7 @@
 import { api } from "./api"
 import type { Trace } from "./types"
 
-/** Un recuerdo como esfera del mapa (GET /memories/). */
+/** Un recuerdo como esfera del mapa (nodo del grafo de GET /memories/). */
 export interface MemorySphere {
   id: string
   name: string
@@ -13,11 +13,28 @@ export interface MemorySphere {
   sensory_types: string[]
 }
 
-export interface MemoryMap {
-  /** Recuerdos sin filtros: distingue «aún no tienes recuerdos» de «ninguno coincide». */
+export interface MemoryNode extends MemorySphere {
+  /** Coincide con los filtros (sin filtros, siempre). Los que no, se atenúan. */
+  match: boolean
+}
+
+/** Conexión entre dos recuerdos afines: puntaje de 0 a 1 y su motivo legible. */
+export interface MemoryEdge {
+  source: string
+  target: string
+  score: number
+  reason: string
+}
+
+export interface MemoryGraph {
+  /** Recuerdos dibujados: distingue «aún no tienes recuerdos» de «ninguno coincide». */
   total: number
+  /** Los que coinciden con los filtros. */
   count: number
-  results: MemorySphere[]
+  nodes: MemoryNode[]
+  edges: MemoryEdge[]
+  /** Máximo de conexiones por recuerdo que usa el servidor. */
+  max_links: number
 }
 
 /** Un recuerdo con sus huellas, de la más reciente a la más antigua (GET /memories/:id/). */
@@ -32,8 +49,8 @@ export interface MemoryFilters {
 }
 
 export const memoriesApi = {
-  map: (filters: MemoryFilters = {}) =>
-    api.get<MemoryMap>("memories/", { query: { sensory_type: filters.sensory_type, emotion: filters.emotion } }),
+  graph: (filters: MemoryFilters = {}) =>
+    api.get<MemoryGraph>("memories/", { query: { sensory_type: filters.sensory_type, emotion: filters.emotion } }),
   get: (id: string) => api.get<MemoryDetail>(`memories/${id}/`),
 }
 
@@ -42,36 +59,15 @@ export function sphereDiameter(traceCount: number) {
   return Math.round(Math.min(150, 56 + 22 * Math.sqrt(Math.max(0, traceCount - 1))))
 }
 
-/** Número estable a partir de un texto (FNV-1a): la misma esfera cae siempre en el mismo lugar. */
-function hash(text: string) {
-  let value = 2166136261
-  for (let index = 0; index < text.length; index++) {
-    value ^= text.charCodeAt(index)
-    value = Math.imul(value, 16777619)
-  }
-  return value >>> 0
+/** Afinidad como porcentaje legible («72 %»). */
+export function affinityPercent(score: number) {
+  return `${Math.round(score * 100)} %`
 }
 
-export interface PlacedSphere {
-  sphere: MemorySphere
-  diameter: number
-  /** Desplazamiento orgánico (px) para que el mapa no parezca una cuadrícula. */
-  dx: number
-  dy: number
-}
-
-/**
- * Orden del mapa: ni cronológico ni alfabético. Se mezclan grandes y pequeñas de forma
- * estable (según el id), y cada esfera se desplaza un poco para dar un aspecto orgánico.
- */
-export function arrangeSpheres(spheres: MemorySphere[]): PlacedSphere[] {
-  return spheres
-    .map((sphere) => ({ sphere, key: hash(sphere.id) }))
-    .sort((a, b) => a.key - b.key)
-    .map(({ sphere, key }) => ({
-      sphere,
-      diameter: sphereDiameter(sphere.trace_count),
-      dx: ((key % 17) - 8) * 1.5,
-      dy: (((key >>> 5) % 25) - 12) * 1.5,
-    }))
+/** Conexiones de un recuerdo, de la más afín a la menos, con el otro extremo. */
+export function connectionsOf(id: string, edges: MemoryEdge[]) {
+  return edges
+    .filter((edge) => edge.source === id || edge.target === id)
+    .map((edge) => ({ edge, other: edge.source === id ? edge.target : edge.source }))
+    .sort((a, b) => b.edge.score - a.edge.score)
 }

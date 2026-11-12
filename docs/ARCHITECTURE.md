@@ -91,7 +91,9 @@ de seguridad, auditoría y prueba de penetración.
 ## Evolución prevista
 
 1. Agregar la agrupación explicable con IA sobre `Memory` y `MemoryTrace` (HU9). El mapa de
-   recuerdos (HU10) ya los lee en `/api/v1/memories/`.
+   recuerdos (HU10) ya los lee en `/api/v1/memories/` como grafo: las conexiones se calculan
+   en el servidor con reglas fijas (`apps/traces/memory_map.py`) y la disposición en el cliente
+   con una simulación de fuerzas propia (`frontend/src/lib/force-layout.ts`), sin librerías.
 2. Definir el protocolo de bienestar como reglas versionadas aprobadas por el asesor clínico.
 3. Añadir un esquema de autenticación móvil con expiración/rotación de tokens.
 4. Completar las pantallas de la PWA historia por historia (HU1 a HU8).

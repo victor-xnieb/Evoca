@@ -193,9 +193,9 @@ despliegue (con `DJANGO_DEBUG=False`) el comando **exige** definir `EVOCA_DEMO_P
 
 | Cuenta | Huellas | Qué mostrar |
 | --- | --- | --- |
-| `maria.demo@example.com` | 30, en 3 meses | **HU2/HU3**: lista, filtros por tipo y emoción, editar y borrar. **HU4**: gráfica semanal y mensual. **HU7**: calendario de colores con meses anteriores. **HU10**: mapa con 7 recuerdos de 6 colores (filtros y huellas de cada uno). Ya registró hoy, así que el recordatorio no avisa (HU5 · escenario 3) |
-| `mateo.demo@example.com` | 18 | **HU6**: ánimo bajo 15 de los últimos 21 días, así que al abrir aparece la orientación («Ver opciones de ayuda» o «Ahora no»). **HU5**: recordatorio «cada hora» y sin huella hoy, así que avisa al abrir. **HU10**: 4 recuerdos |
-| `juliana.demo@example.com` | 16 | **HU5**: sin huella hoy y recordatorio diario a las 8:00, así que avisa al abrir. Buena cuenta para registrar en vivo: **HU2**, **HU8** (sugerencia de la IA) y **HU6** (pantalla de ayuda al escribir, por ejemplo, «quiero morir»). **HU10**: 4 recuerdos |
+| `maria.demo@example.com` | 30, en 3 meses | **HU2/HU3**: lista, filtros por tipo y emoción, editar y borrar. **HU4**: gráfica semanal y mensual. **HU7**: calendario de colores con meses anteriores. **HU10**: grafo con 7 recuerdos de 6 colores y 5 conexiones (una por la etiqueta «familia»); «Tardes de nervios» queda sola porque no tiene afinidad suficiente. Ya registró hoy, así que el recordatorio no avisa (HU5 · escenario 3) |
+| `mateo.demo@example.com` | 18 | **HU6**: ánimo bajo 15 de los últimos 21 días, así que al abrir aparece la orientación («Ver opciones de ayuda» o «Ahora no»). **HU5**: recordatorio «cada hora» y sin huella hoy, así que avisa al abrir. **HU10**: 4 recuerdos y 1 conexión (la etiqueta «noche») |
+| `juliana.demo@example.com` | 16 | **HU5**: sin huella hoy y recordatorio diario a las 8:00, así que avisa al abrir. Buena cuenta para registrar en vivo: **HU2**, **HU8** (sugerencia de la IA) y **HU6** (pantalla de ayuda al escribir, por ejemplo, «quiero morir»). **HU10**: 4 recuerdos y 1 conexión (la etiqueta «familia») |
 | `valentina.demo@example.com` | 19 | **HU6**: segunda cuenta para la orientación. Tiene ánimo 1 o 2 en **16 días distintos** de los últimos 21 (la regla cuenta días distintos: 14 huellas de un mismo día no sirven) y el mensaje sin mostrar, así que al abrir aparece «Aquí hay apoyo si lo necesitas». No tiene recordatorio, para que nada se interponga. Sirve cuando la orientación de Mateo ya se mostró o se descartó |
 | `santiago.demo@example.com` | 17 | **HU6**: tercera cuenta para la orientación, igual que la de Valentina pero con **15 días distintos** de ánimo 1 o 2 en los últimos 21 y sin recordatorio. Al abrir aparece «Aquí hay apoyo si lo necesitas». Sirve para mostrarla varias veces sin recargar con `--reset` |
 
@@ -231,8 +231,23 @@ en la orientación de Mateo, que la pausa 7 días).
 | GET | `/api/v1/traces/mood/?period=week|month` | Gráfica de ánimo: un punto por huella de los últimos 7 o 30 días y el promedio |
 | GET | `/api/v1/traces/calendar/?month=AAAA-MM` | Calendario: por día, la emoción dominante, la intensidad promedio y cuántas huellas hay |
 | GET/PATCH/DELETE | `/api/v1/traces/{id}/` | Consulta, modifica o elimina una huella propia |
-| GET | `/api/v1/memories/` | Mapa de recuerdos (HU10): los aceptados como esferas (emoción dominante y número de huellas), sin orden cronológico; filtros `?sensory_type=` y `?emotion=` |
+| GET | `/api/v1/memories/` | Mapa de recuerdos como grafo (HU10): `nodes` (recuerdos aceptados con emoción dominante, número de huellas y `match`) y `edges` (`source`, `target`, `score` de 0 a 1 y `reason`). Filtros `?sensory_type=` y `?emotion=`: los nodos que no coinciden llegan con `match: false` y las aristas se calculan solo entre los que coinciden |
 | GET | `/api/v1/memories/{id}/` | Un recuerdo propio con sus huellas, de la más reciente a la más antigua |
+
+### Afinidad del mapa de recuerdos (HU10)
+
+Las conexiones del mapa se calculan en el servidor con reglas fijas, sin IA
+(`apps/traces/memory_map.py`). La afinidad de dos recuerdos va de 0 a 1:
+
+| Parte | Peso | Cómo se mide |
+| --- | --- | --- |
+| Sensaciones compartidas | 0,5 | Coincidencia entre sus tipos sensoriales (compartidos / distintos) |
+| Emoción dominante | 0,3 | La misma vale completo; otra del mismo tono (luminoso, melancólico o tenso), la mitad |
+| Etiquetas de sus huellas | 0,2 | Coincidencia entre sus etiquetas. Si ninguno tiene, no cuenta y el puntaje se calcula sobre las otras dos |
+
+Se descartan los pares bajo `EVOCA_MAP_MIN_AFFINITY` (0,4) y las aristas se agregan de mayor a
+menor afinidad, sin pasar de `EVOCA_MAP_MAX_LINKS` (4) conexiones por recuerdo. Un recuerdo sin
+afinidad suficiente queda solo. Las dos variables se cambian en el entorno, sin tocar código.
 
 Para rutas privadas, envía:
 
@@ -285,6 +300,11 @@ instalado con `$env:PLAYWRIGHT_CHANNEL = "chrome"`:
 ```powershell
 npm run test:e2e
 ```
+
+La prueba de rendimiento del mapa (HU10) simula un teléfono de gama media con la CPU 4 veces más
+lenta y compara la mediana de tres aperturas con los 3 s del criterio. Si el equipo está ocupado
+(por ejemplo, sincronizando OneDrive o con el servidor de Vite abierto), `$env:E2E_CPU_RATE = "1"`
+quita esa simulación.
 
 ## Migraciones automáticas al integrar en `dev`
 

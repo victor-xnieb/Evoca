@@ -186,6 +186,8 @@ export interface StaticEmotionOrbProps {
   emotion: EmotionSlug
   size: number
   decorative?: boolean
+  /** Resplandor del color de la emoción. Con cientos de esferas se apaga: pintarlo es costoso. */
+  glow?: boolean
   className?: string
 }
 
@@ -193,7 +195,7 @@ export interface StaticEmotionOrbProps {
  * Solo la imagen de la esfera, sin flotación ni atracción al puntero: para listas largas
  * (como el mapa de recuerdos), donde cientos de esferas animadas cansarían al teléfono.
  */
-export function StaticEmotionOrb({ emotion, size, decorative = false, className }: StaticEmotionOrbProps) {
+export function StaticEmotionOrb({ emotion, size, decorative = false, glow = true, className }: StaticEmotionOrbProps) {
   const asset = EMOTION_ORBS[emotion]
   return (
     <span
@@ -219,7 +221,7 @@ export function StaticEmotionOrb({ emotion, size, decorative = false, className 
         loading="lazy"
         decoding="async"
         draggable={false}
-        className="evoca-orb size-full select-none"
+        className={cn("size-full select-none", glow && "evoca-orb")}
       />
     </span>
   )

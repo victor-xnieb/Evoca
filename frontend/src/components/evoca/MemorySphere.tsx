@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react"
+import type { CSSProperties, MouseEvent } from "react"
 
 import { getEmotionVisual, isEmotionSlug } from "@/lib/emotions"
 import type { MemorySphere as Sphere } from "@/lib/memories"
@@ -17,7 +17,14 @@ export interface MemorySphereProps {
   animated?: boolean
   /** Desfase de la flotación (0 a 1), para que no se muevan al unísono. */
   phase?: number
-  onOpen?: (memory: Sphere) => void
+  /** Nombre y huellas debajo de la esfera. El mapa los oculta al alejarse para no saturarlo. */
+  showLabel?: boolean
+  /** Recuerdo elegido en el mapa: se marca con un anillo. */
+  selected?: boolean
+  /** Versión ligera para mapas con muchas esferas: sin resplandor ni halo al pasar el cursor. */
+  lite?: boolean
+  /** El evento permite distinguir el teclado (detail = 0) de un toque. */
+  onOpen?: (memory: Sphere, event: MouseEvent<HTMLButtonElement>) => void
   className?: string
 }
 
@@ -37,6 +44,9 @@ export function MemorySphere({
   diameter,
   animated = false,
   phase,
+  showLabel = true,
+  selected = false,
+  lite = false,
   onOpen,
   className,
 }: MemorySphereProps) {
@@ -50,7 +60,8 @@ export function MemorySphere({
       data-testid="memory-sphere"
       data-emotion={memory.emotion}
       aria-label={`${memory.name}: ${emotionLabel}, ${plural(memory.trace_count)}`}
-      onClick={() => onOpen?.(memory)}
+      aria-pressed={selected}
+      onClick={(event) => onOpen?.(memory, event)}
       style={{ "--sphere-color": visual.color, width: Math.max(size, LABEL_WIDTH) } as CSSProperties}
       className={cn(
         "group flex flex-col items-center gap-1 rounded-3xl p-1 text-center transition-transform duration-150 active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100",
@@ -59,26 +70,36 @@ export function MemorySphere({
       )}
     >
       <span className="relative grid place-items-center" style={{ width: size, height: size }}>
-        {/* Halo del color de la emoción al pasar el cursor o enfocar. */}
-        <span
-          aria-hidden="true"
-          className="absolute inset-[18%] rounded-full bg-(--sphere-color) opacity-0 blur-xl transition-opacity duration-300 group-hover:opacity-45 group-focus-visible:opacity-45"
-        />
+        {/* Halo del color de la emoción al pasar el cursor, enfocar o elegir la esfera. */}
+        {(!lite || selected) && (
+          <span
+            aria-hidden="true"
+            className={cn(
+              "absolute inset-[18%] rounded-full bg-(--sphere-color) blur-xl transition-opacity duration-300 group-hover:opacity-45 group-focus-visible:opacity-45",
+              selected ? "opacity-60" : "opacity-0",
+            )}
+          />
+        )}
+        {selected && (
+          <span aria-hidden="true" className="absolute inset-[12%] rounded-full border-2 border-(--sphere-color)" />
+        )}
         {isEmotionSlug(memory.emotion) && animated ? (
           <EmotionOrb emotion={memory.emotion} size={size} animated phase={phase} interactive={false} decorative />
         ) : isEmotionSlug(memory.emotion) ? (
-          <StaticEmotionOrb emotion={memory.emotion} size={size} decorative />
+          <StaticEmotionOrb emotion={memory.emotion} size={size} decorative glow={!lite || selected} />
         ) : (
           <span aria-hidden="true" className="size-2/3 rounded-full bg-(--sphere-color)" />
         )}
       </span>
-      <span className="flex max-w-full flex-col items-center rounded-2xl bg-background/75 px-2 py-0.5 backdrop-blur-md">
-        <span className="line-clamp-2 text-sm leading-tight font-semibold text-foreground">{memory.name}</span>
-        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" aria-hidden="true">
-          <Icon className="size-3" strokeWidth={2.4} />
-          {plural(memory.trace_count)}
+      {showLabel && (
+        <span data-sphere-label className="flex max-w-full flex-col items-center rounded-2xl bg-background/80 px-2 py-0.5">
+          <span className="line-clamp-2 text-sm leading-tight font-semibold text-foreground">{memory.name}</span>
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" aria-hidden="true">
+            <Icon className="size-3" strokeWidth={2.4} />
+            {plural(memory.trace_count)}
+          </span>
         </span>
-      </span>
+      )}
     </button>
   )
 }

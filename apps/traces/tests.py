@@ -1,5 +1,6 @@
 import json
 import time as clock
+from io import StringIO
 import urllib.error
 from collections import Counter
 from datetime import date, datetime, time, timedelta
@@ -7,6 +8,7 @@ from unittest import mock
 
 from django.conf import settings
 from django.core.cache import cache
+from django.core.management import call_command
 from django.test import SimpleTestCase, override_settings
 from django.utils import timezone
 from rest_framework import status
@@ -15,7 +17,8 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
 
-from . import ai, memory_map
+from . import ai, memory_ai, memory_map
+from .management.commands.suggestion_stats import acceptance_stats
 from .models import Memory, MemoryTrace, Trace
 
 
@@ -1002,3 +1005,336 @@ class MemoryMapTests(APITestCase):
         self.assertLessEqual(max(degree.values()), 4)
         self.assertTrue(all(edge["score"] >= settings.EVOCA_MAP_MIN_AFFINITY for edge in response.data["edges"]))
         self.assertLess(elapsed, 3)
+
+
+def groups_reply(*groups):
+    """Respuesta de la IA para HU9: recuerdos con nombre, explicación y números de huellas."""
+    return json.dumps(
+        {
+            "memories": [
+                {"name": name, "explanation": explanation, "traces": numbers} for name, explanation, numbers in groups
+            ]
+        }
+    )
+
+
+class MemorySuggestionParsingTests(SimpleTestCase):
+    """HU9: lo que devuelve la IA se valida antes de convertirse en sugerencias."""
+
+    def test_keeps_valid_groups_and_trims_texts(self):
+        raw = groups_reply(("  Tardes   en la finca ", "Huellas  de la finca.", [1, 3, 2]), ("Lluvia", "Días de lluvia.", [4, 5]))
+
+        groups = memory_ai.parse_groups(raw, count=6)
+
+        self.assertEqual(
+            groups,
+            [
+                {"name": "Tardes en la finca", "explanation": "Huellas de la finca.", "positions": [0, 2, 1]},
+                {"name": "Lluvia", "explanation": "Días de lluvia.", "positions": [3, 4]},
+            ],
+        )
+
+    def test_a_trace_goes_in_at_most_one_group_and_numbers_must_exist(self):
+        raw = groups_reply(("A", "a", [1, 2, 9, 0, True]), ("B", "b", [2, 3]), ("C", "c", [4, 4, 5]))
+
+        groups = memory_ai.parse_groups(raw, count=5)
+
+        self.assertEqual([group["positions"] for group in groups], [[0, 1], [3, 4]])
+
+    def test_groups_without_name_explanation_or_enough_traces_are_dropped(self):
+        raw = groups_reply(("", "x", [1, 2]), ("Solo una", "x", [3]), ("Sin explicación", "   ", [4, 5]), ("Siete", "x", [1, 2, 3, 4, 5, 6, 7]))
+
+        self.assertEqual(memory_ai.parse_groups(raw, count=7), [])
+
+    def test_at_most_five_groups_and_long_texts_are_cut(self):
+        raw = groups_reply(*[("N" * 80, "E" * 300, [index * 2 + 1, index * 2 + 2]) for index in range(6)])
+
+        groups = memory_ai.parse_groups(raw, count=12)
+
+        self.assertEqual(len(groups), 5)
+        self.assertEqual(len(groups[0]["name"]), memory_ai.NAME_LENGTH)
+        self.assertEqual(len(groups[0]["explanation"]), memory_ai.EXPLANATION_LENGTH)
+
+    def test_unreadable_answers_are_rejected(self):
+        for raw in ["esto no es JSON", json.dumps({"otra": []}), json.dumps({"memories": "no"})]:
+            with self.subTest(raw=raw), self.assertRaises(ai.SuggestionUnavailable):
+                memory_ai.parse_groups(raw, count=3)
+
+
+@override_settings(EVOCA_AI_API_KEY="clave-de-prueba", EVOCA_AI_PROVIDER="gemini")
+class MemorySuggestionsTests(APITestCase):
+    """HU9: la IA sugiere recuerdos a partir de las huellas; la persona los acepta, renombra o separa."""
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(email="hu9@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        self.client.force_authenticate(self.user)
+        self.calls = []
+
+    def provider(self, reply=None, error=None):
+        def ask(text):
+            self.calls.append(text)
+            if error:
+                raise error
+            return reply if reply is not None else groups_reply(("Tardes en la finca", "Huellas de la finca de los abuelos.", [1, 2, 3]))
+
+        return mock.patch.dict(memory_ai.PROVIDERS, {"gemini": ask})
+
+    def traces(self, count, user=None, **overrides):
+        made = []
+        for index in range(count):
+            fields = {
+                "user": user or self.user, "sensory_type": "aroma", "emotion": "calma", "mood_intensity": 3,
+                "note": f"Huella {index + 1} de la finca de los abuelos con olor a café.", "tags": ["finca"],
+                "happened_at": timezone.make_aware(datetime(2026, 9, 1, 10) + timedelta(days=index)),
+            }
+            fields.update(overrides)
+            made.append(Trace.objects.create(**fields))
+        return made
+
+    def suggest(self):
+        return self.client.post("/api/v1/memories/suggest/", {}, format="json")
+
+    def pending(self):
+        return self.client.get("/api/v1/memories/suggestions/").data
+
+    # Escenario 1
+    def test_with_five_traces_the_ai_suggests_at_least_one_memory(self):
+        traces = self.traces(5)
+
+        with self.provider():
+            response = self.suggest()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["reason"], "ok")
+        suggestion = response.data["suggestions"][0]
+        self.assertEqual(suggestion["name"], "Tardes en la finca")
+        self.assertEqual(suggestion["explanation"], "Huellas de la finca de los abuelos.")
+        self.assertEqual(suggestion["status"], "suggested")
+        self.assertEqual(suggestion["emotion"], "calma")
+        self.assertEqual(suggestion["trace_count"], 3)
+        # La IA numera de la más reciente a la más antigua: #1 es la huella 5.
+        self.assertEqual({trace["id"] for trace in suggestion["traces"]}, {str(traces[4].pk), str(traces[3].pk), str(traces[2].pk)})
+        memory = Memory.objects.get()
+        self.assertEqual(memory.status, Memory.Status.SUGGESTED)
+        self.assertIsNotNone(memory.suggested_at)
+        self.assertIsNone(memory.decided_at)
+        # Las sugerencias pendientes se vuelven a ver al abrir «Recuerdos».
+        self.assertEqual([item["id"] for item in self.pending()["suggestions"]], [str(memory.pk)])
+
+    def test_the_ai_reads_the_ungrouped_traces_with_type_emotion_date_and_tags(self):
+        traces = self.traces(5)
+        accepted = Memory.objects.create(user=self.user, name="Ya agrupada", status=Memory.Status.ACCEPTED)
+        accepted.traces.add(traces[0])
+
+        with self.provider():
+            self.suggest()
+
+        prompt = self.calls[0]
+        self.assertNotIn("Huella 1 de la finca", prompt)
+        self.assertIn("#1 · Aroma · Calma (3/5) · 05/09/2026 · etiquetas: finca\nHuella 5 de la finca", prompt)
+        self.assertIn("#4 · Aroma · Calma (3/5) · 02/09/2026 · etiquetas: finca\nHuella 2 de la finca", prompt)
+        self.assertNotIn("#5 ·", prompt)
+
+    def test_with_fewer_than_five_traces_the_ai_is_not_called(self):
+        self.traces(4)
+
+        with self.provider():
+            response = self.suggest()
+
+        self.assertEqual((response.data["suggestions"], response.data["reason"]), ([], "too_few_traces"))
+        self.assertEqual(response.data["min_traces"], 5)
+        self.assertEqual(self.calls, [])
+        summary = self.pending()
+        self.assertEqual((summary["trace_count"], summary["can_suggest"]), (4, False))
+
+    def test_when_every_trace_is_already_in_a_memory_there_is_nothing_to_suggest(self):
+        traces = self.traces(5)
+        memory = Memory.objects.create(user=self.user, name="Todo", status=Memory.Status.ACCEPTED)
+        memory.traces.add(*traces[:4])
+
+        with self.provider():
+            response = self.suggest()
+
+        self.assertEqual(response.data["reason"], "all_grouped")
+        self.assertEqual(self.calls, [])
+        summary = self.pending()
+        self.assertEqual((summary["ungrouped_count"], summary["can_suggest"]), (1, False))
+
+    def test_without_a_key_or_with_errors_there_is_no_suggestion_and_notes_are_never_logged(self):
+        self.traces(5)
+        with self.provider(), self.settings(EVOCA_AI_API_KEY=""):
+            self.assertEqual(self.suggest().data["reason"], "unavailable")
+        self.assertEqual(self.calls, [])
+
+        for failure in [TimeoutError(), urllib.error.URLError("sin red"), urllib.error.HTTPError("https://x", 503, "Ocupado", {}, None)]:
+            with self.subTest(failure=type(failure).__name__), self.provider(error=failure):
+                with self.assertLogs("apps.traces.memory_ai", level="WARNING") as logs:
+                    response = self.suggest()
+                self.assertEqual((response.status_code, response.data["reason"]), (status.HTTP_200_OK, "unavailable"))
+                self.assertNotIn("finca", " ".join(logs.output))
+        self.assertFalse(Memory.objects.exists())
+
+    def test_when_the_ai_finds_no_affinity_it_says_so(self):
+        self.traces(5)
+
+        with self.provider(json.dumps({"memories": []})):
+            response = self.suggest()
+
+        self.assertEqual((response.data["suggestions"], response.data["reason"]), ([], "none"))
+
+    def test_gemini_is_called_with_its_own_schema_timeout_and_the_key_in_the_header(self):
+        self.traces(5)
+        captured = {}
+
+        class Reply:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return json.dumps({"candidates": [{"content": {"parts": [{"text": groups_reply(("Finca", "x", [1, 2]))}]}}]}).encode()
+
+        def fake_urlopen(request, timeout):
+            captured.update(request=request, timeout=timeout, body=json.loads(request.data))
+            return Reply()
+
+        with mock.patch("urllib.request.urlopen", fake_urlopen), self.settings(EVOCA_AI_MEMORY_TIMEOUT=15.0):
+            response = self.suggest()
+
+        self.assertEqual(response.data["reason"], "ok")
+        self.assertEqual(captured["timeout"], 15.0)
+        self.assertEqual(captured["request"].get_header("X-goog-api-key"), "clave-de-prueba")
+        body = captured["body"]
+        self.assertIn("Agrupa en «recuerdos»", body["systemInstruction"]["parts"][0]["text"])
+        self.assertEqual(body["generationConfig"]["responseSchema"]["required"], ["memories"])
+        self.assertNotIn("Eres el asistente", json.dumps(response.data, default=str))
+
+    def test_limits_suggestion_requests_per_person(self):
+        self.traces(5)
+        with self.provider(json.dumps({"memories": []})):
+            codes = [self.suggest().status_code for _ in range(6)]
+
+        self.assertEqual(codes[:5], [status.HTTP_200_OK] * 5)
+        self.assertEqual(codes[5], status.HTTP_429_TOO_MANY_REQUESTS)
+
+    # Escenario 2
+    def suggested(self, *traces, name="Tardes en la finca"):
+        memory = Memory.objects.create(
+            user=self.user, name=name, explanation="Huellas de la finca.", status=Memory.Status.SUGGESTED, suggested_at=timezone.now()
+        )
+        memory.traces.add(*traces)
+        return memory
+
+    def test_accepting_moves_the_memory_to_the_map(self):
+        memory = self.suggested(*self.traces(3))
+
+        response = self.client.post(f"/api/v1/memories/{memory.pk}/accept/", {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "accepted")
+        memory.refresh_from_db()
+        self.assertEqual(memory.status, Memory.Status.ACCEPTED)
+        self.assertIsNotNone(memory.decided_at)
+        self.assertEqual([node["name"] for node in self.client.get("/api/v1/memories/").data["nodes"]], ["Tardes en la finca"])
+        self.assertEqual(self.pending()["suggestions"], [])
+
+    def test_accepting_with_another_name_renames_it(self):
+        memory = self.suggested(*self.traces(2))
+
+        response = self.client.post(f"/api/v1/memories/{memory.pk}/accept/", {"name": "  La finca de los abuelos "}, format="json")
+
+        self.assertEqual(response.data["name"], "La finca de los abuelos")
+        self.assertEqual(Memory.objects.get().name, "La finca de los abuelos")
+
+    def test_renaming_a_suggestion_or_an_accepted_memory(self):
+        memory = self.suggested(*self.traces(2))
+
+        response = self.client.patch(f"/api/v1/memories/{memory.pk}/", {"name": "Otro nombre"}, format="json")
+        self.assertEqual((response.status_code, response.data["name"], response.data["status"]), (200, "Otro nombre", "suggested"))
+
+        self.client.post(f"/api/v1/memories/{memory.pk}/accept/", {}, format="json")
+        response = self.client.patch(f"/api/v1/memories/{memory.pk}/", {"name": "Nombre final"}, format="json")
+        self.assertEqual(Memory.objects.get().name, "Nombre final")
+
+        response = self.client.patch(f"/api/v1/memories/{memory.pk}/", {"name": "   "}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["name"][0], "Escribe un nombre para el recuerdo.")
+
+    def test_separating_a_trace_leaves_it_free_for_another_suggestion(self):
+        traces = self.traces(3)
+        memory = self.suggested(*traces)
+
+        response = self.client.delete(f"/api/v1/memories/{memory.pk}/traces/{traces[0].pk}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["trace_count"], 2)
+        self.assertEqual(set(memory.traces.values_list("pk", flat=True)), {traces[1].pk, traces[2].pk})
+        self.assertIn(traces[0], memory_ai.ungrouped_traces(self.user))
+
+    def test_the_last_trace_cannot_be_separated_and_a_foreign_trace_is_rejected(self):
+        traces = self.traces(1)
+        memory = self.suggested(*traces)
+        other = Trace.objects.create(user=self.user, sensory_type="song", note="Otra", emotion="alegria", mood_intensity=4)
+
+        response = self.client.delete(f"/api/v1/memories/{memory.pk}/traces/{traces[0].pk}/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("descarta", response.data["detail"])
+        self.assertEqual(self.client.delete(f"/api/v1/memories/{memory.pk}/traces/{other.pk}/").status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(memory.traces.count(), 1)
+
+    def test_discarding_keeps_the_decision_and_frees_the_traces(self):
+        traces = self.traces(2)
+        memory = self.suggested(*traces)
+
+        response = self.client.post(f"/api/v1/memories/{memory.pk}/discard/", {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        memory.refresh_from_db()
+        self.assertEqual(memory.status, Memory.Status.DISCARDED)
+        self.assertIsNotNone(memory.decided_at)
+        self.assertEqual(self.pending()["suggestions"], [])
+        self.assertEqual(self.client.get("/api/v1/memories/").data["nodes"], [])
+        self.assertEqual(set(memory_ai.ungrouped_traces(self.user)), set(traces))
+
+    def test_an_accepted_memory_is_no_longer_a_suggestion(self):
+        memory = self.suggested(*self.traces(2))
+        self.client.post(f"/api/v1/memories/{memory.pk}/accept/", {}, format="json")
+
+        for url in [f"/api/v1/memories/{memory.pk}/accept/", f"/api/v1/memories/{memory.pk}/discard/"]:
+            with self.subTest(url=url):
+                response = self.client.post(url, {}, format="json")
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(response.data["detail"], "Este recuerdo ya no es una sugerencia.")
+
+    def test_nobody_else_can_see_or_decide_my_suggestions(self):
+        memory = self.suggested(*self.traces(2))
+        stranger = User.objects.create_user(email="otra@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1991, 1, 1))
+        self.client.force_authenticate(stranger)
+
+        self.assertEqual(self.pending()["suggestions"], [])
+        self.assertEqual(self.client.post(f"/api/v1/memories/{memory.pk}/accept/", {}, format="json").status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(self.client.patch(f"/api/v1/memories/{memory.pk}/", {"name": "x"}, format="json").status_code, status.HTTP_404_NOT_FOUND)
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.get("/api/v1/memories/suggestions/").status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(self.suggest().status_code, status.HTTP_401_UNAUTHORIZED)
+
+    # Escenario 3
+    def test_acceptance_rate_counts_only_ai_suggestions(self):
+        traces = self.traces(8)
+        manual = Memory.objects.create(user=self.user, name="A mano", status=Memory.Status.ACCEPTED)
+        manual.traces.add(traces[0])
+        for index, decision in enumerate(["accept", "accept", "accept", "discard", None]):
+            memory = self.suggested(traces[index + 1], name=f"S{index}")
+            if decision:
+                self.client.post(f"/api/v1/memories/{memory.pk}/{decision}/", {}, format="json")
+
+        stats = acceptance_stats()
+        output = StringIO()
+        call_command("suggestion_stats", stdout=output)
+
+        self.assertEqual(stats, {"suggested": 5, "accepted": 3, "discarded": 1, "pending": 1, "acceptance_rate": 0.75})
+        self.assertIn("Aceptación: 75 % (cumple el 70 % del criterio)", output.getvalue())
+        self.assertNotIn("finca", output.getvalue())

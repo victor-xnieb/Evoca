@@ -128,7 +128,8 @@ Las cuentas nuevas toman la contraseña y el PIN que ya tienes en `EVOCA_DEMO_PA
   se suspende y se reactiva sola.
 - **Notificaciones y PWA:** funcionan porque Render sirve todo por HTTPS. El aviso del
   recordatorio sigue llegando solo con la app abierta o en segundo plano (HU5, parcial).
-- **IA (HU8):** sin `EVOCA_AI_API_KEY` la app funciona igual, sin sugerencia. Con la clave, las
+- **IA (HU8 y HU9):** sin `EVOCA_AI_API_KEY` la app funciona igual, sin sugerencia de emoción ni
+  recuerdos sugeridos (Valentina conserva sus dos sugerencias de la demo). Con la clave, las
   notas viajan a Google: en el plan gratuito de Gemini pueden usarse para mejorar sus productos.
   Úsalo solo con datos de ejemplo.
 - **Datos compartidos:** como la base es la rama `development` de Neon, las cuentas que se creen

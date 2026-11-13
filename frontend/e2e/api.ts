@@ -47,6 +47,7 @@ export async function mockApi(page: Page, handlers: Handlers) {
     "POST auth/pin/verify/": { body: { has_pin: true, locked_until: null, remaining_attempts: 5, verified: true } },
     "GET traces/catalog/": { body: CATALOG },
     "GET traces/": { body: { count: 0, next: null, previous: null, results: [] } },
+    "GET memories/suggestions/": { body: { suggestions: [], trace_count: 12, ungrouped_count: 0, min_traces: 5, can_suggest: false } },
   }
   const all = { ...base, ...handlers }
   await page.route(`${API}**`, async (route: Route) => {

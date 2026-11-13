@@ -75,18 +75,21 @@ def parse_suggestion(raw):
     return {"emotion": emotion, "intensity": intensity, "confidence": round(confidence, 2)}
 
 
-def ask_gemini(note):
-    """Llama a la API de Gemini (generateContent) con salida JSON restringida al esquema."""
+def call_gemini(system_prompt, text, schema, timeout=None):
+    """
+    Llama a la API de Gemini (generateContent) con salida JSON restringida al esquema. La usan
+    la sugerencia de emoción (HU8) y los recuerdos sugeridos (HU9).
+    """
     generation = {
         "responseMimeType": "application/json",
-        "responseSchema": RESPONSE_SCHEMA,
+        "responseSchema": schema,
         "temperature": 0,
     }
     if settings.EVOCA_AI_THINKING_LEVEL:
         generation["thinkingConfig"] = {"thinkingLevel": settings.EVOCA_AI_THINKING_LEVEL}
     body = {
-        "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-        "contents": [{"role": "user", "parts": [{"text": note}]}],
+        "systemInstruction": {"parts": [{"text": system_prompt}]},
+        "contents": [{"role": "user", "parts": [{"text": text}]}],
         "generationConfig": generation,
     }
     request = urllib.request.Request(
@@ -95,12 +98,16 @@ def ask_gemini(note):
         headers={"Content-Type": "application/json", "x-goog-api-key": settings.EVOCA_AI_API_KEY},
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=settings.EVOCA_AI_TIMEOUT) as response:
+    with urllib.request.urlopen(request, timeout=timeout or settings.EVOCA_AI_TIMEOUT) as response:
         data = json.load(response)
     try:
         return data["candidates"][0]["content"]["parts"][0]["text"]
     except (KeyError, IndexError, TypeError) as error:
         raise SuggestionUnavailable("respuesta sin contenido") from error
+
+
+def ask_gemini(note):
+    return call_gemini(SYSTEM_PROMPT, note, RESPONSE_SCHEMA)
 
 
 PROVIDERS = {"gemini": ask_gemini}

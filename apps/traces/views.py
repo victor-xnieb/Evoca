@@ -6,13 +6,14 @@ from django.conf import settings
 from django.db.models import Avg
 from django.db.models.functions import Coalesce
 from django.utils import timezone
-from rest_framework import serializers, viewsets
+from django.db import transaction
+from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
-from . import ai, memory_map
+from . import ai, memory_ai, memory_map
 
 from .models import Memory, MemoryTrace, Trace
 from .serializers import TraceSerializer, choice_list
@@ -54,6 +55,20 @@ def dominant_emotion(entries):
 
 class SuggestRequestSerializer(serializers.Serializer):
     note = serializers.CharField(max_length=500, trim_whitespace=True)
+
+
+class MemoryNameSerializer(serializers.Serializer):
+    """Nombre de un recuerdo (al renombrarlo o al aceptarlo con otro nombre)."""
+
+    name = serializers.CharField(
+        max_length=120,
+        trim_whitespace=True,
+        error_messages={
+            "required": "Escribe un nombre para el recuerdo.",
+            "blank": "Escribe un nombre para el recuerdo.",
+            "max_length": "El nombre puede tener máximo 120 caracteres.",
+        },
+    )
 
 
 class TraceViewSet(viewsets.ModelViewSet):
@@ -234,11 +249,126 @@ def graph_node(sphere, entries):
     )
 
 
-class MemoryViewSet(viewsets.ReadOnlyModelViewSet):
-    """HU10: mapa de recuerdos de la persona autenticada (nunca los de otras)."""
+def suggestion_payload(memory):
+    """Un recuerdo sugerido con sus huellas (HU9), como lo revisa la persona."""
+    traces = with_moment(memory.traces.all()).order_by("-at")
+    entries = [(trace.at, trace.emotion, trace.mood_intensity, trace.sensory_type) for trace in traces]
+    data = memory_sphere(memory, entries)
+    data["status"] = memory.status
+    data["suggested_at"] = memory.suggested_at
+    data["traces"] = TraceSerializer(traces, many=True).data
+    return data
+
+
+class MemoryViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    """
+    Recuerdos de la persona autenticada (nunca los de otras): el mapa (HU10) y las
+    sugerencias de la IA, que se aceptan, renombran o separan (HU9).
+    """
 
     def get_queryset(self):
         return Memory.objects.filter(user=self.request.user)
+
+    def get_throttles(self):
+        if self.action == "suggest":
+            self.throttle_scope = "ai_memories"
+        return super().get_throttles()
+
+    def suggested(self):
+        """Las sugerencias pendientes, de la más reciente a la más antigua."""
+        return self.get_queryset().filter(status=Memory.Status.SUGGESTED).prefetch_related("traces")
+
+    def suggestions_summary(self, memories):
+        trace_count = Trace.objects.filter(user=self.request.user).count()
+        ungrouped = memory_ai.ungrouped_traces(self.request.user).count()
+        return {
+            "suggestions": [suggestion_payload(memory) for memory in memories],
+            "trace_count": trace_count,
+            "ungrouped_count": ungrouped,
+            "min_traces": memory_ai.MIN_TRACES,
+            # Vale la pena pedirle a la IA: hay huellas suficientes y al menos dos sueltas.
+            "can_suggest": trace_count >= memory_ai.MIN_TRACES and ungrouped >= memory_ai.MIN_PER_MEMORY,
+        }
+
+    @action(detail=False, methods=["get"])
+    def suggestions(self, request):
+        """HU9: los recuerdos sugeridos por la IA que la persona aún no ha revisado."""
+        return Response(self.suggestions_summary(self.suggested()))
+
+    @action(detail=False, methods=["post"], throttle_classes=[ScopedRateThrottle])
+    def suggest(self, request):
+        """
+        HU9 · Escenario 1: con 5 o más huellas, la IA agrupa las que aún no están en ningún
+        recuerdo y propone recuerdos nuevos, que quedan como sugeridos hasta que la persona
+        decida. Si no hay sugerencia, responde igual con el motivo.
+        """
+        groups, reason = memory_ai.suggest_memories(request.user)
+        created = []
+        with transaction.atomic():
+            for group in groups:
+                memory = Memory.objects.create(
+                    user=request.user,
+                    name=group["name"],
+                    explanation=group["explanation"],
+                    status=Memory.Status.SUGGESTED,
+                    suggested_at=timezone.now(),
+                )
+                MemoryTrace.objects.bulk_create([MemoryTrace(memory=memory, trace=trace) for trace in group["traces"]])
+                created.append(memory)
+        data = self.suggestions_summary(created)
+        data["reason"] = reason
+        return Response(data)
+
+    def suggestion_or_400(self):
+        memory = self.get_object()
+        if memory.status != Memory.Status.SUGGESTED:
+            raise ValidationError({"detail": "Este recuerdo ya no es una sugerencia."})
+        return memory
+
+    @action(detail=True, methods=["post"])
+    def accept(self, request, pk=None):
+        """HU9 · Escenario 2: aceptar la sugerencia (con otro nombre, si se quiere): pasa al mapa."""
+        memory = self.suggestion_or_400()
+        if "name" in request.data:
+            serializer = MemoryNameSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            memory.name = serializer.validated_data["name"]
+        memory.status = Memory.Status.ACCEPTED
+        memory.decided_at = timezone.now()
+        memory.save(update_fields=["name", "status", "decided_at", "updated_at"])
+        return Response(suggestion_payload(memory))
+
+    @action(detail=True, methods=["post"])
+    def discard(self, request, pk=None):
+        """HU9 · Escenario 2: descartar la sugerencia. Sus huellas quedan libres para otra."""
+        memory = self.suggestion_or_400()
+        memory.status = Memory.Status.DISCARDED
+        memory.decided_at = timezone.now()
+        memory.save(update_fields=["status", "decided_at", "updated_at"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def partial_update(self, request, pk=None):
+        """HU9 · Escenario 2: renombrar un recuerdo (sugerido o ya aceptado)."""
+        memory = self.get_object()
+        if memory.status == Memory.Status.DISCARDED:
+            raise ValidationError({"detail": "Este recuerdo fue descartado."})
+        serializer = MemoryNameSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        memory.name = serializer.validated_data["name"]
+        memory.save(update_fields=["name", "updated_at"])
+        return Response(suggestion_payload(memory))
+
+    @action(detail=True, methods=["delete"], url_path=r"traces/(?P<trace_id>[^/.]+)", url_name="remove-trace")
+    def remove_trace(self, request, pk=None, trace_id=None):
+        """HU9 · Escenario 2: separar una huella de la sugerencia. La última no se separa: se descarta."""
+        memory = self.suggestion_or_400()
+        link = MemoryTrace.objects.filter(memory=memory, trace_id=trace_id, trace__user=request.user).first()
+        if link is None:
+            raise ValidationError({"detail": "Esa huella no está en este recuerdo."})
+        if memory.traces.count() <= 1:
+            raise ValidationError({"detail": "Es la única huella del recuerdo: para quitarla, descarta la sugerencia."})
+        link.delete()
+        return Response(suggestion_payload(memory))
 
     def list(self, request, *args, **kwargs):
         """

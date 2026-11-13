@@ -5,7 +5,7 @@
 import type { MoodPoint } from "@/components/evoca/MoodChart"
 import type { HelpLine } from "@/components/evoca/SupportCard"
 import type { EmotionSlug } from "@/lib/emotions"
-import type { MemoryEdge, MemoryNode } from "@/lib/memories"
+import type { MemoryEdge, MemoryNode, MemorySuggestion } from "@/lib/memories"
 import type { Option, SensoryType } from "@/lib/sensory"
 import type { Trace } from "@/lib/types"
 
@@ -110,3 +110,16 @@ export const SAMPLE_MEMORY_EDGES: MemoryEdge[] = [
   { source: "m-1", target: "m-3", score: 0.4, reason: "Comparten colores, canciones, texturas y un tono luminoso" },
   { source: "m-7", target: "m-2", score: 0.41, reason: "Comparten un tono melancólico" },
 ]
+
+/** Un recuerdo sugerido por la IA y aún sin revisar (HU9), con las huellas de ejemplo. */
+export const SAMPLE_SUGGESTION: MemorySuggestion = {
+  id: "s-1",
+  name: "Mañanas con olor a casa",
+  explanation: "Huellas de mañanas tranquilas en las que un aroma te llevó a la casa de tu familia.",
+  emotion: "calma",
+  trace_count: 3,
+  sensory_types: ["aroma", "flavor"],
+  status: "suggested",
+  suggested_at: "2026-11-05T14:00:00-05:00",
+  traces: SAMPLE_TRACES.slice(0, 3),
+}

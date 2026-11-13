@@ -8,11 +8,14 @@ import { GlassCard } from "@/components/evoca/GlassCard"
 import { MemoryGraph, MemoryGraphSkeleton } from "@/components/evoca/MemoryGraph"
 import { PageTransition } from "@/components/evoca/PageTransition"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/hooks/use-auth"
 import { useCatalog } from "@/hooks/use-catalog"
+import { useMemorySuggestions } from "@/hooks/use-memory-suggestions"
 import { memoriesApi, type MemoryGraph as GraphData } from "@/lib/memories"
 import { labelOf } from "@/lib/traces"
 
 import { MemoryPanel } from "./memories/MemoryPanel"
+import { SuggestionsSection } from "./memories/SuggestionsSection"
 import { SensationEmotionFilters } from "./traces/SensationEmotionFilters"
 
 type GraphState = { status: "loading" } | { status: "error"; message: string } | ({ status: "ready" } & GraphData)
@@ -25,9 +28,11 @@ const plural = (count: number, one: string, many: string) => `${count} ${count =
  * HU10: mis recuerdos como un grafo de esferas. Cada esfera tiene el color de su emoción y el
  * tamaño de sus huellas; las líneas unen los recuerdos afines. Los filtros atenúan lo que no
  * coincide y, al tocar una esfera, se resaltan sus conexiones y se ven sus huellas.
+ * HU9: encima del mapa, las sugerencias de la IA; al aceptar una, aparece en el mapa.
  */
 export function MemoriesPage() {
   const [params, setParams] = useSearchParams()
+  const { user } = useAuth()
   const { catalog } = useCatalog()
   const type = params.get("tipo")
   const emotion = params.get("emocion")
@@ -38,6 +43,9 @@ export function MemoriesPage() {
   // En el teléfono el mapa es lo primero: los filtros se despliegan a pedido.
   const [showFilterPanel, setShowFilterPanel] = useState(filtered)
   const panel = useRef<HTMLDivElement>(null)
+  // Aceptar o descartar una sugerencia cambia el mapa: se vuelve a pedir.
+  const suggestions = useMemorySuggestions(user?.id, () => setAttempt((value) => value + 1))
+  const hasSuggestions = suggestions.state.status === "ready" && suggestions.state.summary.suggestions.length > 0
 
   // Al filtrar se conserva el grafo actual hasta que llega el nuevo: el mapa no parpadea ni
   // pierde su disposición.
@@ -88,6 +96,8 @@ export function MemoriesPage() {
           líneas unen los recuerdos que se parecen.
         </p>
       </header>
+
+      <SuggestionsSection suggestions={suggestions} catalog={catalog} />
 
       {catalog && showFilters && (
         <div className="flex flex-col gap-3">
@@ -149,7 +159,11 @@ export function MemoriesPage() {
           <EmptyState
             visual={<EmotionOrbCluster size={140} />}
             title="Aún no tienes recuerdos"
-            description="Cuando tus huellas se agrupen en recuerdos, aparecerán aquí como esferas de color."
+            description={
+              hasSuggestions
+                ? "Acepta una sugerencia de arriba y aparecerá aquí como una esfera de color."
+                : "Cuando tus huellas se agrupen en recuerdos, aparecerán aquí como esferas de color."
+            }
             action={
               <Button asChild size="lg" className="h-12 rounded-full px-6 text-base">
                 <Link to="/nueva-huella">Registrar una huella</Link>

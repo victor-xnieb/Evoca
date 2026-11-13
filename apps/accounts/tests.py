@@ -558,13 +558,20 @@ class SeedDemoTests(TestCase):
         self.assertTrue(any("«familia»" in edge["reason"] for edge in graph["edges"]))
         for email in ("mateo.demo@example.com", "juliana.demo@example.com"):
             self.assertGreaterEqual(len(self.client_for(email).get("/api/v1/memories/").data["edges"]), 1)
-        self.assertFalse(User.objects.get(email="valentina.demo@example.com").memories.exists())
+        valentina = User.objects.get(email="valentina.demo@example.com")
+        # HU9: Valentina tiene 2 sugerencias de la IA sin revisar, que no salen en el mapa.
+        self.assertFalse(valentina.memories.filter(status=Memory.Status.ACCEPTED).exists())
+        suggested = valentina.memories.filter(status=Memory.Status.SUGGESTED)
+        self.assertEqual(suggested.count(), 2)
+        self.assertTrue(all(memory.suggested_at for memory in suggested))
+        self.assertEqual(self.client_for("valentina.demo@example.com").get("/api/v1/memories/").data["nodes"], [])
+        self.assertEqual(len(self.client_for("valentina.demo@example.com").get("/api/v1/memories/suggestions/").data["suggestions"]), 2)
 
     def test_reset_recreates_the_memories_without_duplicates(self):
         self.run_seed()
         self.run_seed("--reset")
 
-        self.assertEqual(Memory.objects.filter(user__email__endswith=".demo@example.com").count(), 40 + 4 + 4)
+        self.assertEqual(Memory.objects.filter(user__email__endswith=".demo@example.com").count(), 40 + 4 + 4 + 2)
         self.assertEqual(MemoryTrace.objects.filter(memory__user__email="maria.demo@example.com").count(), 28 + 95)
 
     def client_for(self, email):

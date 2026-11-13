@@ -371,6 +371,13 @@ def with_bundles(traces, tags, memories, bundles):
 
 MARIA, MARIA_TAGS, MARIA_MEMORIES = with_bundles(MARIA, MARIA_TAGS, MARIA_MEMORIES, MARIA_MORE)
 
+# Recuerdos sugeridos por la IA y aún sin revisar (HU9): (nombre, explicación, posiciones). Así la
+# demo muestra «aceptar, renombrar o separar» aunque la IA no esté configurada.
+VALENTINA_SUGGESTIONS = [
+    ("Canciones y silencios", "Huellas de días grises en los que una canción o un aroma te trajeron a alguien que extrañas.", [0, 5, 7, 12]),
+    ("Antes de la entrevista", "Momentos de nervios en los días previos a la entrevista: la oficina, la alarma, las manos frías y la fila.", [1, 6, 9, 14]),
+]
+
 DEMO_USERS = [
     {
         "email": "maria.demo@example.com",
@@ -411,9 +418,10 @@ DEMO_USERS = [
         "last_name": "Ríos",
         "date_of_birth": date(1998, 6, 9),
         "traces": VALENTINA,
+        "suggestions": VALENTINA_SUGGESTIONS,
         # Sin recordatorio: esta cuenta es solo para mostrar la orientación de HU6, sin avisos de por medio.
         "reminder": {"enabled": False, "frequency": "daily", "time": time(20, 0)},
-        "shows": "ánimo 1 o 2 en 16 días distintos de los últimos 21: orientación de HU6 sin mostrar (segunda cuenta para esa demo)",
+        "shows": "ánimo 1 o 2 en 16 días distintos de los últimos 21: orientación de HU6 sin mostrar; 2 recuerdos sugeridos por revisar (HU9)",
     },
     {
         "email": "santiago.demo@example.com",
@@ -513,6 +521,11 @@ class Command(BaseCommand):
             for name, explanation, positions in memories:
                 memory = Memory.objects.create(
                     user=user, name=name, explanation=explanation, status=Memory.Status.ACCEPTED
+                )
+                MemoryTrace.objects.bulk_create([MemoryTrace(memory=memory, trace=traces[index]) for index in positions])
+            for name, explanation, positions in spec.get("suggestions", []):
+                memory = Memory.objects.create(
+                    user=user, name=name, explanation=explanation, status=Memory.Status.SUGGESTED, suggested_at=now
                 )
                 MemoryTrace.objects.bulk_create([MemoryTrace(memory=memory, trace=traces[index]) for index in positions])
             self.stdout.write(

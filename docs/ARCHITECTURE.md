@@ -31,7 +31,7 @@ Neon PostgreSQL, rama development
 | Gráficas | Recharts | Gráfica de ánimo (HU4), cargada bajo demanda |
 | Pruebas | `manage.py test` (backend), Vitest + Testing Library (frontend), Playwright (e2e) | Cada escenario Gherkin tiene una prueba automatizada; Playwright mide en el navegador lo que jsdom no puede (rendimiento del mapa, HU10) |
 | Documentación de UI | Storybook (solo desarrollo) | Catálogo de componentes con sus estados |
-| IA (HU8) | Google Gemini (`gemini-3.5-flash-lite`), llamada solo desde el backend con la librería estándar | El prompt y la clave nunca llegan al cliente; el proveedor y el modelo se cambian con variables de entorno |
+| IA (HU8, HU9) | Google Gemini (`gemini-3.5-flash-lite`), llamada solo desde el backend con la librería estándar (`ai.call_gemini`) | El prompt y la clave nunca llegan al cliente; el proveedor y el modelo se cambian con variables de entorno |
 
 ### Django es el backend; el móvil es la PWA
 
@@ -90,8 +90,9 @@ de seguridad, auditoría y prueba de penetración.
 
 ## Evolución prevista
 
-1. Agregar la agrupación explicable con IA sobre `Memory` y `MemoryTrace` (HU9). El mapa de
-   recuerdos (HU10) ya los lee en `/api/v1/memories/` como grafo: las conexiones se calculan
+1. La agrupación explicable con IA sobre `Memory` y `MemoryTrace` ya existe (HU9:
+   `apps/traces/memory_ai.py`, estados `suggested`, `accepted` y `discarded`). El mapa de
+   recuerdos (HU10) los lee en `/api/v1/memories/` como grafo: las conexiones se calculan
    en el servidor con reglas fijas (`apps/traces/memory_map.py`) y la disposición en el cliente
    con una simulación de fuerzas propia (`frontend/src/lib/force-layout.ts`), sin librerías.
 2. Definir el protocolo de bienestar como reglas versionadas aprobadas por el asesor clínico.

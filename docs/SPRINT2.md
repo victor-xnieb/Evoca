@@ -12,7 +12,7 @@ trabajo sigue la prioridad del Jira.
 | Orden | HU | Jira | Prioridad | Backend | Interfaz | Pruebas | Rama | Estado en el repo |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | HU10 · Explorar mi mapa de recuerdos con esferas de color | SCRUM-20 | Highest | SCRUM-54 | SCRUM-55 | SCRUM-56 | `feature/hu10-mapa-esferas` | En dev |
-| 2 | HU9 · Recibir recuerdos sugeridos por IA | SCRUM-19 | High | SCRUM-51 | SCRUM-52 | SCRUM-53 | `feature/hu9-recuerdos-sugeridos-ia` | Pendiente |
+| 2 | HU9 · Recibir recuerdos sugeridos por IA | SCRUM-19 | High | SCRUM-51 | SCRUM-52 | SCRUM-53 | `feature/hu9-recuerdos-sugeridos-ia` | En rama, por aprobar |
 | 3 | HU12 · Buscar recuerdos por significado con IA | SCRUM-22 | Medium | SCRUM-60 | SCRUM-61 | SCRUM-62 | `feature/hu12-busqueda-significado-ia` | Pendiente |
 | 4 | HU13 · Ver estadísticas de mis sensaciones | SCRUM-23 | Medium | SCRUM-63 | SCRUM-64 | SCRUM-65 | `feature/hu13-estadisticas-sensaciones` | Pendiente |
 | 5 | HU11 · Marcar mis recuerdos centrales | SCRUM-21 | Low | SCRUM-57 | SCRUM-58 | SCRUM-59 | `feature/hu11-recuerdos-centrales` | Pendiente |
@@ -96,6 +96,63 @@ ocurre también con un solo recuerdo.
 
 **Para probarlo:** `python manage.py seed_demo --reset`, entrar con `maria.demo@example.com` y
 abrir **Recuerdos**. En Render, después de mezclar, poner `EVOCA_SEED_DEMO=reset` una vez.
+
+---
+
+## HU9 · Recibir recuerdos sugeridos por IA (SCRUM-19)
+
+**Historia.** Como usuario, quiero que la IA agrupe mis huellas afines en recuerdos y me
+explique por qué, para revivirlos sin organizarlos a mano y poder aceptar, renombrar o separar
+cada sugerencia.
+
+**Escenarios**
+
+1. Dado que tengo 5 o más huellas, cuando abro «Recuerdos», entonces la app me sugiere al menos
+   un recuerdo que agrupa huellas afines.
+2. Dado que veo una sugerencia de recuerdo, cuando la reviso, entonces veo por qué se agrupó, y
+   puedo aceptarla, renombrarla o separarla.
+3. Dado que se hacen las pruebas del MVP, cuando se miden las sugerencias, entonces al menos el
+   70 % son aceptadas por los usuarios.
+
+**Subtareas:** Backend SCRUM-51 · Interfaz SCRUM-52 · Pruebas SCRUM-53.
+
+### Qué se hizo
+
+- **Backend** (`apps/traces/memory_ai.py`, `MemoryViewSet`, migración `0003`):
+  - Gemini recibe las huellas que no están en ningún recuerdo (hasta las 60 más recientes, con
+    tipo, emoción, intensidad, fecha, etiquetas y nota) y devuelve de 1 a 5 grupos de 2 a 6
+    huellas con nombre y explicación, en JSON con esquema. Se validan y se guardan como
+    `suggested` con `suggested_at`.
+  - Decidir: `accept` (con nombre opcional), `PATCH` para renombrar, `DELETE traces/<id>/`
+    para separar una huella (la última no se separa: se descarta) y `discard`. Aceptar o
+    descartar guarda `decided_at`; los descartados quedan con estado `discarded` para medir.
+  - Sin clave, error, tiempo agotado (`EVOCA_AI_MEMORY_TIMEOUT`, 15 s) o respuesta inservible no
+    hay sugerencias y la app sigue igual; nunca se registran notas en los logs. Límite de 5
+    llamadas por minuto por persona.
+  - `python manage.py suggestion_stats`: tasa de aceptación (aceptados / decididos) sin datos
+    personales.
+- **Interfaz** (`SuggestionsSection`, `MemorySuggestionCard`, `use-memory-suggestions`):
+  - Encima del mapa, en **Recuerdos**. Al abrir, carga las sugerencias pendientes; si no hay y
+    vale la pena (5 huellas o más y al menos dos sueltas), le pide a la IA una vez por sesión.
+    Luego, botón «Buscar sugerencias».
+  - Cada tarjeta muestra el nombre, «Por qué van juntas», la emoción dominante y la lista de
+    huellas, con «Quitar» en cada una; botones «Aceptar recuerdo», «Renombrar» y «Descartar».
+  - Al aceptar, el mapa se recarga y aparece la esfera. Mensajes propios para pocas huellas
+    (cuántas faltan), todas agrupadas, IA no disponible y «no encontró afinidades».
+- **Datos demo**: Valentina tiene dos sugerencias pendientes (sin depender de la IA); Santiago,
+  17 huellas sueltas para ver a la IA real proponer.
+
+### Evidencia
+
+| Escenario | Prueba automática | Estado |
+| --- | --- | --- |
+| 1 · Con 5 huellas o más, al abrir «Recuerdos» hay al menos un recuerdo sugerido | `apps/traces/tests.py` (`MemorySuggestionsTests`: `test_with_five_traces_the_ai_suggests_at_least_one_memory`, `test_the_ai_reads_the_ungrouped_traces…`, `test_with_fewer_than_five_traces…`, `test_when_every_trace_is_already_in_a_memory…`, `test_without_a_key_or_with_errors…`, `test_gemini_is_called_with_its_own_schema…`); `MemorySuggestionParsingTests`; `frontend/src/app/hu9.test.tsx` (escenario 1) | Cumplido |
+| 2 · Veo por qué se agrupó y puedo aceptar, renombrar o separar | `test_accepting_moves_the_memory_to_the_map`, `test_accepting_with_another_name…`, `test_renaming…`, `test_separating_a_trace…`, `test_the_last_trace_cannot_be_separated…`, `test_discarding…`, `test_nobody_else_can_see_or_decide…`; `hu9.test.tsx` (escenario 2) | Cumplido |
+| 3 · Al menos el 70 % de las sugerencias son aceptadas en las pruebas del MVP | `test_acceptance_rate_counts_only_ai_suggestions` y `suggestion_stats` | Medible; el valor sale de las pruebas con personas |
+
+**Prueba con Gemini real** (cuenta de Santiago, 17 huellas): 3 recuerdos en 1,7 s, con nombres
+y explicaciones coherentes («Ecos de la memoria familiar», «Nostalgia de lo que ya no está»,
+«Instantes de calma y alivio»).
 
 ---
 

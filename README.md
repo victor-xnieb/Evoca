@@ -196,10 +196,10 @@ despliegue (con `DJANGO_DEBUG=False`) el comando **exige** definir `EVOCA_DEMO_P
 | `maria.demo@example.com` | 125, en algo más de un año | **HU2/HU3**: lista, filtros por tipo y emoción, editar y borrar. **HU4**: gráfica semanal y mensual. **HU7**: calendario de colores con meses anteriores. **HU10**: grafo grande con 40 recuerdos y 77 conexiones (viajes, familia, música, universidad, trabajo…), ninguno con más de 4. Los 33 recuerdos agregados son de hace más de un mes, así que no cambian el ánimo reciente. Ya registró hoy, así que el recordatorio no avisa (HU5 · escenario 3) |
 | `mateo.demo@example.com` | 18 | **HU6**: ánimo bajo 15 de los últimos 21 días, así que al abrir aparece la orientación («Ver opciones de ayuda» o «Ahora no»). **HU5**: recordatorio «cada hora» y sin huella hoy, así que avisa al abrir. **HU10**: 4 recuerdos y 1 conexión (la etiqueta «noche») |
 | `juliana.demo@example.com` | 16 | **HU5**: sin huella hoy y recordatorio diario a las 8:00, así que avisa al abrir. Buena cuenta para registrar en vivo: **HU2**, **HU8** (sugerencia de la IA) y **HU6** (pantalla de ayuda al escribir, por ejemplo, «quiero morir»). **HU10**: 4 recuerdos y 1 conexión (la etiqueta «familia») |
-| `valentina.demo@example.com` | 19 | **HU6**: segunda cuenta para la orientación. Tiene ánimo 1 o 2 en **16 días distintos** de los últimos 21 (la regla cuenta días distintos: 14 huellas de un mismo día no sirven) y el mensaje sin mostrar, así que al abrir aparece «Aquí hay apoyo si lo necesitas». No tiene recordatorio, para que nada se interponga. Sirve cuando la orientación de Mateo ya se mostró o se descartó |
-| `santiago.demo@example.com` | 17 | **HU6**: tercera cuenta para la orientación, igual que la de Valentina pero con **15 días distintos** de ánimo 1 o 2 en los últimos 21 y sin recordatorio. Al abrir aparece «Aquí hay apoyo si lo necesitas». Sirve para mostrarla varias veces sin recargar con `--reset` |
+| `valentina.demo@example.com` | 19 | **HU6**: segunda cuenta para la orientación. Tiene ánimo 1 o 2 en **16 días distintos** de los últimos 21 (la regla cuenta días distintos: 14 huellas de un mismo día no sirven) y el mensaje sin mostrar, así que al abrir aparece «Aquí hay apoyo si lo necesitas». No tiene recordatorio, para que nada se interponga. Sirve cuando la orientación de Mateo ya se mostró o se descartó. **HU9**: dos recuerdos sugeridos por la IA sin revisar («Canciones y silencios» y «Antes de la entrevista»), para aceptar, renombrar o separar sin depender de Gemini |
+| `santiago.demo@example.com` | 17 | **HU6**: tercera cuenta para la orientación, igual que la de Valentina pero con **15 días distintos** de ánimo 1 o 2 en los últimos 21 y sin recordatorio. Al abrir aparece «Aquí hay apoyo si lo necesitas». Sirve para mostrarla varias veces sin recargar con `--reset`. **HU9**: sus 17 huellas no están en ningún recuerdo, así que al abrir **Recuerdos** la IA real propone recuerdos (con `EVOCA_AI_API_KEY`) |
 
-Valentina y Santiago no tienen recuerdos: sirven para mostrar el mapa vacío de **HU10**.
+Valentina y Santiago no tienen recuerdos aceptados: sirven para mostrar el mapa vacío de **HU10** y, al aceptar una sugerencia, cómo aparece la primera esfera.
 
 Con cualquiera de las cinco se puede mostrar **HU1**: entrar, el bloqueo con PIN al volver a la
 app, y en Ajustes la autorización de datos sensibles, exportar los datos y eliminar la cuenta.
@@ -233,6 +233,25 @@ en la orientación de Mateo, que la pausa 7 días).
 | GET/PATCH/DELETE | `/api/v1/traces/{id}/` | Consulta, modifica o elimina una huella propia |
 | GET | `/api/v1/memories/` | Mapa de recuerdos como grafo (HU10): `nodes` (recuerdos aceptados con emoción dominante, número de huellas y `match`) y `edges` (`source`, `target`, `score` de 0 a 1 y `reason`). Filtros `?sensory_type=` y `?emotion=`: los nodos que no coinciden llegan con `match: false` y las aristas se calculan solo entre los que coinciden |
 | GET | `/api/v1/memories/{id}/` | Un recuerdo propio con sus huellas, de la más reciente a la más antigua |
+| GET | `/api/v1/memories/suggestions/` | HU9: recuerdos sugeridos por la IA sin revisar, cuántas huellas hay y si vale la pena pedir más (`can_suggest`) |
+| POST | `/api/v1/memories/suggest/` | HU9: la IA agrupa las huellas que no están en ningún recuerdo y crea sugerencias (máximo 5 por llamada; 5 llamadas por minuto). Responde `reason`: `ok`, `too_few_traces`, `all_grouped`, `unavailable` o `none` |
+| POST | `/api/v1/memories/{id}/accept/` | Acepta la sugerencia (opcional `name`): pasa al mapa |
+| PATCH | `/api/v1/memories/{id}/` | Renombra un recuerdo sugerido o aceptado (`name`) |
+| DELETE | `/api/v1/memories/{id}/traces/{trace_id}/` | Separa una huella de la sugerencia (la última no: se descarta) |
+| POST | `/api/v1/memories/{id}/discard/` | Descarta la sugerencia; sus huellas quedan libres para otra |
+
+### Recuerdos sugeridos con IA (HU9)
+
+Con 5 huellas o más, al abrir **Recuerdos** la app le pide a Gemini (solo desde el backend,
+`apps/traces/memory_ai.py`) que agrupe las huellas que aún no están en ningún recuerdo: hasta
+las 60 más recientes, con tipo, emoción, intensidad, fecha, etiquetas y nota. La IA propone de
+1 a 5 recuerdos de 2 a 6 huellas, cada uno con nombre y una explicación de por qué van juntas.
+Se validan (números existentes, sin repetir huellas, con nombre y explicación) y se guardan
+como `suggested`. La persona los **acepta** (pasan al mapa), los **renombra**, **separa**
+huellas o los **descarta**; nada entra al mapa sin aceptarlo. La app pide sugerencias sola una
+vez por sesión y después con el botón «Buscar sugerencias». `EVOCA_AI_MEMORY_TIMEOUT` (15 s)
+es la espera máxima. `python manage.py suggestion_stats` imprime la tasa de aceptación
+(escenario 3), sin datos personales.
 
 ### Afinidad del mapa de recuerdos (HU10)
 

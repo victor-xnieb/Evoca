@@ -57,6 +57,7 @@ class Memory(models.Model):
     class Status(models.TextChoices):
         SUGGESTED = "suggested", "Sugerido"
         ACCEPTED = "accepted", "Aceptado"
+        DISCARDED = "discarded", "Descartado"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
@@ -68,6 +69,9 @@ class Memory(models.Model):
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.SUGGESTED)
     explanation = models.CharField(max_length=255, blank=True)
     traces = models.ManyToManyField(Trace, through="MemoryTrace", related_name="memories")
+    # HU9: cuándo lo propuso la IA (vacío si lo creó la persona) y cuándo se aceptó o descartó.
+    suggested_at = models.DateTimeField(null=True, blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

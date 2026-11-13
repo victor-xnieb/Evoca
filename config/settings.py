@@ -163,7 +163,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
     # Cada sugerencia de IA consume cuota del proveedor: límite por persona.
-    "DEFAULT_THROTTLE_RATES": {"ai_suggest": "20/min"},
+    "DEFAULT_THROTTLE_RATES": {"ai_suggest": "20/min", "ai_memories": "5/min"},
 }
 
 EVOCA_TERMS_VERSION = os.getenv("EVOCA_TERMS_VERSION", "draft-v1")
@@ -179,6 +179,8 @@ EVOCA_AI_THINKING_LEVEL = os.getenv("EVOCA_AI_THINKING_LEVEL", "minimal")
 # Tiempo máximo de espera de la IA: con la pausa al escribir, la sugerencia llega en < 3 s.
 EVOCA_AI_TIMEOUT = float(os.getenv("EVOCA_AI_TIMEOUT", "2.0"))
 EVOCA_AI_MIN_CONFIDENCE = float(os.getenv("EVOCA_AI_MIN_CONFIDENCE", "0.6"))
+# Agrupar hasta 60 huellas en recuerdos (HU9) tarda más que leer una nota: espera propia.
+EVOCA_AI_MEMORY_TIMEOUT = float(os.getenv("EVOCA_AI_MEMORY_TIMEOUT", "15.0"))
 
 # Mapa de recuerdos (HU10): afinidad mínima (0 a 1) para unir dos recuerdos con una línea y
 # máximo de conexiones por recuerdo, para que el grafo siga siendo legible.

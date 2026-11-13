@@ -49,9 +49,12 @@ const CALM_DETAIL: MemoryDetail = {
   traces: [trace("t1", "Olor a lluvia sobre el pasto."), trace("t2", "La cobija suave del sofá.")],
 }
 
+const NO_SUGGESTIONS = { body: { suggestions: [], trace_count: 12, ungrouped_count: 0, min_traces: 5, can_suggest: false } }
+
 function mockGraph(extra: Record<string, unknown> = {}) {
   return mockApi({
     "GET traces/catalog/": CATALOG,
+    "GET memories/suggestions/": NO_SUGGESTIONS,
     "GET memories/": ({ query }) => ({ body: graph(query.get("sensory_type")) }),
     "GET memories/m-calma/": { body: CALM_DETAIL },
     "GET memories/m-familia/": { body: { ...FAMILY, status: "accepted", traces: [trace("t3", "El perfume de mamá.")] } },
@@ -298,7 +301,7 @@ describe("HU10 · Escenario 3 y estados de la pantalla", () => {
       score: 0.5,
       reason: "Comparten aromas y alegría",
     }))
-    mockApi({ "GET traces/catalog/": CATALOG, "GET memories/": { body: { total: 200, count: 200, nodes, edges: links, max_links: 4 } } })
+    mockApi({ "GET traces/catalog/": CATALOG, "GET memories/suggestions/": NO_SUGGESTIONS, "GET memories/": { body: { total: 200, count: 200, nodes, edges: links, max_links: 4 } } })
     openMap()
 
     await sphere(/^Recuerdo 1:/)
@@ -308,7 +311,7 @@ describe("HU10 · Escenario 3 y estados de la pantalla", () => {
   })
 
   it("sin recuerdos, invita a registrar una huella", async () => {
-    mockApi({ "GET traces/catalog/": CATALOG, "GET memories/": { body: { total: 0, count: 0, nodes: [], edges: [], max_links: 4 } } })
+    mockApi({ "GET traces/catalog/": CATALOG, "GET memories/suggestions/": NO_SUGGESTIONS, "GET memories/": { body: { total: 0, count: 0, nodes: [], edges: [], max_links: 4 } } })
     openMap()
 
     expect(await screen.findByText("Aún no tienes recuerdos", {}, { timeout: 5000 })).toBeInTheDocument()
@@ -320,6 +323,7 @@ describe("HU10 · Escenario 3 y estados de la pantalla", () => {
     let calls = 0
     mockApi({
       "GET traces/catalog/": CATALOG,
+      "GET memories/suggestions/": NO_SUGGESTIONS,
       "GET memories/": () => (++calls === 1 ? { status: 500, body: { detail: "Error del servidor." } } : { body: graph(null) }),
     })
     const user = userEvent.setup()

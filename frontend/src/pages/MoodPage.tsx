@@ -11,6 +11,7 @@ import { useCatalog } from "@/hooks/use-catalog"
 import { labelOf, tracesApi, type MoodPeriod } from "@/lib/traces"
 
 import { CalendarSection } from "./mood/CalendarSection"
+import { SensationsSection } from "./mood/SensationsSection"
 
 const VIEWS: Array<{ value: MoodPeriod; param: string; label: string; periodLabel: string }> = [
   { value: "week", param: "semana", label: "Semana", periodLabel: "en los últimos 7 días" },
@@ -22,7 +23,10 @@ type Chart =
   | { status: "error"; message: string }
   | { status: "ready"; points: Omit<MoodPoint, "emotionLabel">[]; average: number | null }
 
-/** HU4 y HU7: cómo evoluciona mi ánimo (gráfica semanal o mensual) y mi calendario por colores. */
+/**
+ * HU4, HU7 y HU13: cómo evoluciona mi ánimo (gráfica semanal o mensual), mi calendario por
+ * colores y qué sensaciones registro más y con qué ánimo.
+ */
 export function MoodPage() {
   const [params, setParams] = useSearchParams()
   const view = VIEWS.find((item) => item.param === params.get("vista")) ?? VIEWS[0]
@@ -108,6 +112,8 @@ export function MoodPage() {
       </GlassCard>
 
       <CalendarSection catalog={catalog} />
+
+      <SensationsSection />
     </PageTransition>
   )
 }

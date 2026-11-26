@@ -70,6 +70,24 @@ class TraceEmbedding(models.Model):
         return f"{self.trace_id} ({self.model})"
 
 
+class TraceElement(models.Model):
+    """
+    Elemento concreto del que habla una huella (HU13): el aroma, el color, la canción, el sabor,
+    la textura o el lugar («café», «salsa», «el parque»). La IA lo saca de la nota una vez y se
+    guarda para las estadísticas; se vuelve a pedir si cambian el tipo o la nota (text_hash) o
+    el modelo. Vacío si la nota no nombra un elemento claro. Se borra con la huella.
+    """
+
+    trace = models.OneToOneField(Trace, on_delete=models.CASCADE, primary_key=True, related_name="element")
+    name = models.CharField(max_length=40, blank=True)
+    model = models.CharField(max_length=80)
+    text_hash = models.CharField(max_length=64)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.trace_id}: {self.name or '—'}"
+
+
 class Memory(models.Model):
     class Status(models.TextChoices):
         SUGGESTED = "suggested", "Sugerido"

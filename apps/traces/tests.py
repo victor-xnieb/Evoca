@@ -10,7 +10,9 @@ from unittest import mock
 from django.conf import settings
 from django.core.cache import cache
 from django.core.management import call_command
+from django.db import connection
 from django.test import SimpleTestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -18,9 +20,9 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
 
-from . import ai, memory_ai, memory_map, search
+from . import ai, memory_ai, memory_map, search, stats
 from .management.commands.suggestion_stats import acceptance_stats
-from .models import Memory, MemoryTrace, Trace, TraceEmbedding
+from .models import Memory, MemoryTrace, Trace, TraceElement, TraceEmbedding
 from .mood import mood_score
 
 
@@ -1671,3 +1673,361 @@ class MoodScoreTests(SimpleTestCase):
         from .mood import DIFFICULT, PLEASANT
 
         self.assertEqual(set(Trace.Emotion.values) - PLEASANT - DIFFICULT, {"nostalgia"})
+
+
+# HU13: la IA de prueba reconoce el elemento por palabras clave de la nota, como lo haría el modelo.
+KEYWORDS = ["café", "cafe", "lluvia", "salsa", "parque", "cobija", "arepa", "biblioteca", "cielo azul", "mar"]
+
+
+def fake_elements(text):
+    """Respuesta de la IA de prueba: el primer elemento conocido que aparece en cada nota."""
+    items = []
+    for line in text.splitlines():
+        number, _, rest = line.partition(". ")
+        found = next((word for word in KEYWORDS if word in rest.lower()), "")
+        items.append({"number": int(number), "element": found})
+    return json.dumps({"elements": items})
+
+
+@override_settings(EVOCA_AI_API_KEY="test-key", EVOCA_AI_PROVIDER="gemini", EVOCA_STATS_EXTRACT_PER_REQUEST=80)
+class SensationStatsTests(APITestCase):
+    """HU13: estadísticas de mis sensaciones (por tipo, elementos más frecuentes y su ánimo)."""
+
+    url = "/api/v1/traces/stats/"
+    extract_url = "/api/v1/traces/stats/elements/"
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(email="sensa@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        self.client.force_authenticate(self.user)
+        self.now = timezone.now()
+        self.calls = []
+
+    def provider(self, error=None, answer=None):
+        def ask(text):
+            self.calls.append(text)
+            if error:
+                raise error
+            return answer if answer is not None else fake_elements(text)
+
+        return mock.patch.dict(stats.PROVIDERS, {"gemini": ask})
+
+    def add(self, note, sensory_type="aroma", emotion="calma", intensity=3, days_ago=1, user=None):
+        trace = Trace.objects.create(
+            user=user or self.user, sensory_type=sensory_type, note=note, emotion=emotion, mood_intensity=intensity
+        )
+        Trace.objects.filter(pk=trace.pk).update(created_at=self.now - timedelta(days=days_ago, hours=1))
+        return trace
+
+    def fill(self, count, days_ago=1, **extra):
+        return [self.add(f"Una tarde cualquiera número {index}.", days_ago=days_ago, **extra) for index in range(count)]
+
+    def month_of_traces(self):
+        """12 huellas de los últimos 30 días y 2 más antiguas, con elementos que se repiten."""
+        self.add("El café de la mañana.", "aroma", "alegria", 5, days_ago=1)
+        self.add("Olor a café en la universidad.", "aroma", "calma", 4, days_ago=3)
+        self.add("Café de la finca que mandó la abuela.", "aroma", "gratitud", 3, days_ago=5)
+        self.add("Olor a lluvia por la ventana.", "aroma", "calma", 4, days_ago=2)
+        self.add("La lluvia en la madrugada.", "aroma", "nostalgia", 2, days_ago=8)
+        self.add("Bailamos salsa en la sala.", "song", "alegria", 5, days_ago=4)
+        self.add("Una salsa vieja en el taxi.", "song", "alegria", 4, days_ago=9)
+        self.add("Leí en una banca del parque.", "place", "calma", 4, days_ago=6)
+        self.add("La mesa de la biblioteca.", "place", "ansiedad", 4, days_ago=7)
+        self.add("La cobija en una noche fría.", "texture", "calma", 5, days_ago=10)
+        self.add("Arepa con queso el sábado.", "flavor", "alegria", 4, days_ago=11)
+        self.add("El cielo azul camino a clase.", "color", "calma", 3, days_ago=12)
+        self.add("Café en la casa de la abuela.", "aroma", "nostalgia", 4, days_ago=40)
+        self.add("Café con pan en vacaciones.", "aroma", "alegria", 5, days_ago=60)
+
+    def extract(self):
+        with self.provider():
+            return self.client.post(self.extract_url)
+
+    def stats(self, period=None):
+        return self.client.get(self.url, {"period": period} if period else {})
+
+    # Escenario 1
+    def test_scenario_1_counts_traces_by_type_and_the_five_most_frequent_elements_of_the_last_30_days(self):
+        self.month_of_traces()
+        self.assertEqual(self.extract().data, {"status": "ok", "extracted": 14, "pending": 0})
+
+        data = self.stats().data
+
+        self.assertTrue(data["ready"])
+        self.assertEqual((data["period"], data["total"], data["count"], data["pending"]), ("month", 14, 12, 0))
+        self.assertEqual(
+            [(item["type"], item["count"]) for item in data["types"]],
+            [("aroma", 5), ("song", 2), ("place", 2), ("color", 1), ("flavor", 1), ("texture", 1)],
+        )
+        # De más a menos huellas; si empatan, primero el más reciente (lluvia hace 2 días, salsa hace 4).
+        self.assertEqual(
+            [(item["name"], item["type"], item["count"]) for item in data["top_elements"]],
+            [("café", "aroma", 3), ("lluvia", "aroma", 2), ("salsa", "song", 2), ("parque", "place", 1), ("biblioteca", "place", 1)],
+        )
+
+    def test_scenario_1_in_total_counts_every_trace(self):
+        self.month_of_traces()
+        self.extract()
+
+        data = self.stats("all").data
+
+        self.assertEqual((data["period"], data["count"]), ("all", 14))
+        self.assertEqual(data["types"][0], {**data["types"][0], "type": "aroma", "count": 7})
+        self.assertEqual((data["top_elements"][0]["name"], data["top_elements"][0]["count"]), ("café", 5))
+
+    def test_every_type_appears_even_without_traces(self):
+        self.fill(10, sensory_type="song")
+        data = self.stats().data
+        self.assertEqual({item["type"] for item in data["types"]}, set(Trace.SensoryType.values))
+        self.assertEqual(data["types"][0]["count"], 10)
+        self.assertEqual([item["count"] for item in data["types"][1:]], [0] * 5)
+        self.assertEqual([item["average_mood"] for item in data["types"][1:]], [None] * 5)
+
+    def test_opening_the_stats_does_not_call_the_ai(self):
+        self.month_of_traces()
+        with self.provider():
+            data = self.stats().data
+        self.assertEqual(self.calls, [])
+        # Aún no se reconocen los elementos: los tipos y el ánimo ya están, los elementos no.
+        self.assertEqual((data["pending"], data["top_elements"]), (12, []))
+        self.assertEqual(data["types"][0]["count"], 5)
+
+    def test_the_same_element_is_grouped_without_accents_or_capitals(self):
+        self.fill(8)
+        for note in ["CAFÉ de olla.", "café negro.", "Un cafe en la oficina."]:
+            self.add(note)
+        self.extract()
+        top = self.stats().data["top_elements"]
+        self.assertEqual([(item["name"], item["count"]) for item in top], [("café", 3)])
+
+    def test_the_same_name_in_two_types_are_two_elements(self):
+        self.fill(8)
+        self.add("Olor a café.", "aroma")
+        self.add("El sabor del café.", "flavor")
+        self.extract()
+        top = self.stats().data["top_elements"]
+        self.assertEqual(sorted((item["name"], item["type"], item["count"]) for item in top), [("café", "aroma", 1), ("café", "flavor", 1)])
+
+    def test_only_my_traces_are_counted_and_sent_to_the_ai(self):
+        other = User.objects.create_user(email="otra@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        self.month_of_traces()
+        self.add("Café ajeno de otra persona.", user=other)
+        self.extract()
+        self.assertNotIn("ajeno", "".join(self.calls))
+        self.assertEqual(self.stats("all").data["total"], 14)
+
+    # Escenario 2
+    def test_scenario_2_each_type_has_its_average_mood_with_emotion_and_intensity(self):
+        self.fill(8, sensory_type="color")
+        # Ánimo de HU4 y HU6: tristeza 5 = 1, alegría 5 = 5, nostalgia = 3.
+        self.add("La lluvia triste del entierro.", "aroma", "tristeza", 5)
+        self.add("Olor a lluvia en vacaciones.", "aroma", "alegria", 5)
+        self.add("Lluvia de la infancia.", "aroma", "nostalgia", 1)
+        self.extract()
+
+        data = self.stats().data
+        aroma = next(item for item in data["types"] if item["type"] == "aroma")
+
+        self.assertEqual((aroma["label"], aroma["count"], aroma["average_mood"]), ("Aroma", 3, 3.0))
+        self.assertEqual(aroma["top_elements"], [{"name": "lluvia", "type": "aroma", "count": 3, "average_mood": 3.0}])
+        # Color: calma 3 en las 8 = 3,0; el promedio general sale de las 11 huellas.
+        self.assertEqual(data["average_mood"], 3.0)
+
+    def test_scenario_2_the_detail_of_a_type_lists_its_own_elements(self):
+        self.month_of_traces()
+        self.extract()
+        place = next(item for item in self.stats().data["types"] if item["type"] == "place")
+        self.assertEqual(
+            place["top_elements"],
+            [
+                {"name": "parque", "type": "place", "count": 1, "average_mood": 4.0},
+                # Ansiedad 4: ánimo 2.
+                {"name": "biblioteca", "type": "place", "count": 1, "average_mood": 2.0},
+            ],
+        )
+        self.assertEqual(place["average_mood"], 3.0)
+
+    # Escenario 3
+    def test_scenario_3_with_fewer_than_10_traces_it_says_how_many_are_missing(self):
+        self.fill(7)
+        with self.provider():
+            data = self.stats().data
+            extracted = self.client.post(self.extract_url).data
+
+        self.assertEqual((data["ready"], data["total"], data["required"], data["missing"]), (False, 7, 10, 3))
+        self.assertEqual((data["types"], data["top_elements"], data["count"]), ([], [], 0))
+        # Tampoco se gasta IA.
+        self.assertEqual(extracted, {"status": "ok", "extracted": 0, "pending": 0})
+        self.assertEqual(self.calls, [])
+
+    def test_scenario_3_without_traces_10_are_missing(self):
+        data = self.stats().data
+        self.assertEqual((data["ready"], data["missing"]), (False, 10))
+
+    def test_scenario_3_ten_traces_are_enough_even_if_they_are_old(self):
+        self.fill(10, days_ago=90)
+        data = self.stats().data
+        self.assertEqual((data["ready"], data["missing"], data["count"]), (True, 0, 0))
+        self.assertEqual(self.stats("all").data["count"], 10)
+
+    # Reconocer los elementos con la IA (subtarea de pruebas: exactitud y errores)
+    def test_elements_are_stored_and_not_asked_again(self):
+        self.month_of_traces()
+        self.extract()
+        self.calls.clear()
+
+        self.assertEqual(self.extract().data, {"status": "ok", "extracted": 0, "pending": 0})
+        self.assertEqual(self.calls, [])
+        self.assertEqual(TraceElement.objects.count(), 14)
+
+    def test_editing_the_note_asks_again_only_for_that_trace(self):
+        self.month_of_traces()
+        self.extract()
+        trace = Trace.objects.get(note="La cobija en una noche fría.")
+        self.client.patch(f"/api/v1/traces/{trace.pk}/", {"note": "Un parque lleno de hojas secas."}, format="json")
+        self.calls.clear()
+
+        self.assertEqual(self.stats().data["pending"], 1)
+        self.assertEqual(self.extract().data["extracted"], 1)
+        self.assertEqual(len(self.calls), 1)
+        self.assertIn("parque lleno de hojas", self.calls[0])
+        self.assertNotIn("abuela", self.calls[0])
+        self.assertEqual(TraceElement.objects.get(trace=trace).name, "parque")
+
+    def test_the_ai_reads_only_the_type_and_the_note(self):
+        self.fill(9)
+        self.add("Olor a café.", "aroma", "tristeza", 5)
+        Trace.objects.filter(note="Olor a café.").update(tags=["secreto"])
+        self.extract()
+        sent = "".join(self.calls)
+        self.assertIn("[Aroma] Olor a café.", sent)
+        for private in ["secreto", "tristeza", "sensa@example.com"]:
+            self.assertNotIn(private, sent)
+
+    def test_notes_with_risk_words_are_not_sent_to_the_ai(self):
+        self.fill(9)
+        risky = self.add("Pensé en el suicidio con el olor del café.", "aroma", "tristeza", 5)
+        self.extract()
+
+        self.assertNotIn("suicidio", "".join(self.calls))
+        data = self.stats().data
+        aroma = next(item for item in data["types"] if item["type"] == "aroma")
+        # Cuenta en su tipo y en el ánimo, pero no tiene elemento ni queda pendiente.
+        self.assertEqual((aroma["count"], data["pending"]), (10, 0))
+        self.assertFalse(TraceElement.objects.filter(trace=risky).exists())
+
+    def test_notes_without_a_clear_element_are_stored_empty_and_not_counted(self):
+        self.fill(10)
+        self.assertEqual(self.extract().data["extracted"], 10)
+        data = self.stats().data
+        self.assertEqual((data["top_elements"], data["pending"]), ([], 0))
+        self.assertEqual(set(TraceElement.objects.values_list("name", flat=True)), {""})
+
+    @override_settings(EVOCA_STATS_EXTRACT_PER_REQUEST=3)
+    def test_each_request_recognizes_at_most_the_limit_most_recent_first(self):
+        self.month_of_traces()
+        self.assertEqual(self.extract().data, {"status": "ok", "extracted": 3, "pending": 11})
+        self.assertEqual(
+            set(TraceElement.objects.values_list("trace__note", flat=True)),
+            set(Trace.objects.order_by("-created_at").values_list("note", flat=True)[:3]),
+        )
+
+    def test_big_requests_go_in_batches_of_40(self):
+        self.fill(85)
+        self.assertEqual(self.extract().data, {"status": "ok", "extracted": 80, "pending": 5})
+        self.assertEqual([call.count("\n") + 1 for call in self.calls], [40, 40])
+
+    def test_when_the_ai_fails_the_stats_still_show_types_and_mood(self):
+        self.month_of_traces()
+        failures = [
+            urllib.error.URLError("sin red"),
+            TimeoutError(),
+            urllib.error.HTTPError("https://ai.example", 429, "Too Many Requests", {}, None),
+            ai.SuggestionUnavailable("respuesta sin contenido"),
+        ]
+        for error in failures:
+            with self.subTest(error=type(error).__name__), self.provider(error=error), self.assertLogs("apps.traces.stats", "WARNING") as logs:
+                response = self.client.post(self.extract_url)
+                self.assertEqual(response.data, {"status": "unavailable", "extracted": 0, "pending": 14})
+                self.assertNotIn("café", " ".join(logs.output))
+        data = self.stats().data
+        self.assertEqual((data["types"][0]["count"], data["pending"]), (5, 12))
+        self.assertIsNotNone(data["average_mood"])
+
+    @override_settings(EVOCA_AI_API_KEY="")
+    def test_without_a_key_it_is_unavailable(self):
+        self.month_of_traces()
+        self.assertEqual(self.extract().data["status"], "unavailable")
+        self.assertEqual(self.calls, [])
+
+    def test_unreadable_answers_are_unavailable(self):
+        self.month_of_traces()
+        for answer in ["no es json", json.dumps({"otra": []}), json.dumps({"elements": "café"})]:
+            with self.subTest(answer=answer), self.provider(answer=answer):
+                self.assertEqual(self.client.post(self.extract_url).data["status"], "unavailable")
+        self.assertEqual(TraceElement.objects.count(), 0)
+
+    def test_invalid_period_is_rejected(self):
+        response = self.stats("week")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("period", response.data)
+
+    def test_needs_a_session(self):
+        self.client.force_authenticate(None)
+        self.assertEqual(self.stats().status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(self.client.post(self.extract_url).status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_limits_extraction_requests_per_person(self):
+        self.fill(10)
+        with self.provider():
+            codes = [self.client.post(self.extract_url).status_code for _ in range(11)]
+        self.assertEqual(codes[:10], [status.HTTP_200_OK] * 10)
+        self.assertEqual(codes[10], status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_stats_of_200_traces_use_few_queries(self):
+        self.fill(200)
+        self.extract()
+        with CaptureQueriesContext(connection) as queries:
+            self.assertEqual(self.stats("all").data["count"], 200)
+        self.assertLessEqual(len(queries), 4)
+
+    def test_extract_elements_command_recognizes_everything_and_prints_only_counts(self):
+        self.fill(45)
+        self.add("Olor a café en la casa.")
+        output = StringIO()
+        with self.provider():
+            call_command("extract_elements", "--email", "sensa@example.com", stdout=output)
+        self.assertEqual(TraceElement.objects.count(), 46)
+        self.assertIn("Huellas reconocidas: 46.", output.getvalue())
+        for private in ["sensa@example.com", "café"]:
+            self.assertNotIn(private, output.getvalue())
+
+
+class ElementParsingTests(SimpleTestCase):
+    """HU13: limpieza de lo que responde la IA."""
+
+    def test_names_are_one_short_lowercase_line_without_article_or_period(self):
+        cases = {"El café.": "café", "  LA   Lluvia ": "lluvia", "«Salsa»": "salsa", "un parque": "parque", "": ""}
+        for raw, name in cases.items():
+            with self.subTest(raw=raw):
+                self.assertEqual(stats.clean_name(raw), name)
+
+    def test_long_or_odd_names_are_dropped(self):
+        for raw in ["x" * 41, "una frase demasiado larga para ser solo un elemento corto", None, 3, ["café"]]:
+            with self.subTest(raw=raw):
+                self.assertIsNone(stats.clean_name(raw))
+
+    def test_repeated_or_unknown_numbers_are_ignored(self):
+        raw = json.dumps(
+            {
+                "elements": [
+                    {"number": 1, "element": "café"},
+                    {"number": 1, "element": "otra cosa"},
+                    {"number": 3, "element": "fuera de la lista"},
+                    {"number": True, "element": "booleano"},
+                    {"number": 2, "element": None},
+                    "no es un objeto",
+                ]
+            }
+        )
+        self.assertEqual(stats.parse_elements(raw, 2), {1: "café"})

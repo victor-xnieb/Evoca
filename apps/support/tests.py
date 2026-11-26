@@ -31,9 +31,13 @@ class OrientationTests(APITestCase):
         self.user = make_user()
         self.client.force_authenticate(self.user)
 
-    def trace(self, day, intensity, user=None, hour=12):
+    def trace(self, day, mood, user=None, hour=12):
+        """Una huella con el ánimo dado: una tristeza de intensidad 6 − ánimo (tristeza 5 = ánimo 1)."""
+        return self.feeling(day, "tristeza", 6 - mood, user=user, hour=hour)
+
+    def feeling(self, day, emotion, intensity, user=None, hour=12):
         return Trace.objects.create(
-            user=user or self.user, sensory_type="aroma", note="Nota", emotion="tristeza",
+            user=user or self.user, sensory_type="aroma", note="Nota", emotion=emotion,
             mood_intensity=intensity, happened_at=at(day, hour),
         )
 
@@ -52,6 +56,43 @@ class OrientationTests(APITestCase):
 
         self.assertTrue(result["show"])
         self.assertEqual((result["reason"], result["low_days"]), ("low_mood", 14))
+
+    def test_intense_difficult_emotions_are_low_mood_and_mild_ones_are_not(self):
+        """Pedido de la profesora: tristeza 1 o 2 no es un mal día; tristeza 4 o 5 sí."""
+        for offset in range(14):
+            self.feeling(TODAY - timedelta(days=offset), ["tristeza", "ansiedad", "enojo", "miedo"][offset % 4], 2)
+        self.assertEqual((self.orientation()["show"], self.orientation()["low_days"]), (False, 0))
+
+        Trace.objects.all().delete()
+        for offset in range(14):
+            self.feeling(TODAY - timedelta(days=offset), ["tristeza", "ansiedad", "enojo", "miedo"][offset % 4], 4 + offset % 2)
+        self.assertEqual((self.orientation()["show"], self.orientation()["low_days"]), (True, 14))
+
+    def test_weak_pleasant_emotions_are_low_mood_and_strong_ones_are_not(self):
+        for offset in range(14):
+            self.feeling(TODAY - timedelta(days=offset), ["alegria", "calma", "gratitud"][offset % 3], 5)
+        self.assertEqual(self.orientation()["low_days"], 0)
+
+        Trace.objects.all().delete()
+        for offset in range(14):
+            self.feeling(TODAY - timedelta(days=offset), ["alegria", "calma", "gratitud"][offset % 3], 1 + offset % 2)
+        self.assertEqual((self.orientation()["show"], self.orientation()["low_days"]), (True, 14))
+
+    def test_nostalgia_is_neutral_at_any_intensity(self):
+        for offset in range(14):
+            self.feeling(TODAY - timedelta(days=offset), "nostalgia", 1 if offset % 2 else 5)
+
+        self.assertEqual(self.orientation()["low_days"], 0)
+
+    def test_a_day_mixes_its_emotions(self):
+        """Tristeza 5 (ánimo 1) y alegría 3 (ánimo 3) promedian 2: día bajo. Con alegría 5, no."""
+        self.low_days(13, start_offset=1)
+        self.feeling(TODAY, "tristeza", 5, hour=9)
+        self.feeling(TODAY, "alegria", 3, hour=10)
+        self.assertEqual(self.orientation()["low_days"], 14)
+
+        Trace.objects.filter(emotion="alegria").update(mood_intensity=5)
+        self.assertEqual(self.orientation()["low_days"], 13)
 
     def test_thirteen_low_days_are_not_enough(self):
         self.low_days(13)

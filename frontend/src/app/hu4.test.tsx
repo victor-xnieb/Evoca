@@ -58,6 +58,8 @@ function mockMood(week: MoodData["points"], month: MoodData["points"]) {
   return mockApi({
     "GET traces/catalog/": CATALOG,
     "GET traces/mood/": ({ query }) => (query.get("period") === "month" ? mood("month", month) : mood("week", week)),
+    // HU13 comparte la pantalla: sin huellas suficientes, solo dice cuántas faltan.
+    "GET traces/stats/": { body: { period: "month", total: 0, required: 10, missing: 10, ready: false, count: 0, average_mood: null, types: [], top_elements: [], pending: 0 } },
   })
 }
 

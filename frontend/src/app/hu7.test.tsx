@@ -42,6 +42,8 @@ function mockCalendar(extra: Record<string, unknown> = {}) {
   return mockApi({
     "GET traces/catalog/": CATALOG,
     "GET traces/mood/": EMPTY_MOOD,
+    // HU13 comparte la pantalla: sin huellas suficientes, solo dice cuántas faltan.
+    "GET traces/stats/": { body: { period: "month", total: 0, required: 10, missing: 10, ready: false, count: 0, average_mood: null, types: [], top_elements: [], pending: 0 } },
     "GET traces/calendar/": ({ query }) => ({ body: query.get("month") === key(lastMonth) ? PREVIOUS : CURRENT }),
     ...extra,
   } as Parameters<typeof mockApi>[0])

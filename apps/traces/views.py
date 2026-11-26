@@ -3,7 +3,6 @@ from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 
 from django.conf import settings
-from django.db.models import Avg
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.db import transaction
@@ -16,6 +15,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from . import ai, memory_ai, memory_map
 
 from .models import Memory, MemoryTrace, Trace
+from .mood import mood_score
 from .serializers import TraceSerializer, choice_list
 
 FILTERS = {
@@ -130,7 +130,8 @@ class TraceViewSet(viewsets.ModelViewSet):
     def mood(self, request):
         """
         Datos de la gráfica de ánimo: un punto por huella real del periodo (sin agrupar ni
-        inventar valores), en orden cronológico, y el promedio de su intensidad.
+        inventar valores), en orden cronológico, con su ánimo (emoción + intensidad, ver
+        mood.py) y su intensidad, y el promedio del ánimo del periodo.
         """
         period = request.query_params.get("period", "week")
         if period not in MOOD_PERIODS:
@@ -142,11 +143,17 @@ class TraceViewSet(viewsets.ModelViewSet):
             .annotate(at=Coalesce("happened_at", "created_at"))
             .filter(at__gte=start, at__lte=end)
         )
-        average = traces.aggregate(value=Avg("mood_intensity"))["value"]
         points = [
-            {"id": str(row["id"]), "date": row["at"], "intensity": row["mood_intensity"], "emotion": row["emotion"]}
+            {
+                "id": str(row["id"]),
+                "date": row["at"],
+                "mood": mood_score(row["emotion"], row["mood_intensity"]),
+                "intensity": row["mood_intensity"],
+                "emotion": row["emotion"],
+            }
             for row in traces.order_by("at").values("id", "at", "mood_intensity", "emotion")
         ]
+        average = sum(point["mood"] for point in points) / len(points) if points else None
         return Response(
             {
                 "period": period,

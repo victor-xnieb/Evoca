@@ -105,10 +105,12 @@ QUIET_DAYS = 7
 def orientation_status(user, now=None):
     """
     Cuenta los días con ánimo bajo de los últimos 21 (incluido hoy, en hora local). El ánimo
-    de un día es el promedio de la intensidad de sus huellas; un día sin huellas no cuenta
-    como bajo. Devuelve si toca mostrar la orientación y por qué.
+    de un día es el promedio del ánimo de sus huellas, que combina emoción e intensidad
+    (apps/traces/mood.py: una tristeza intensa es ánimo bajo; una alegría intensa, alto). Un día
+    sin huellas no cuenta como bajo. Devuelve si toca mostrar la orientación y por qué.
     """
     from apps.traces.models import Trace
+    from apps.traces.mood import mood_score
 
     now = now or timezone.now()
     today = timezone.localdate(now)
@@ -119,10 +121,10 @@ def orientation_status(user, now=None):
         Trace.objects.filter(user=user)
         .annotate(at=Coalesce("happened_at", "created_at"))
         .filter(at__gte=start, at__lt=end)
-        .values_list("at", "mood_intensity")
+        .values_list("at", "emotion", "mood_intensity")
     )
-    for moment, intensity in rows:
-        days.setdefault(timezone.localdate(moment), []).append(intensity)
+    for moment, emotion, intensity in rows:
+        days.setdefault(timezone.localdate(moment), []).append(mood_score(emotion, intensity))
     low_days = sum(1 for values in days.values() if sum(values) / len(values) <= LOW_MOOD_MAX)
 
     quiet = SupportEvent.objects.filter(

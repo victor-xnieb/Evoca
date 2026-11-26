@@ -31,7 +31,7 @@ Neon PostgreSQL, rama development
 | Gráficas | Recharts | Gráfica de ánimo (HU4), cargada bajo demanda |
 | Pruebas | `manage.py test` (backend), Vitest + Testing Library (frontend), Playwright (e2e) | Cada escenario Gherkin tiene una prueba automatizada; Playwright mide en el navegador lo que jsdom no puede (rendimiento del mapa, HU10) |
 | Documentación de UI | Storybook (solo desarrollo) | Catálogo de componentes con sus estados |
-| IA (HU8, HU9) | Google Gemini (`gemini-3.5-flash-lite`), llamada solo desde el backend con la librería estándar (`ai.call_gemini`) | El prompt y la clave nunca llegan al cliente; el proveedor y el modelo se cambian con variables de entorno |
+| IA (HU8, HU9, HU12) | Google Gemini, llamada solo desde el backend con la librería estándar: `gemini-3.5-flash-lite` para generar (`ai.call_gemini`) y `gemini-embedding-2` para la búsqueda por significado (`search.ask_gemini`) | El prompt y la clave nunca llegan al cliente; el proveedor y el modelo se cambian con variables de entorno |
 
 ### Django es el backend; el móvil es la PWA
 

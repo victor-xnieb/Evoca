@@ -9,6 +9,8 @@ interface RiskHelpProps {
   text: string
   /** Nota con la que se abrió la pantalla (al editar): lo que ya estaba escrito no la abre. */
   initialText?: string
+  /** Texto del botón para cerrar (por defecto «Volver a mi nota»). */
+  closeLabel?: string
 }
 
 /**
@@ -16,7 +18,7 @@ interface RiskHelpProps {
  * inmediato la pantalla de ayuda con las líneas oficiales. Al cerrarla no vuelve a abrirse
  * por la misma palabra; sí por una nueva. No se guarda la nota ni la palabra.
  */
-export function RiskHelp({ text, initialText = "" }: RiskHelpProps) {
+export function RiskHelp({ text, initialText = "", closeLabel }: RiskHelpProps) {
   const content = useSupportContent()
   const [dismissed, setDismissed] = useState<string[]>([])
   const terms = content?.risk_terms ?? []
@@ -36,6 +38,7 @@ export function RiskHelp({ text, initialText = "" }: RiskHelpProps) {
       message={content.help_message}
       lines={content.help_lines}
       draft={content.draft}
+      closeLabel={closeLabel}
       onOpenLine={() => logSupportEvent("help_line_opened")}
       onClose={() => setDismissed((previous) => [...previous, ...fresh])}
     />

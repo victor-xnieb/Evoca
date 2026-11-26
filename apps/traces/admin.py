@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Memory, MemoryTrace, Trace
+from .models import Memory, MemoryTrace, Trace, TraceEmbedding
 
 
 class MemoryTraceInline(admin.TabularInline):
@@ -23,3 +23,11 @@ class MemoryAdmin(admin.ModelAdmin):
     search_fields = ("name", "user__email")
     inlines = [MemoryTraceInline]
 
+
+@admin.register(TraceEmbedding)
+class TraceEmbeddingAdmin(admin.ModelAdmin):
+    """Solo para revisar qué huellas ya tienen vector (HU12); el vector no se muestra."""
+
+    list_display = ("trace", "model", "updated_at")
+    exclude = ("vector",)
+    readonly_fields = ("trace", "model", "text_hash", "updated_at")

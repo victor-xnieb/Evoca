@@ -163,7 +163,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
     # Cada sugerencia de IA consume cuota del proveedor: límite por persona.
-    "DEFAULT_THROTTLE_RATES": {"ai_suggest": "20/min", "ai_memories": "5/min"},
+    "DEFAULT_THROTTLE_RATES": {"ai_suggest": "20/min", "ai_memories": "5/min", "ai_search": "30/min"},
 }
 
 EVOCA_TERMS_VERSION = os.getenv("EVOCA_TERMS_VERSION", "draft-v1")
@@ -181,6 +181,16 @@ EVOCA_AI_TIMEOUT = float(os.getenv("EVOCA_AI_TIMEOUT", "2.0"))
 EVOCA_AI_MIN_CONFIDENCE = float(os.getenv("EVOCA_AI_MIN_CONFIDENCE", "0.6"))
 # Agrupar hasta 60 huellas en recuerdos (HU9) tarda más que leer una nota: espera propia.
 EVOCA_AI_MEMORY_TIMEOUT = float(os.getenv("EVOCA_AI_MEMORY_TIMEOUT", "15.0"))
+# Búsqueda por significado (HU12): modelo de vectores, su tamaño y la espera máxima por llamada.
+EVOCA_AI_EMBEDDING_MODEL = os.getenv("EVOCA_AI_EMBEDDING_MODEL", "gemini-embedding-2")
+EVOCA_AI_EMBEDDING_DIMENSIONS = int(os.getenv("EVOCA_AI_EMBEDDING_DIMENSIONS", "768"))
+EVOCA_AI_EMBED_TIMEOUT = float(os.getenv("EVOCA_AI_EMBED_TIMEOUT", "10.0"))
+# El plan gratuito de Gemini permite 100 vectores por minuto: cada búsqueda prepara como mucho estos.
+EVOCA_SEARCH_EMBED_PER_REQUEST = int(os.getenv("EVOCA_SEARCH_EMBED_PER_REQUEST", "40"))
+# Una huella es un resultado si su similitud llega al mínimo y está cerca de la mejor. Calibrado
+# con gemini-embedding-2: frases con sentido dan 0,67 o más; frases ajenas, 0,55 o menos.
+EVOCA_SEARCH_MIN_SIMILARITY = float(os.getenv("EVOCA_SEARCH_MIN_SIMILARITY", "0.6"))
+EVOCA_SEARCH_SPREAD = float(os.getenv("EVOCA_SEARCH_SPREAD", "0.1"))
 
 # Mapa de recuerdos (HU10): afinidad mínima (0 a 1) para unir dos recuerdos con una línea y
 # máximo de conexiones por recuerdo, para que el grafo siga siendo legible.

@@ -13,7 +13,9 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
-from . import ai, memory_ai, memory_map
+from apps.support.risk import find_risk_terms
+
+from . import ai, memory_ai, memory_map, search
 
 from .models import Memory, MemoryTrace, Trace
 from .serializers import TraceSerializer, choice_list
@@ -55,6 +57,20 @@ def dominant_emotion(entries):
 
 class SuggestRequestSerializer(serializers.Serializer):
     note = serializers.CharField(max_length=500, trim_whitespace=True)
+
+
+class SearchRequestSerializer(serializers.Serializer):
+    query = serializers.CharField(
+        min_length=search.MIN_QUERY_LENGTH,
+        max_length=search.MAX_QUERY_LENGTH,
+        trim_whitespace=True,
+        error_messages={
+            "required": "Escribe qué quieres buscar.",
+            "blank": "Escribe qué quieres buscar.",
+            "min_length": f"Escribe al menos {search.MIN_QUERY_LENGTH} letras.",
+            "max_length": f"La búsqueda puede tener máximo {search.MAX_QUERY_LENGTH} caracteres.",
+        },
+    )
 
 
 class MemoryNameSerializer(serializers.Serializer):
@@ -114,7 +130,40 @@ class TraceViewSet(viewsets.ModelViewSet):
     def get_throttles(self):
         if self.action == "suggest":
             self.throttle_scope = "ai_suggest"
+        if self.action == "search":
+            self.throttle_scope = "ai_search"
         return super().get_throttles()
+
+    @action(detail=False, methods=["post"], throttle_classes=[ScopedRateThrottle])
+    def search(self, request):
+        """
+        HU12: huellas parecidas a una frase por su significado, de la más a la menos parecida,
+        cada una con qué tan parecida es. La frase va en el cuerpo (no en la URL, que queda en
+        los registros del servidor) y no se guarda. Si la IA falla, busca por palabras (`mode`).
+        Si la frase tiene palabras de riesgo (HU6), no se busca: responde `risk` y nada más.
+        """
+        serializer = SearchRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        query = serializer.validated_data["query"]
+        # HU6: una frase con palabras de riesgo no se busca ni se envía a la IA; la app muestra
+        # la ayuda. No se registra la frase ni la palabra.
+        if find_risk_terms(query):
+            return Response({"query": query, "risk": True, "mode": "meaning", "pending": 0, "count": 0, "results": []})
+        results, mode, pending = search.search(request.user, query)
+        return Response(
+            {
+                "query": query,
+                "risk": False,
+                "mode": mode,
+                # Huellas que aún no tienen vector y no entraron en esta búsqueda (límite de la IA).
+                "pending": pending,
+                "count": len(results),
+                "results": [
+                    {"similarity": score, "level": search.level(score, mode), "trace": TraceSerializer(trace).data}
+                    for score, trace in results
+                ],
+            }
+        )
 
     @action(detail=False, methods=["get"])
     def catalog(self, request):

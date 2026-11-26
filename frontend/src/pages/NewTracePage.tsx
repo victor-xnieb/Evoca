@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react"
-import { useNavigate } from "react-router"
+import { useLocation, useNavigate } from "react-router"
 
 import { EmotionPicker } from "@/components/evoca/EmotionPicker"
 import { EmptyState } from "@/components/evoca/EmptyState"
@@ -41,12 +41,15 @@ function exampleSeen(userId: string) {
 export function NewTracePage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  // HU12: desde una búsqueda sin resultados, la nota empieza con lo que se buscó.
+  const initialNote = (location.state as { note?: unknown } | null)?.note
   const { catalog, error: catalogError, retry } = useCatalog()
   const summary = useRef<HTMLDivElement>(null)
   const noteInput = useRef<HTMLTextAreaElement>(null)
   const [showExample, setShowExample] = useState<boolean | null>(() => (user && exampleSeen(user.id) ? false : null))
   const [form, setForm] = useState<{ sensory_type: string | null; note: string; emotion: string | null; mood_intensity: number | null }>(
-    { sensory_type: null, note: "", emotion: null, mood_intensity: null },
+    { sensory_type: null, note: typeof initialNote === "string" ? initialNote.slice(0, 500) : "", emotion: null, mood_intensity: null },
   )
   const [errors, setErrors] = useState<Partial<Record<Field | "form", string>>>({})
   const [saving, setSaving] = useState(false)

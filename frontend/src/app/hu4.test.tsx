@@ -13,8 +13,19 @@ function daysAgo(days: number) {
   return new Date(Date.now() - days * 86_400_000).toISOString()
 }
 
+/** Ánimo como lo calcula el servidor (apps/traces/mood.py). */
+function moodOf(emotion: string, intensity: number) {
+  if (["alegria", "calma", "gratitud"].includes(emotion)) return intensity
+  if (emotion === "nostalgia") return 3
+  return 6 - intensity
+}
+
+function point(id: string, date: string, intensity: number, emotion: string) {
+  return { id, date, intensity, emotion, mood: moodOf(emotion, intensity) }
+}
+
 function mood(period: "week" | "month", points: MoodData["points"]): { body: MoodData } {
-  const sum = points.reduce((total, point) => total + point.intensity, 0)
+  const sum = points.reduce((total, point) => total + point.mood, 0)
   return {
     body: {
       period,
@@ -28,17 +39,13 @@ function mood(period: "week" | "month", points: MoodData["points"]): { body: Moo
 }
 
 const WEEK = [
-  { id: "a", date: daysAgo(5), intensity: 2, emotion: "tristeza" },
-  { id: "b", date: daysAgo(3), intensity: 4, emotion: "calma" },
-  { id: "c", date: daysAgo(1), intensity: 5, emotion: "alegria" },
+  point("a", daysAgo(5), 2, "tristeza"),
+  point("b", daysAgo(3), 4, "calma"),
+  point("c", daysAgo(1), 5, "alegria"),
 ]
-const MONTH = [
-  { id: "m1", date: daysAgo(25), intensity: 3, emotion: "nostalgia" },
-  { id: "m2", date: daysAgo(14), intensity: 1, emotion: "miedo" },
-  ...WEEK,
-]
+const MONTH = [point("m1", daysAgo(25), 3, "nostalgia"), point("m2", daysAgo(14), 1, "miedo"), ...WEEK]
 
-/** Filas de la tabla accesible de la gráfica: [emoción, intensidad] por punto. */
+/** Filas de la tabla accesible de la gráfica: [emoción, intensidad, ánimo] por punto. */
 function chartRows() {
   const table = screen.getByRole("table", { name: /Registros de ánimo/ })
   return within(table)
@@ -68,9 +75,9 @@ describe("HU4 · Escenario 1: vista semanal y mensual, cada punto es un registro
     // Primera prueba del archivo: jsdom importa en frío la página y Recharts.
     await screen.findByRole("table", { name: /Registros de ánimo/ }, { timeout: 5000 })
     expect(chartRows()).toEqual([
-      ["Tristeza", "2 de 5"],
-      ["Calma", "4 de 5"],
-      ["Alegría", "5 de 5"],
+      ["Tristeza", "2 de 5", "4 de 5"],
+      ["Calma", "4 de 5", "4 de 5"],
+      ["Alegría", "5 de 5", "5 de 5"],
     ])
     expect(fetchMock.mock.calls.some(([input]) => String(input).includes("mood/?period=week"))).toBe(true)
     // Leyenda con las emociones del periodo (esfera + nombre: el color nunca va solo).
@@ -87,7 +94,7 @@ describe("HU4 · Escenario 1: vista semanal y mensual, cada punto es un registro
     await user.click(screen.getByRole("tab", { name: "Mes" }))
 
     await waitFor(() => expect(chartRows()).toHaveLength(5))
-    expect(chartRows()[0]).toEqual(["Nostalgia", "3 de 5"])
+    expect(chartRows()[0]).toEqual(["Nostalgia", "3 de 5", "3 de 5"])
     expect(fetchMock.mock.calls.some(([input]) => String(input).includes("mood/?period=month"))).toBe(true)
     expect(router.state.location.search).toBe("?vista=mes")
 
@@ -113,23 +120,32 @@ describe("HU4 · Escenario 3: promedio del periodo y carga en menos de 2 s", () 
     const user = userEvent.setup()
     renderApp({ path: "/animo", user: SAMPLE_USER, locked: false })
 
-    expect(await screen.findByText("Promedio en los últimos 7 días: 3,7 de 5, con 3 registros.")).toBeInTheDocument()
+    expect(await screen.findByText("Ánimo promedio en los últimos 7 días: 4,3 de 5, con 3 registros.")).toBeInTheDocument()
     await user.click(screen.getByRole("tab", { name: "Mes" }))
-    expect(await screen.findByText("Promedio en los últimos 30 días: 3,0 de 5, con 5 registros.")).toBeInTheDocument()
+    expect(await screen.findByText("Ánimo promedio en los últimos 30 días: 4,2 de 5, con 5 registros.")).toBeInTheDocument()
+  })
+
+  it("dibuja el ánimo y no la intensidad: una tristeza intensa es ánimo bajo", async () => {
+    mockMood([point("t", daysAgo(2), 5, "tristeza"), point("j", daysAgo(1), 1, "alegria")], [])
+    renderApp({ path: "/animo", user: SAMPLE_USER, locked: false })
+
+    await screen.findByRole("table", { name: /Registros de ánimo/ }, { timeout: 5000 })
+    expect(chartRows()).toEqual([
+      ["Tristeza", "5 de 5", "1 de 5"],
+      ["Alegría", "1 de 5", "1 de 5"],
+    ])
+    expect(screen.getByText(/El ánimo combina la emoción y su intensidad/)).toBeInTheDocument()
   })
 
   it("con 90 días de datos la pantalla queda lista en menos de 2 segundos", async () => {
-    const month = Array.from({ length: 120 }, (_, index) => ({
-      id: `p${index}`,
-      date: daysAgo(index / 4),
-      intensity: (index % 5) + 1,
-      emotion: EMOTION_OPTIONS[index % 8].value,
-    }))
+    const month = Array.from({ length: 120 }, (_, index) =>
+      point(`p${index}`, daysAgo(index / 4), (index % 5) + 1, EMOTION_OPTIONS[index % 8].value),
+    )
     mockMood(month.slice(0, 28), month)
     const started = performance.now()
     renderApp({ path: "/animo?vista=mes", user: SAMPLE_USER, locked: false })
 
-    await screen.findByText(/Promedio en los últimos 30 días: .* con 120 registros/)
+    await screen.findByText(/Ánimo promedio en los últimos 30 días: .* con 120 registros/)
     expect(performance.now() - started).toBeLessThan(2000)
     expect(chartRows()).toHaveLength(120)
   })

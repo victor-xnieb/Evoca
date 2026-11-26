@@ -32,14 +32,18 @@ export interface CalendarData {
 
 export type MoodPeriod = "week" | "month"
 
-/** Datos de la gráfica de ánimo: un punto por huella real del periodo (GET /traces/mood/). */
+/**
+ * Datos de la gráfica de ánimo: un punto por huella real del periodo (GET /traces/mood/). El
+ * ánimo (1 a 5) lo calcula el servidor con la emoción y su intensidad: una tristeza intensa es
+ * ánimo bajo y una alegría intensa, alto. `average` es el promedio del ánimo.
+ */
 export interface MoodData {
   period: MoodPeriod
   start: string
   end: string
   count: number
   average: number | null
-  points: Array<{ id: string; date: string; intensity: number; emotion: string }>
+  points: Array<{ id: string; date: string; mood: number; intensity: number; emotion: string }>
 }
 
 export type TraceChanges = Partial<Pick<Trace, "note" | "emotion" | "mood_intensity">>

@@ -13,7 +13,7 @@ trabajo sigue la prioridad del Jira.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | HU10 · Explorar mi mapa de recuerdos con esferas de color | SCRUM-20 | Highest | SCRUM-54 | SCRUM-55 | SCRUM-56 | `feature/hu10-mapa-esferas` | En dev |
 | 2 | HU9 · Recibir recuerdos sugeridos por IA | SCRUM-19 | High | SCRUM-51 | SCRUM-52 | SCRUM-53 | `feature/hu9-recuerdos-sugeridos-ia` | En dev |
-| 3 | HU12 · Buscar recuerdos por significado con IA | SCRUM-22 | Medium | SCRUM-60 | SCRUM-61 | SCRUM-62 | `feature/hu12-busqueda-significado-ia` | En rama, por aprobar |
+| 3 | HU12 · Buscar recuerdos por significado con IA | SCRUM-22 | Medium | SCRUM-60 | SCRUM-61 | SCRUM-62 | `feature/hu12-busqueda-significado-ia` | En dev |
 | 4 | HU13 · Ver estadísticas de mis sensaciones | SCRUM-23 | Medium | SCRUM-63 | SCRUM-64 | SCRUM-65 | `feature/hu13-estadisticas-sensaciones` | Pendiente |
 | 5 | HU11 · Marcar mis recuerdos centrales | SCRUM-21 | Low | SCRUM-57 | SCRUM-58 | SCRUM-59 | `feature/hu11-recuerdos-centrales` | Pendiente |
 | 6 | HU14 · Ver patrones de mi semana con IA | SCRUM-24 | Low | SCRUM-66 | SCRUM-67 | SCRUM-68 | `feature/hu14-patrones-semana-ia` | Pendiente |
@@ -213,6 +213,17 @@ parecidas aunque no usen esas palabras, para recuperar un recuerdo sin acordarme
 **Prueba con Gemini real** (María, 125 huellas): «olor a lluvia» → 7 resultados en 1,1 s, todos
 de lluvia o humedad («Olor a tierra mojada…» primero); «nervios antes de algo importante» → «El
 olor a hospital en la cita médica me puso nerviosa»; «astronautas en Marte» → sin resultados.
+
+---
+
+## Corrección del Sprint 1 hecha en este sprint: el ánimo según la emoción
+
+La profesora señaló que la intensidad no es el ánimo: una tristeza de intensidad 2 no es un mal
+día, pero una de 5 sí, y con la alegría es al revés. Desde la rama `fix/animo-segun-emocion` el
+ánimo de una huella (`apps/traces/mood.py`) es la intensidad en alegría, calma y gratitud;
+6 − intensidad en tristeza, ansiedad, enojo y miedo; y 3 (neutro) en nostalgia. Lo usan la
+orientación de HU6 y la gráfica de HU4. El detalle y sus pruebas están en `docs/SPRINT1.md`
+(«Corrección posterior»). Las HU de este sprint que hablen de ánimo usan `mood_score`.
 
 ---
 

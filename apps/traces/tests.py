@@ -1596,6 +1596,26 @@ class MeaningSearchTests(APITestCase):
         self.client.force_authenticate(None)
         self.assertEqual(self.search("lluvia").status_code, status.HTTP_401_UNAUTHORIZED)
 
+    # Palabras de riesgo (HU6)
+    def test_a_phrase_with_risk_words_is_neither_searched_nor_sent_to_the_ai(self):
+        self.trace("Una canción triste mientras no nos hablábamos.")
+        for query in ["suicidio", "Pensando en el SUICIDIO...", "matarse", "quiero matarme", "me voy a matar", "suicidarme"]:
+            with self.subTest(query=query), self.provider():
+                response = self.search(query)
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                self.assertTrue(response.data["risk"])
+                self.assertEqual((response.data["count"], response.data["results"]), (0, []))
+        self.assertEqual(self.calls, [])
+        self.assertFalse(TraceEmbedding.objects.exists())
+
+    def test_risk_words_are_matched_whole_and_ordinary_searches_are_not_affected(self):
+        self.trace("Olor a tierra mojada.")
+        with self.provider():
+            for query in ["rematarme", "olor a lluvia"]:
+                with self.subTest(query=query):
+                    self.assertFalse(self.search(query).data["risk"])
+        self.assertTrue(self.calls)
+
     def test_limits_searches_per_person(self):
         with self.provider():
             codes = [self.search("lluvia").status_code for _ in range(31)]

@@ -179,6 +179,23 @@ class SupportContentTests(APITestCase):
         self.assertIn("quitarme la vida", data["risk_terms"])
         self.assertEqual([line["phone"] for line in data["help_lines"]], ["192", "106", "123"])
 
+    def test_the_draft_includes_more_ways_of_saying_it(self):
+        """Pedido del equipo al revisar HU12: «matarse», «suicidarse» y frases frecuentes."""
+        terms = self.content()["risk_terms"]
+
+        for term in ["suicidio", "suicidarme", "matarme", "matarse", "suicidarse", "me voy a matar", "me quiero matar"]:
+            self.assertIn(term, terms)
+        self.assertEqual(len(terms), len(set(terms)))
+
+    def test_the_server_finds_risk_words_like_the_app(self):
+        from apps.support.risk import find_risk_terms, normalize
+
+        self.assertEqual(normalize("¡Quiero MORÍR... ya!"), "quiero morir ya")
+        self.assertEqual(find_risk_terms("Pensando en el SUICIDIO"), ["suicidio"])
+        self.assertEqual(find_risk_terms("me voy a matar"), ["me voy a matar"])
+        self.assertEqual(find_risk_terms("rematarme las uñas"), [])
+        self.assertEqual(find_risk_terms(""), [])
+
     def test_an_approved_version_replaces_the_previous_one(self):
         self.new_version(
             help_title="Texto aprobado", risk_terms="palabra nueva\nfrase nueva", approved=True, approved_by="Psicólogo asesor"

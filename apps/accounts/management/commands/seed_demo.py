@@ -374,6 +374,25 @@ def with_bundles(traces, tags, memories, bundles):
 
 MARIA, MARIA_TAGS, MARIA_MEMORIES = with_bundles(MARIA, MARIA_TAGS, MARIA_MEMORIES, MARIA_MORE)
 
+# Estadísticas de mis sensaciones (HU13): huellas recientes de María que repiten elementos (café,
+# lluvia, salsa, parque, cobija, arepa), para que se vea cuáles registra más. Van al final, sin
+# recuerdo, y todas con ánimo agradable o neutro: no cambian el mapa (HU10) ni la orientación (HU6).
+MARIA_REPEATS = [
+    (1, 7, 40, "aroma", "calma", 4, "El café de la mañana antes de abrir el computador, todavía en pijama."),
+    (4, 15, 30, "aroma", "alegria", 4, "Olor a café en la cafetería de la universidad mientras repasaba con una compañera."),
+    (9, 16, 0, "aroma", "gratitud", 4, "Mi abuela me mandó café de la finca y la casa entera olió a ella."),
+    (3, 18, 20, "aroma", "calma", 5, "El olor a lluvia entrando por la ventana mientras leía."),
+    (12, 6, 50, "aroma", "nostalgia", 3, "Olor a lluvia en la madrugada, como en las vacaciones en el campo."),
+    (2, 21, 0, "song", "alegria", 5, "Bailamos salsa en la sala con mis amigas hasta tarde."),
+    (16, 13, 10, "song", "alegria", 4, "Una salsa vieja en la radio del taxi y el conductor subió el volumen."),
+    (6, 17, 0, "place", "calma", 4, "Leí un rato en una banca del parque, con el sol de la tarde."),
+    (20, 9, 30, "place", "alegria", 4, "Salí a trotar al parque del barrio y me encontré a una vecina."),
+    (8, 22, 15, "texture", "calma", 5, "La cobija pesada en una noche fría de lluvia."),
+    (18, 20, 45, "texture", "gratitud", 4, "Mi hermana me prestó su cobija favorita para dormir en su casa."),
+    (11, 12, 30, "flavor", "alegria", 4, "Arepa con queso en el desayuno del sábado, como en casa."),
+]
+MARIA = MARIA + MARIA_REPEATS
+
 # Recuerdos sugeridos por la IA y aún sin revisar (HU9): (nombre, explicación, posiciones). Así la
 # demo muestra «aceptar, renombrar o separar» aunque la IA no esté configurada.
 VALENTINA_SUGGESTIONS = [
@@ -391,7 +410,7 @@ DEMO_USERS = [
         "memories": MARIA_MEMORIES,
         "tags": MARIA_TAGS,
         "reminder": {"enabled": True, "frequency": "daily", "time": time(20, 0)},
-        "shows": "ánimo variado: lista y filtros, gráfica semanal y mensual, calendario de tres meses, mapa con 40 recuerdos de más de un año; ya registró hoy",
+        "shows": "ánimo variado: lista y filtros, gráfica semanal y mensual, calendario de tres meses, mapa con 40 recuerdos de más de un año; estadísticas con café, lluvia y salsa entre lo más registrado; ya registró hoy",
     },
     {
         "email": "mateo.demo@example.com",

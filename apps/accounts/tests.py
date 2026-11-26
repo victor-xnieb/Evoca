@@ -595,13 +595,13 @@ class SeedDemoTests(TestCase):
     def test_running_twice_does_not_duplicate_and_reset_recreates(self):
         self.run_seed()
         self.run_seed()
-        self.assertEqual(Trace.objects.filter(user__email__endswith=".demo@example.com").count(), 125 + 18 + 16 + 19 + 17)
+        self.assertEqual(Trace.objects.filter(user__email__endswith=".demo@example.com").count(), 137 + 18 + 16 + 19 + 17)
 
         maria = User.objects.get(email="maria.demo@example.com")
         maria.traces.all().delete()
         self.run_seed("--reset")
 
-        self.assertEqual(User.objects.get(email="maria.demo@example.com").traces.count(), 125)
+        self.assertEqual(User.objects.get(email="maria.demo@example.com").traces.count(), 137)
 
     def test_without_reset_it_only_adds_the_missing_account(self):
         """Lo que pasa en Render al cargar la cuenta nueva: las demás cuentas no se tocan."""

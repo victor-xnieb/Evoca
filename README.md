@@ -226,6 +226,7 @@ en la orientación de Mateo, que la pausa 7 días).
 | GET | `/api/v1/support/orientation/` | Si toca mostrar la orientación (ánimo de 2 o menos en 14 de los últimos 21 días) |
 | POST | `/api/v1/support/events/` | Registra qué hizo la persona con la orientación (solo el tipo de evento) |
 | POST | `/api/v1/traces/suggest/` | Propone emoción e intensidad desde la nota (10 palabras o más) con IA; no guarda nada |
+| POST | `/api/v1/traces/search/` | HU12: huellas parecidas por significado a `query` (3 a 200 caracteres, en el cuerpo), de la más a la menos parecida, con `similarity` y `level` (`high`, `medium`, `low`). `mode`: `meaning` (IA) o `words` (respaldo por palabras); `pending`: huellas que la IA aún no ha preparado. 30 búsquedas por minuto |
 | GET/POST | `/api/v1/traces/` | Lista (la más reciente primero; filtros `?sensory_type=`, `?emotion=` y `?date=AAAA-MM-DD`) o crea huellas del usuario |
 | GET | `/api/v1/traces/catalog/` | Tipos sensoriales y emociones válidos, con su etiqueta |
 | GET | `/api/v1/traces/mood/?period=week|month` | Gráfica de ánimo: un punto por huella de los últimos 7 o 30 días y el promedio |
@@ -239,6 +240,26 @@ en la orientación de Mateo, que la pausa 7 días).
 | PATCH | `/api/v1/memories/{id}/` | Renombra un recuerdo sugerido o aceptado (`name`) |
 | DELETE | `/api/v1/memories/{id}/traces/{trace_id}/` | Separa una huella de la sugerencia (la última no: se descarta) |
 | POST | `/api/v1/memories/{id}/discard/` | Descarta la sugerencia; sus huellas quedan libres para otra |
+
+### Búsqueda por significado (HU12)
+
+En **Mis huellas**, «Buscar por significado» encuentra huellas parecidas a una frase aunque no
+usen las mismas palabras («olor a lluvia» trae «olor a tierra mojada»). Cada huella se convierte
+una vez en un vector de significado con Gemini (`EVOCA_AI_EMBEDDING_MODEL`, por defecto
+`gemini-embedding-2`, 768 dimensiones) y se guarda en `TraceEmbedding`; solo se recalcula si
+cambian su nota, tipo, emoción o etiquetas. Al buscar, la frase se convierte en otro vector y se
+compara con los de la persona (`apps/traces/search.py`).
+
+- Una huella es resultado si su similitud llega a `EVOCA_SEARCH_MIN_SIMILARITY` (0,6) y está a
+  menos de `EVOCA_SEARCH_SPREAD` (0,1) de la mejor; como mucho 10. Se calibró con datos reales:
+  frases con sentido dan 0,67 o más y frases ajenas («astronautas en Marte») 0,55 o menos.
+- El plan gratuito de Gemini permite **100 vectores por minuto**: cada búsqueda prepara como
+  mucho `EVOCA_SEARCH_EMBED_PER_REQUEST` (40) huellas nuevas y la app avisa cuántas faltan.
+  Para dejar una cuenta lista de una vez: `python manage.py embed_traces [--email ...]` (va por
+  lotes y espera entre uno y otro).
+- Sin clave, con error o con el límite agotado, la búsqueda sigue **por palabras** (sin tildes ni
+  mayúsculas) y la app lo dice. La frase va en el cuerpo de la petición (no en la URL) y no se
+  guarda ni se registra.
 
 ### Recuerdos sugeridos con IA (HU9)
 

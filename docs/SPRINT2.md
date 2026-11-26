@@ -13,7 +13,7 @@ trabajo sigue la prioridad del Jira.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | HU10 · Explorar mi mapa de recuerdos con esferas de color | SCRUM-20 | Highest | SCRUM-54 | SCRUM-55 | SCRUM-56 | `feature/hu10-mapa-esferas` | En dev |
 | 2 | HU9 · Recibir recuerdos sugeridos por IA | SCRUM-19 | High | SCRUM-51 | SCRUM-52 | SCRUM-53 | `feature/hu9-recuerdos-sugeridos-ia` | En dev |
-| 3 | HU12 · Buscar recuerdos por significado con IA | SCRUM-22 | Medium | SCRUM-60 | SCRUM-61 | SCRUM-62 | `feature/hu12-busqueda-significado-ia` | Pendiente |
+| 3 | HU12 · Buscar recuerdos por significado con IA | SCRUM-22 | Medium | SCRUM-60 | SCRUM-61 | SCRUM-62 | `feature/hu12-busqueda-significado-ia` | En rama, por aprobar |
 | 4 | HU13 · Ver estadísticas de mis sensaciones | SCRUM-23 | Medium | SCRUM-63 | SCRUM-64 | SCRUM-65 | `feature/hu13-estadisticas-sensaciones` | Pendiente |
 | 5 | HU11 · Marcar mis recuerdos centrales | SCRUM-21 | Low | SCRUM-57 | SCRUM-58 | SCRUM-59 | `feature/hu11-recuerdos-centrales` | Pendiente |
 | 6 | HU14 · Ver patrones de mi semana con IA | SCRUM-24 | Low | SCRUM-66 | SCRUM-67 | SCRUM-68 | `feature/hu14-patrones-semana-ia` | Pendiente |
@@ -153,6 +153,58 @@ cada sugerencia.
 **Prueba con Gemini real** (cuenta de Santiago, 17 huellas): 3 recuerdos en 1,7 s, con nombres
 y explicaciones coherentes («Ecos de la memoria familiar», «Nostalgia de lo que ya no está»,
 «Instantes de calma y alivio»).
+
+---
+
+## HU12 · Buscar recuerdos por significado con IA (SCRUM-22)
+
+**Historia.** Como usuario, quiero escribir una frase como «olor a lluvia» y encontrar huellas
+parecidas aunque no usen esas palabras, para recuperar un recuerdo sin acordarme de la fecha.
+
+**Escenarios**
+
+1. Dado que tengo huellas guardadas, cuando escribo una frase como «olor a lluvia», entonces
+   obtengo huellas relacionadas por significado, no solo por palabras idénticas.
+2. Dado que la búsqueda tiene resultados, cuando los veo, entonces aparecen ordenados por
+   relevancia, y cada uno indica qué tan parecido es.
+3. Dado que la búsqueda no tiene resultados, cuando termina la búsqueda, entonces la app me lo
+   dice y me propone registrar una nueva huella.
+
+**Subtareas:** Backend SCRUM-60 · Interfaz SCRUM-61 · Pruebas SCRUM-62.
+
+### Qué se hizo
+
+- **Backend** (`apps/traces/search.py`, `TraceEmbedding`, migración `0004`, acción `search`):
+  - Vectores de significado con `gemini-embedding-2` (768 dimensiones, normalizados) por huella,
+    con tipo, emoción, etiquetas y nota; guardados y recalculados solo si cambia la huella o el
+    modelo. Se borran con la huella.
+  - `POST /api/v1/traces/search/` con la frase en el cuerpo: similitud de coseno contra las
+    huellas de la persona, mínimo 0,6 y a 0,1 del mejor, máximo 10 resultados, con nivel
+    `high` (≥ 0,70), `medium` (≥ 0,65) o `low`.
+  - Límite gratuito de 100 vectores por minuto: 40 huellas nuevas por búsqueda y `pending`
+    con las que faltan; `manage.py embed_traces` prepara todo por lotes.
+  - Respaldo por palabras (sin tildes) si la IA no está, falla o llega al límite. La frase no se
+    guarda ni se registra; 30 búsquedas por minuto por persona.
+- **Interfaz** (`MeaningSearch`, `SimilarityMeter`, `use-meaning-search`):
+  - Barra «Buscar por significado» en **Mis huellas**; los resultados reemplazan la lista
+    mientras hay búsqueda y se conservan al abrir una huella y volver.
+  - Cada resultado: medidor de tres barras con «Muy parecida», «Parecida» o «Algo parecida».
+  - Sin resultados: «No encontramos huellas parecidas a «…»» y «Registrar una huella», que abre
+    **Nueva huella** con la frase en la nota.
+  - Avisos de búsqueda por palabras y de huellas por preparar; error con reintento.
+
+### Evidencia
+
+| Escenario | Prueba automática | Estado |
+| --- | --- | --- |
+| 1 · Huellas relacionadas por significado, no solo por palabras | `apps/traces/tests.py` (`MeaningSearchTests`: `test_scenario_1_*`, `test_vectors_are_stored_and_reused…`, `test_the_vector_describes…`, `test_each_search_prepares_at_most_the_limit…`, `test_gemini_request_uses_the_embedding_model…`, `test_only_my_traces_are_searched`); `frontend/src/app/hu12.test.tsx` (escenario 1) | Cumplido |
+| 2 · Ordenadas por relevancia y con qué tan parecidas son | `test_scenario_2_*`, `test_only_traces_close_to_the_best_one…`; `hu12.test.tsx` (escenario 2) | Cumplido |
+| 3 · Sin resultados, lo dice y propone registrar una huella | `test_scenario_3_*`, `test_without_traces…`; `hu12.test.tsx` (escenario 3: lleva a Nueva huella con la frase) | Cumplido |
+| Errores de la IA (subtarea de pruebas) | `test_when_the_ai_fails_it_searches_by_words…` (tiempo agotado, sin red, 429), `test_without_a_key…`, `test_vectors_of_the_wrong_size…`, `test_limits_searches_per_person` | Cumplido |
+
+**Prueba con Gemini real** (María, 125 huellas): «olor a lluvia» → 7 resultados en 1,1 s, todos
+de lluvia o humedad («Olor a tierra mojada…» primero); «nervios antes de algo importante» → «El
+olor a hospital en la cita médica me puso nerviosa»; «astronautas en Marte» → sin resultados.
 
 ---
 

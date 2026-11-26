@@ -15,6 +15,7 @@ from rest_framework.test import APIClient, APITestCase
 
 from apps.support.models import orientation_status
 from apps.traces.models import Memory, MemoryTrace, Trace
+from apps.traces.mood import mood_score
 
 from .models import AccessPin, ConsentRecord, DailyReminder, User
 
@@ -520,15 +521,16 @@ class SeedDemoTests(TestCase):
             with self.subTest(email=email):
                 user = User.objects.get(email=email)
                 in_window = [
-                    (timezone.localdate(at), intensity)
-                    for at, intensity in user.traces.values_list("happened_at", "mood_intensity")
+                    (timezone.localdate(at), mood_score(emotion, intensity))
+                    for at, emotion, intensity in user.traces.values_list("happened_at", "emotion", "mood_intensity")
                     if timezone.localdate(at) >= window_start
                 ]
                 distinct_days = {day for day, _ in in_window}
                 self.assertGreaterEqual(len(distinct_days), 14)
                 # Un solo día con muchas huellas no sirve: hay una huella baja por cada fecha distinta.
                 self.assertEqual(len(in_window), len(distinct_days))
-                self.assertTrue(all(intensity in (1, 2) for _, intensity in in_window))
+                # Ánimo 1 o 2: emoción difícil intensa o agradable débil (apps/traces/mood.py).
+                self.assertTrue(all(mood in (1, 2) for _, mood in in_window))
 
                 status = orientation_status(user)
                 self.assertTrue(status["show"])

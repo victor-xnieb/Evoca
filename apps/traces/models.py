@@ -53,6 +53,23 @@ class Trace(models.Model):
         return f"{self.get_sensory_type_display()}: {self.emotion} ({self.mood_intensity})"
 
 
+class TraceEmbedding(models.Model):
+    """
+    Vector de significado de una huella (HU12), guardado para no pedirlo en cada búsqueda. Se
+    recalcula cuando cambia lo que describe la huella (text_hash) o el modelo. Se borra con ella.
+    """
+
+    trace = models.OneToOneField(Trace, on_delete=models.CASCADE, primary_key=True, related_name="embedding")
+    model = models.CharField(max_length=80)
+    text_hash = models.CharField(max_length=64)
+    # float32 normalizados, uno tras otro (768 dimensiones = 3 KB por huella).
+    vector = models.BinaryField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.trace_id} ({self.model})"
+
+
 class Memory(models.Model):
     class Status(models.TextChoices):
         SUGGESTED = "suggested", "Sugerido"

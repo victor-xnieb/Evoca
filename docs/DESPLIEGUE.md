@@ -128,15 +128,18 @@ Las cuentas nuevas toman la contraseña y el PIN que ya tienes en `EVOCA_DEMO_PA
   se suspende y se reactiva sola.
 - **Notificaciones y PWA:** funcionan porque Render sirve todo por HTTPS. El aviso del
   recordatorio sigue llegando solo con la app abierta o en segundo plano (HU5, parcial).
-- **IA (HU8, HU9 y HU12):** sin `EVOCA_AI_API_KEY` la app funciona igual, sin sugerencia de emoción
-  ni recuerdos sugeridos (Valentina conserva sus dos sugerencias de la demo), y la búsqueda de
-  HU12 funciona por palabras. Con la clave, las
+- **IA (HU8, HU9, HU12 y HU13):** sin `EVOCA_AI_API_KEY` la app funciona igual, sin sugerencia de emoción
+  ni recuerdos sugeridos (Valentina conserva sus dos sugerencias de la demo), la búsqueda de
+  HU12 funciona por palabras y las estadísticas de HU13 muestran tipos y ánimo sin elementos. Con la clave, las
   notas viajan a Google: en el plan gratuito de Gemini pueden usarse para mejorar sus productos.
   Úsalo solo con datos de ejemplo.
 - **Búsqueda por significado (HU12) en una demo:** la primera búsqueda de cada cuenta prepara 40
-  huellas por vez (límite gratuito de 100 vectores por minuto). Con María (125 huellas) hacen
+  huellas por vez (límite gratuito de 100 vectores por minuto). Con María (137 huellas) hacen
   falta unas 3 búsquedas separadas por un minuto para que entren todas; mientras tanto la app
   avisa cuántas faltan. Los vectores quedan guardados en Neon, así que esto pasa una sola vez.
+- **Estadísticas de mis sensaciones (HU13) en una demo:** la primera vez que cada cuenta abre
+  Ánimo, la IA reconoce el elemento de sus huellas (80 por pedido, unos 3 s cada 40 notas). Con
+  María son dos pedidos seguidos que la app hace sola. Los elementos quedan guardados en Neon.
 - **Datos compartidos:** como la base es la rama `development` de Neon, las cuentas que se creen
   en Render aparecen también para el equipo. Las cuentas demo no afectan a otras: `reset` solo
   borra y recrea las cinco.

@@ -229,6 +229,8 @@ en la orientación de Mateo, que la pausa 7 días).
 | POST | `/api/v1/traces/search/` | HU12: huellas parecidas por significado a `query` (3 a 200 caracteres, en el cuerpo), de la más a la menos parecida, con `similarity` y `level` (`high`, `medium`, `low`). `mode`: `meaning` (IA) o `words` (respaldo por palabras); `pending`: huellas que la IA aún no ha preparado; `risk`: la frase tiene palabras de riesgo y no se buscó. 30 búsquedas por minuto |
 | GET/POST | `/api/v1/traces/` | Lista (la más reciente primero; filtros `?sensory_type=`, `?emotion=` y `?date=AAAA-MM-DD`) o crea huellas del usuario |
 | GET | `/api/v1/traces/catalog/` | Tipos sensoriales y emociones válidos, con su etiqueta |
+| GET | `/api/v1/traces/stats/?period=month|all` | HU13: huellas por tipo con su ánimo promedio, y los 5 elementos más frecuentes (`top_elements`) de los últimos 30 días o en total. Con menos de 10 huellas, `ready: false` y `missing` (cuántas faltan). No llama a la IA; `pending`: huellas cuyo elemento aún no se reconoce |
+| POST | `/api/v1/traces/stats/elements/` | HU13: la IA reconoce el elemento de las huellas que aún no lo tienen (80 por vez). `status`: `ok` o `unavailable`; `pending`: cuántas faltan. 10 pedidos por minuto |
 | GET | `/api/v1/traces/mood/?period=week|month` | Gráfica de ánimo: un punto por huella de los últimos 7 o 30 días con su `mood` (ánimo) e `intensity`, y el promedio del ánimo |
 | GET | `/api/v1/traces/calendar/?month=AAAA-MM` | Calendario: por día, la emoción dominante, la intensidad promedio y cuántas huellas hay |
 | GET/PATCH/DELETE | `/api/v1/traces/{id}/` | Consulta, modifica o elimina una huella propia |
@@ -263,6 +265,28 @@ compara con los de la persona (`apps/traces/search.py`).
 - **Palabras de riesgo (HU6):** si la frase tiene una («suicidio», «matarse», «quiero morir»…),
   se abre de inmediato la pantalla de ayuda, como al escribir una nota, y la búsqueda no se hace:
   ni la app ni el servidor la envían a la IA (`apps/support/risk.py`, misma regla en los dos).
+
+### Estadísticas de mis sensaciones (HU13)
+
+En **Ánimo**, la sección «Mis sensaciones» muestra cuántas huellas registra la persona de cada
+tipo (gráfica de barras con Recharts) y los 5 elementos que más registra, con su ánimo promedio,
+en los últimos 30 días o en total (`apps/traces/stats.py`). Al tocar un tipo se ve su ánimo
+promedio comparado con el general, como observación y no como diagnóstico, y sus elementos.
+
+- **Elementos:** la huella no guarda el elemento concreto (qué aroma, qué canción, qué lugar), así
+  que la IA lo saca de la nota una vez («El olor del café recién molido…» → «café») y se guarda en
+  `TraceElement`; se vuelve a pedir solo si cambian el tipo, la nota, el modelo o las
+  instrucciones. La IA recibe solo el tipo y la nota (40 notas por llamada). Si la nota no nombra
+  un elemento claro, queda vacío y no cuenta en los elementos.
+- **Sin esperar a la IA:** abrir las estadísticas no llama a la IA. Si hay huellas sin elemento,
+  la app pide `POST traces/stats/elements/` (como mucho `EVOCA_STATS_EXTRACT_PER_REQUEST`, 80, por
+  vez) y muestra «Estamos reconociendo los elementos…». Si la IA falla, los tipos y el ánimo
+  siguen completos y la app lo dice. Para dejar una cuenta lista de una vez:
+  `python manage.py extract_elements [--email ...]`.
+- **Ánimo:** el de HU4 y HU6 (emoción + intensidad, ver «Ánimo de una huella»).
+- **Menos de 10 huellas:** no hay estadísticas; la app dice cuántas faltan.
+- **Palabras de riesgo (HU6):** una nota que las tiene no se envía a la IA; cuenta en su tipo y en
+  el ánimo, pero no tiene elemento.
 
 ### Ánimo de una huella (HU4, HU6)
 

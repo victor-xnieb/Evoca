@@ -14,7 +14,7 @@ trabajo sigue la prioridad del Jira.
 | 1 | HU10 · Explorar mi mapa de recuerdos con esferas de color | SCRUM-20 | Highest | SCRUM-54 | SCRUM-55 | SCRUM-56 | `feature/hu10-mapa-esferas` | En dev |
 | 2 | HU9 · Recibir recuerdos sugeridos por IA | SCRUM-19 | High | SCRUM-51 | SCRUM-52 | SCRUM-53 | `feature/hu9-recuerdos-sugeridos-ia` | En dev |
 | 3 | HU12 · Buscar recuerdos por significado con IA | SCRUM-22 | Medium | SCRUM-60 | SCRUM-61 | SCRUM-62 | `feature/hu12-busqueda-significado-ia` | En dev |
-| 4 | HU13 · Ver estadísticas de mis sensaciones | SCRUM-23 | Medium | SCRUM-63 | SCRUM-64 | SCRUM-65 | `feature/hu13-estadisticas-sensaciones` | Pendiente |
+| 4 | HU13 · Ver estadísticas de mis sensaciones | SCRUM-23 | Medium | SCRUM-63 | SCRUM-64 | SCRUM-65 | `feature/hu13-estadisticas-sensaciones` | En rama, por aprobar |
 | 5 | HU11 · Marcar mis recuerdos centrales | SCRUM-21 | Low | SCRUM-57 | SCRUM-58 | SCRUM-59 | `feature/hu11-recuerdos-centrales` | Pendiente |
 | 6 | HU14 · Ver patrones de mi semana con IA | SCRUM-24 | Low | SCRUM-66 | SCRUM-67 | SCRUM-68 | `feature/hu14-patrones-semana-ia` | Pendiente |
 | 7 | HU15 · Descubrir mis islas | SCRUM-25 | Low | SCRUM-69 | SCRUM-70 | SCRUM-71 | `feature/hu15-islas` | Pendiente |
@@ -213,6 +213,76 @@ parecidas aunque no usen esas palabras, para recuperar un recuerdo sin acordarme
 **Prueba con Gemini real** (María, 125 huellas): «olor a lluvia» → 7 resultados en 1,1 s, todos
 de lluvia o humedad («Olor a tierra mojada…» primero); «nervios antes de algo importante» → «El
 olor a hospital en la cita médica me puso nerviosa»; «astronautas en Marte» → sin resultados.
+
+---
+
+## HU13 · Ver estadísticas de mis sensaciones (SCRUM-23)
+
+**Historia.** Como usuario, quiero ver qué aromas, canciones o lugares registro más y con qué
+ánimo, para descubrir qué cosas de mi entorno me afectan más.
+
+**Escenarios**
+
+1. Dado que tengo 10 o más huellas, cuando abro las estadísticas, entonces veo cuántas huellas
+   registro por tipo y los 5 elementos más frecuentes, en los últimos 30 días o en total.
+2. Dado que veo un tipo de sensación, cuando reviso su detalle, entonces veo el ánimo promedio
+   asociado, presentado como observación y no como diagnóstico.
+3. Dado que tengo menos de 10 huellas, cuando abro las estadísticas, entonces veo un mensaje que
+   me dice cuántas huellas faltan.
+
+**Subtareas:** Backend SCRUM-63 · Interfaz SCRUM-64 · Pruebas SCRUM-65.
+
+**Decisiones del equipo.** La huella no guarda el elemento concreto (solo tipo, nota, emoción,
+intensidad y etiquetas), así que «elemento» era ambiguo. El equipo eligió que la IA lo saque de
+la nota (por ejemplo «café», «salsa», «parque») y se guarde. Las estadísticas van como sección
+«Mis sensaciones» en **Ánimo**, sin botón nuevo en la barra.
+
+### Qué se hizo
+
+- **Backend (SCRUM-63):**
+  - `TraceElement` (migración `traces/0005_trace_element`): el elemento de cada huella, con un
+    resumen del tipo, la nota, el modelo y las instrucciones para saber cuándo volver a pedirlo.
+  - `apps/traces/stats.py`: la IA (Gemini, solo desde el servidor) recibe solo el tipo y la nota,
+    40 por llamada, y responde un elemento corto por huella; la respuesta se valida y se limpia
+    (minúsculas, sin artículo, máximo 40 caracteres). Las notas con palabras de riesgo (HU6) no
+    se envían.
+  - `GET /api/v1/traces/stats/?period=month|all`: huellas por tipo (los seis, de más a menos),
+    ánimo promedio de cada tipo y general (`mood_score`, emoción + intensidad), y los 5 elementos
+    más frecuentes del periodo y de cada tipo. Un elemento es el mismo con o sin tildes y
+    mayúsculas, pero «café» aroma y «café» sabor son dos. Empates: primero el más reciente. No
+    llama a la IA. Con menos de 10 huellas: `ready: false` y `missing`.
+  - `POST /api/v1/traces/stats/elements/`: reconoce hasta 80 huellas pendientes por pedido (las
+    más recientes primero), 10 pedidos por minuto por persona; si la IA falla responde
+    `unavailable` y no registra notas en los logs. Comando `extract_elements` para dejar una
+    cuenta lista de una vez.
+  - `seed_demo`: 12 huellas recientes de María que repiten café, lluvia, salsa, parque, cobija y
+    arepa (sin recuerdo y con ánimo agradable o neutro: no cambian el mapa ni la orientación).
+- **Interfaz (SCRUM-64):**
+  - Sección «Mis sensaciones» en Ánimo, con pestañas «30 días» y «Total».
+  - Gráfica de barras (Recharts) de huellas por tipo y, debajo, un botón por tipo con su número
+    (accesible por teclado y lector de pantalla). Al tocarlo se abre su detalle: «En tus huellas
+    de aroma, tu ánimo promedio fue 4,1 de 5, parecido a tu promedio general (4,0). Es
+    una observación de tus registros, no un diagnóstico.» y sus elementos.
+  - «Lo que más registras»: los 5 elementos con su tipo, cuántas huellas y su ánimo.
+  - Mientras la IA reconoce: «Estamos reconociendo los elementos de N huellas…». Si falla: aviso
+    con «Intentar de nuevo»; los tipos y el ánimo siguen completos.
+  - Con menos de 10 huellas: «Te faltan N huellas para ver tus estadísticas» con «Registrar una
+    huella». Sin huellas en 30 días: invita a ver el total. Error de carga con reintento.
+  - Componente `SensationBars` con su historia en Storybook.
+
+### Evidencia
+
+| Escenario | Prueba automática | Estado |
+| --- | --- | --- |
+| 1 · Huellas por tipo y 5 elementos más frecuentes, en 30 días o en total | `apps/traces/tests.py` (`SensationStatsTests`: `test_scenario_1_*`, `test_every_type_appears…`, `test_the_same_element_is_grouped…`, `test_the_same_name_in_two_types…`, `test_only_my_traces…`, `test_opening_the_stats_does_not_call_the_ai`); `frontend/src/app/hu13.test.tsx` (escenario 1) | Cumplido |
+| 2 · Ánimo promedio de un tipo, como observación y no diagnóstico | `test_scenario_2_*` (ánimo con emoción + intensidad); `hu13.test.tsx` (escenario 2: más alto, más bajo o parecido al general; siempre «no un diagnóstico») | Cumplido |
+| 3 · Con menos de 10 huellas dice cuántas faltan | `test_scenario_3_*` (7, 0 y 10 huellas; sin gastar IA); `hu13.test.tsx` (escenario 3, plural y singular) | Cumplido |
+| Exactitud de cálculos y errores de la IA (subtarea de pruebas) | `test_elements_are_stored_and_not_asked_again`, `test_editing_the_note_asks_again…`, `test_the_ai_reads_only_the_type_and_the_note`, `test_notes_with_risk_words_are_not_sent_to_the_ai`, `test_each_request_recognizes_at_most_the_limit…`, `test_big_requests_go_in_batches_of_40`, `test_when_the_ai_fails…` (sin red, tiempo agotado, 429), `test_unreadable_answers…`, `test_limits_extraction_requests_per_person`, `test_stats_of_200_traces_use_few_queries`, `ElementParsingTests`; `hu13.test.tsx` (reconociendo, IA no disponible, error) | Cumplido |
+
+**Prueba con Gemini real** (María, 137 huellas): las 137 notas se reconocen en dos pedidos (unos
+13 s en total, una sola vez). En 30 días: 32 huellas, ánimo 4,0; lo que más registra es café (4),
+salsa, lluvia, cobija y parque (3). Valentina (sin elementos aún) ve «Estamos reconociendo los
+elementos de 17 huellas…» y en unos 2 s aparecen sus elementos.
 
 ---
 

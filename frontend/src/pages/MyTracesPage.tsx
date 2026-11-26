@@ -102,7 +102,7 @@ export function MyTracesPage() {
         </p>
       )}
 
-      <MeaningSearchForm state={meaning.state} onSearch={meaning.search} onClear={meaning.clear} />
+      <MeaningSearchForm state={meaning.state} onSearch={meaning.search} onRisk={meaning.markRisk} onClear={meaning.clear} />
 
       {meaning.state.status !== "idle" && (
         <MeaningSearchResults

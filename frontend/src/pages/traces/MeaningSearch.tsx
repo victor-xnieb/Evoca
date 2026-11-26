@@ -1,4 +1,4 @@
-import { PenLine, Search, Sparkles, X } from "lucide-react"
+import { HeartHandshake, PenLine, Search, Sparkles, X } from "lucide-react"
 import { useId, useState, type FormEvent } from "react"
 import { useNavigate } from "react-router"
 
@@ -10,18 +10,29 @@ import { TraceCard } from "@/components/evoca/TraceCard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type { MeaningSearchState } from "@/hooks/use-meaning-search"
+import { useSupportContent } from "@/hooks/use-support-content"
 import { SEARCH_MAX_LENGTH, SEARCH_MIN_LENGTH } from "@/lib/search"
+import { findRiskTerms } from "@/lib/support"
 import { labelOf, type TraceCatalog } from "@/lib/traces"
 import type { Trace } from "@/lib/types"
+
+import { RiskHelp } from "./RiskHelp"
 
 export interface MeaningSearchFormProps {
   state: MeaningSearchState
   onSearch: (query: string) => void
+  /** La frase tiene palabras de riesgo (HU6): no se busca. */
+  onRisk: (query: string) => void
   onClear: () => void
 }
 
-/** La barra de «Buscar por significado» (HU12), encima de «Mis huellas». */
-export function MeaningSearchForm({ state, onSearch, onClear }: MeaningSearchFormProps) {
+/**
+ * La barra de «Buscar por significado» (HU12), encima de «Mis huellas». Como al escribir una
+ * nota (HU6), una palabra de riesgo abre de inmediato la pantalla de ayuda, y esa frase no se
+ * busca ni se envía a la IA.
+ */
+export function MeaningSearchForm({ state, onSearch, onRisk, onClear }: MeaningSearchFormProps) {
+  const content = useSupportContent()
   const active = state.status !== "idle"
   const [draft, setDraft] = useState(active ? state.query : "")
   const inputId = useId()
@@ -30,7 +41,9 @@ export function MeaningSearchForm({ state, onSearch, onClear }: MeaningSearchFor
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
-    if (ready) onSearch(draft)
+    if (!ready) return
+    if (findRiskTerms(draft, content?.risk_terms ?? []).length > 0) onRisk(draft)
+    else onSearch(draft)
   }
 
   return (
@@ -76,6 +89,7 @@ export function MeaningSearchForm({ state, onSearch, onClear }: MeaningSearchFor
           Escribe lo que recuerdas, con tus palabras: la IA encuentra huellas parecidas aunque no usen las mismas.
         </p>
       </form>
+      <RiskHelp text={draft} closeLabel="Volver a la búsqueda" />
     </GlassCard>
   )
 }
@@ -98,6 +112,32 @@ export function MeaningSearchResults({ state, catalog, onOpen, onRetry, onClear 
         <div role="status" aria-label="Buscando huellas parecidas" className="flex items-center gap-3">
           <EvocaLoader size="sm" />
           <span className="text-sm text-muted-foreground">Buscando huellas parecidas a «{state.query}»…</span>
+        </div>
+      </GlassCard>
+    )
+  }
+
+  if (state.status === "risk") {
+    return (
+      <GlassCard className="flex flex-col items-center gap-4 p-6 text-center" data-testid="search-risk">
+        <span aria-hidden="true" className="grid size-14 place-items-center rounded-full bg-support text-support-ink">
+          <HeartHandshake className="size-7" />
+        </span>
+        <div className="flex flex-col gap-2">
+          <h2 className="font-display text-2xl font-semibold">Estamos aquí contigo</h2>
+          <p className="text-base text-muted-foreground">
+            Esta búsqueda no la hacemos. Si estás pasando por un momento difícil, hablar con alguien puede ayudar: hay
+            personas preparadas para escucharte ahora mismo.
+          </p>
+        </div>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button className="h-11 rounded-full px-5" onClick={() => navigate("/ayuda")}>
+            <HeartHandshake aria-hidden="true" />
+            Ver líneas de ayuda
+          </Button>
+          <Button variant="ghost" className="h-11 rounded-full px-4" onClick={onClear}>
+            Volver a mis huellas
+          </Button>
         </div>
       </GlassCard>
     )

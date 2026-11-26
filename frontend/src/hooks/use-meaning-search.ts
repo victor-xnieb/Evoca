@@ -7,6 +7,8 @@ export type MeaningSearchState =
   | { status: "loading"; query: string }
   | { status: "ready"; query: string; response: SearchResponse }
   | { status: "error"; query: string; message: string }
+  /** HU6: la frase tiene palabras de riesgo; no se busca y se ofrece ayuda. */
+  | { status: "risk"; query: string }
 
 /**
  * La última búsqueda, en memoria (no en el navegador): al abrir una huella y volver, los
@@ -43,7 +45,8 @@ export function useMeaningSearch(userId: string | undefined) {
     searchApi
       .search(query, controller.signal)
       .then((response) => {
-        if (running.current === controller) setState({ status: "ready", query, response })
+        if (running.current !== controller) return
+        setState(response.risk ? { status: "risk", query } : { status: "ready", query, response })
       })
       .catch((error: Error) => {
         if (running.current !== controller) return
@@ -53,11 +56,18 @@ export function useMeaningSearch(userId: string | undefined) {
       .finally(() => window.clearTimeout(timeout))
   }, [])
 
+  /** La app ya detectó palabras de riesgo: no se pide nada al servidor. */
+  const markRisk = useCallback((raw: string) => {
+    running.current?.abort()
+    running.current = null
+    setState({ status: "risk", query: raw.trim() })
+  }, [])
+
   const clear = useCallback(() => {
     running.current?.abort()
     running.current = null
     setState({ status: "idle" })
   }, [])
 
-  return { state, search, clear }
+  return { state, search, markRisk, clear }
 }

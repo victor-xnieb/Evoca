@@ -3,13 +3,27 @@ import userEvent from "@testing-library/user-event"
 import { beforeAll, beforeEach, describe, expect, it } from "vitest"
 
 import { resetMeaningSearch } from "@/hooks/use-meaning-search"
+import { resetSupportContentCache } from "@/hooks/use-support-content"
 import type { SearchResponse } from "@/lib/search"
+import type { SupportContent } from "@/lib/support"
 import type { Trace } from "@/lib/types"
 import { EMOTION_OPTIONS, SAMPLE_TRACES, SENSORY_OPTIONS } from "@/mocks/fixtures"
 import { mockApi, SAMPLE_USER, sentBody } from "@/test/api-mock"
 import { renderApp } from "@/test/render-app"
 
 const CATALOG = { body: { sensory_types: SENSORY_OPTIONS, emotions: EMOTION_OPTIONS } }
+
+const SUPPORT: SupportContent = {
+  version: 1,
+  draft: true,
+  orientation_title: "Aquí hay apoyo si lo necesitas",
+  orientation_message: "Hablar con alguien puede ayudar.",
+  help_title: "Puedes hablar con alguien ahora",
+  help_message: "Lo que sientes importa. Llama a una de estas líneas.",
+  help_lines: [{ name: "Línea 192, opción 4", phone: "192", description: "Salud mental" }],
+  risk_terms: ["suicidio", "matarse", "matarme", "quiero morir"],
+  updated_at: "2026-11-06T10:00:00Z",
+}
 const LIST = { body: { count: SAMPLE_TRACES.length, next: null, previous: null, results: SAMPLE_TRACES } }
 
 function trace(id: string, note: string): Trace {
@@ -27,13 +41,20 @@ function reply(overrides: Partial<SearchResponse> = {}): { body: SearchResponse 
     { similarity: 0.68, level: "medium" as const, trace: WINDOW },
     { similarity: 0.62, level: "low" as const, trace: WOOL },
   ]
-  return { body: { query: "olor a lluvia", mode: "meaning", pending: 0, count: results.length, results, ...overrides } }
+  return { body: { query: "olor a lluvia", risk: false, mode: "meaning", pending: 0, count: results.length, results, ...overrides } }
 }
 
 type Handlers = Parameters<typeof mockApi>[0]
 
 function mockTraces(extra: Handlers = {}) {
-  return mockApi({ "GET traces/catalog/": CATALOG, "GET traces/": LIST, "POST traces/search/": reply(), ...extra })
+  return mockApi({
+    "GET traces/catalog/": CATALOG,
+    "GET traces/": LIST,
+    "GET support/content/": { body: SUPPORT },
+    "POST support/events/": { status: 201, body: {} },
+    "POST traces/search/": reply(),
+    ...extra,
+  })
 }
 
 const openMyTraces = () => renderApp({ path: "/mis-huellas", user: SAMPLE_USER, locked: false })
@@ -51,7 +72,11 @@ beforeAll(async () => {
   await import("@/pages/NewTracePage")
 }, 60_000)
 
-beforeEach(() => resetMeaningSearch())
+beforeEach(() => {
+  resetMeaningSearch()
+  resetSupportContentCache()
+  window.localStorage.clear()
+})
 
 describe("HU12 · Escenario 1: encontrar huellas por significado", () => {
   it("al buscar «olor a lluvia» muestra huellas relacionadas aunque no usen esas palabras", async () => {
@@ -191,5 +216,47 @@ describe("HU12 · Escenario 3: sin resultados, lo dice y propone registrar una h
     await user.click(screen.getByRole("button", { name: "Reintentar" }))
 
     expect(await screen.findByRole("list", { name: "Resultados, de la más a la menos parecida" })).toBeInTheDocument()
+  })
+})
+
+describe("HU12 con HU6: una búsqueda con palabras de riesgo no se hace y ofrece ayuda", () => {
+  it("al escribir «suicidio» se abre de inmediato la pantalla de ayuda, como en la nota", async () => {
+    const fetchMock = mockTraces()
+    const user = userEvent.setup()
+    openMyTraces()
+
+    await user.type(await searchBox(), "suicidio")
+
+    const dialog = await screen.findByRole("dialog", { name: SUPPORT.help_title })
+    expect(within(dialog).getByRole("link", { name: /Línea 192/ })).toHaveAttribute("href", "tel:192")
+    expect(searchCalls(fetchMock)).toHaveLength(0)
+  })
+
+  it("al buscarla no llama al servidor ni a la IA y ofrece las líneas de ayuda", async () => {
+    const fetchMock = mockTraces()
+    const user = userEvent.setup()
+    const router = openMyTraces()
+
+    await user.type(await searchBox(), "pensé en matarme")
+    await user.click(within(await screen.findByRole("dialog", { name: SUPPORT.help_title })).getByRole("button", { name: "Volver a la búsqueda" }))
+    await user.click(screen.getByRole("button", { name: "Buscar" }))
+
+    expect(await screen.findByRole("heading", { name: "Estamos aquí contigo" })).toBeInTheDocument()
+    expect(searchCalls(fetchMock)).toHaveLength(0)
+    expect(screen.queryByRole("list", { name: "Resultados, de la más a la menos parecida" })).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Ver líneas de ayuda" }))
+    await waitFor(() => expect(router.state.location.pathname).toBe("/ayuda"))
+  })
+
+  it("si el servidor detecta riesgo en una frase que la app no conocía, muestra lo mismo", async () => {
+    mockTraces({ "POST traces/search/": reply({ query: "frase nueva de riesgo", risk: true, count: 0, results: [] }) })
+    const user = userEvent.setup()
+    openMyTraces()
+
+    await searchFor(user, "frase nueva de riesgo")
+
+    expect(await screen.findByRole("heading", { name: "Estamos aquí contigo" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Volver a mis huellas" }))
+    expect(await screen.findByRole("list", { name: "Lista de huellas" })).toBeInTheDocument()
   })
 })

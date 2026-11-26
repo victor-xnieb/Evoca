@@ -16,6 +16,8 @@ export interface SearchResult {
 /** Resultado de POST /traces/search/ (HU12). */
 export interface SearchResponse {
   query: string
+  /** HU6: la frase tiene palabras de riesgo; no se buscó ni se envió a la IA. */
+  risk: boolean
   mode: SearchMode
   /** Huellas que la IA aún no ha preparado y no entraron en esta búsqueda. */
   pending: number

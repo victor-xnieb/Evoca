@@ -61,22 +61,23 @@ MARIA = [
 ]
 
 # Ánimo bajo (2 o menos) en los 15 días anteriores a hoy: al abrir la app ve la orientación (HU6).
+# El ánimo combina emoción e intensidad (apps/traces/mood.py): tristezas y ansiedades intensas.
 MATEO = [
-    (1, 21, 30, "song", "tristeza", 2, "Escuché la playlist que hicimos juntos y me quedé callado un buen rato."),
-    (2, 22, 10, "place", "tristeza", 1, "Pasé frente a la cafetería donde nos veíamos los viernes."),
-    (3, 20, 0, "color", "ansiedad", 2, "El gris de la oficina me tuvo inquieto toda la tarde."),
-    (4, 23, 15, "texture", "tristeza", 2, "Las sábanas frías y la casa en silencio por la noche."),
-    (5, 19, 45, "aroma", "ansiedad", 2, "El olor a café quemado de la reunión que salió mal."),
-    (6, 21, 0, "flavor", "tristeza", 1, "Comí solo la sopa que preparaba mi mamá y no me supo igual."),
-    (7, 22, 30, "song", "nostalgia", 2, "Una canción del colegio me recordó a los amigos que ya no veo."),
-    (8, 18, 20, "place", "miedo", 2, "Caminar por la estación llena de gente me dio miedo de perderme."),
-    (9, 20, 40, "color", "tristeza", 1, "Llovió todo el día y el cielo no cambió de color."),
-    (10, 21, 50, "texture", "ansiedad", 2, "La corbata apretada antes de la entrevista de trabajo."),
-    (11, 19, 10, "aroma", "tristeza", 2, "El perfume de alguien en el bus me recordó a una persona que extraño."),
-    (12, 22, 0, "flavor", "enojo", 2, "El almuerzo frío después de esperar una hora por un trámite."),
-    (13, 20, 30, "song", "tristeza", 1, "Me quedé despierto escuchando música triste hasta tarde."),
-    (14, 21, 15, "place", "ansiedad", 2, "La sala de espera del médico estaba llena y no paraba de mirar el reloj."),
-    (15, 18, 0, "color", "tristeza", 2, "Las fotos en blanco y negro del álbum familiar."),
+    (1, 21, 30, "song", "tristeza", 4, "Escuché la playlist que hicimos juntos y me quedé callado un buen rato."),
+    (2, 22, 10, "place", "tristeza", 5, "Pasé frente a la cafetería donde nos veíamos los viernes."),
+    (3, 20, 0, "color", "ansiedad", 4, "El gris de la oficina me tuvo inquieto toda la tarde."),
+    (4, 23, 15, "texture", "tristeza", 4, "Las sábanas frías y la casa en silencio por la noche."),
+    (5, 19, 45, "aroma", "ansiedad", 4, "El olor a café quemado de la reunión que salió mal."),
+    (6, 21, 0, "flavor", "tristeza", 5, "Comí solo la sopa que preparaba mi mamá y no me supo igual."),
+    (7, 22, 30, "song", "tristeza", 4, "Una canción del colegio me recordó a los amigos que ya no veo."),
+    (8, 18, 20, "place", "miedo", 4, "Caminar por la estación llena de gente me dio miedo de perderme."),
+    (9, 20, 40, "color", "tristeza", 5, "Llovió todo el día y el cielo no cambió de color."),
+    (10, 21, 50, "texture", "ansiedad", 4, "La corbata apretada antes de la entrevista de trabajo."),
+    (11, 19, 10, "aroma", "tristeza", 4, "El perfume de alguien en el bus me recordó a una persona que extraño."),
+    (12, 22, 0, "flavor", "enojo", 4, "El almuerzo frío después de esperar una hora por un trámite."),
+    (13, 20, 30, "song", "tristeza", 5, "Me quedé despierto escuchando música triste hasta tarde."),
+    (14, 21, 15, "place", "ansiedad", 4, "La sala de espera del médico estaba llena y no paraba de mirar el reloj."),
+    (15, 18, 0, "color", "tristeza", 4, "Las fotos en blanco y negro del álbum familiar."),
     (24, 12, 30, "flavor", "calma", 3, "Un pandebono con café en la mañana tranquila del domingo."),
     (30, 17, 0, "place", "alegria", 4, "El partido con los amigos del barrio en la cancha de siempre."),
     (38, 10, 0, "song", "gratitud", 4, "Mi hermano me dedicó una canción en mi cumpleaños."),
@@ -102,49 +103,51 @@ JULIANA = [
     (20, 18, 40, "place", "nostalgia", 3, "La plaza del pueblo de mis abuelos en las fiestas de diciembre."),
 ]
 
-# Segunda cuenta para HU6: 16 días DISTINTOS (del 1 al 16 atrás) con ánimo 1 o 2, todos dentro de
+# Segunda cuenta para HU6: 16 días DISTINTOS (del 1 al 16 atrás) con ánimo 1 o 2 (emociones difíciles de
+# intensidad 4 o 5, o agradables de 1 o 2), todos dentro de
 # los últimos 21 días, así que al abrir la app aparece la orientación. Un solo día no sirve: la
 # regla cuenta días distintos. Tres huellas más antiguas (fuera de los 21 días) completan el historial.
 VALENTINA = [
-    (1, 21, 10, "song", "tristeza", 2, "Puse la canción que cantábamos en el carro y se me hizo un nudo en la garganta."),
-    (2, 22, 30, "aroma", "ansiedad", 2, "El olor a pintura fresca en la oficina nueva me dejó con los hombros tensos todo el día."),
-    (3, 20, 0, "place", "miedo", 1, "El pasillo oscuro del edificio al llegar tarde me aceleró el corazón."),
-    (4, 19, 30, "texture", "enojo", 2, "La silla incómoda de la sala de espera después de dos horas de trámite."),
-    (5, 21, 45, "flavor", "nostalgia", 2, "El arroz con leche igual al de la abuela, pero sin la abuela."),
-    (6, 18, 20, "color", "tristeza", 1, "Todo se veía gris desde la ventana y no tuve ganas de salir."),
-    (7, 22, 5, "song", "ansiedad", 2, "La alarma del celular sonando antes de la presentación."),
-    (8, 20, 40, "aroma", "tristeza", 2, "Pasó alguien con el mismo perfume que usaba mi mejor amigo."),
-    (9, 19, 10, "place", "nostalgia", 1, "Volví a la cancha donde jugábamos de niños y estaba vacía."),
-    (10, 21, 25, "texture", "miedo", 2, "Las manos frías y sudadas antes de la entrevista."),
+    (1, 21, 10, "song", "tristeza", 4, "Puse la canción que cantábamos en el carro y se me hizo un nudo en la garganta."),
+    (2, 22, 30, "aroma", "ansiedad", 4, "El olor a pintura fresca en la oficina nueva me dejó con los hombros tensos todo el día."),
+    (3, 20, 0, "place", "miedo", 5, "El pasillo oscuro del edificio al llegar tarde me aceleró el corazón."),
+    (4, 19, 30, "texture", "enojo", 4, "La silla incómoda de la sala de espera después de dos horas de trámite."),
+    (5, 21, 45, "flavor", "tristeza", 4, "El arroz con leche igual al de la abuela, pero sin la abuela."),
+    (6, 18, 20, "color", "tristeza", 5, "Todo se veía gris desde la ventana y no tuve ganas de salir."),
+    (7, 22, 5, "song", "ansiedad", 4, "La alarma del celular sonando antes de la presentación."),
+    (8, 20, 40, "aroma", "tristeza", 4, "Pasó alguien con el mismo perfume que usaba mi mejor amigo."),
+    (9, 19, 10, "place", "tristeza", 5, "Volví a la cancha donde jugábamos de niños y estaba vacía."),
+    (10, 21, 25, "texture", "miedo", 4, "Las manos frías y sudadas antes de la entrevista."),
     (11, 18, 50, "flavor", "calma", 2, "Una aromática caliente, lo único que me tranquilizó hoy."),
-    (12, 20, 15, "color", "enojo", 2, "El rojo del semáforo y el pitazo de los carros me sacaron de quicio."),
-    (13, 22, 10, "song", "tristeza", 1, "Una balada lenta y me quedé mirando el techo hasta tarde."),
+    (12, 20, 15, "color", "enojo", 4, "El rojo del semáforo y el pitazo de los carros me sacaron de quicio."),
+    (13, 22, 10, "song", "tristeza", 5, "Una balada lenta y me quedé mirando el techo hasta tarde."),
     (14, 17, 35, "aroma", "gratitud", 2, "El café que me dejó un compañero en el escritorio sin decir nada: se lo agradecí."),
-    (15, 21, 0, "place", "ansiedad", 2, "La fila del banco que no avanzaba y la cita que se me hacía tarde."),
+    (15, 21, 0, "place", "ansiedad", 4, "La fila del banco que no avanzaba y la cita que se me hacía tarde."),
     (16, 19, 45, "texture", "alegria", 2, "Un rato corto de sol en la cara en el descanso, aunque el día fue pesado."),
     (24, 12, 30, "flavor", "alegria", 4, "Almuerzo con la familia: sancocho y risas en la mesa grande."),
     (31, 10, 0, "song", "calma", 4, "Música suave mientras caminaba por el parque."),
     (40, 16, 20, "color", "gratitud", 5, "El atardecer desde el mirador con mis amigos."),
 ]
 
-# Tercera cuenta para HU6: 15 días DISTINTOS (del 1 al 15 atrás) con ánimo 1 o 2, todos dentro de
+# Tercera cuenta para HU6: 15 días DISTINTOS (del 1 al 15 atrás) con ánimo 1 o 2 (emociones difíciles de
+# intensidad 4 o 5, o agradables de 1 o 2), todos dentro de
 # los últimos 21 días, así que al abrir la app aparece la orientación. Dos huellas más antiguas
 # (fuera de los 21 días) completan el historial.
 SANTIAGO = [
-    (1, 20, 40, "song", "tristeza", 2, "Sonó el bolero que cantaba mi papá y tuve que apagar la radio."),
-    (2, 21, 15, "place", "ansiedad", 2, "La estación del metro llena de gente a la hora pico me dejó sin aire."),
-    (3, 19, 0, "aroma", "tristeza", 1, "El olor a jabón de la ropa recién lavada me recordó la casa de antes."),
-    (4, 22, 20, "texture", "miedo", 2, "El silencio del apartamento y la manija de la puerta fría al llegar de noche."),
-    (5, 18, 30, "color", "tristeza", 2, "El cielo gris y las ganas de no contestar mensajes en todo el día."),
-    (6, 20, 10, "flavor", "enojo", 2, "El almuerzo salió mal y la discusión por teléfono me dejó con el estómago cerrado."),
-    (7, 21, 50, "song", "nostalgia", 1, "Una canción de la universidad y las fotos del grupo que ya no se junta."),
-    (8, 19, 25, "place", "ansiedad", 2, "El pasillo del hospital mientras esperaba los resultados de mi mamá."),
-    (9, 22, 0, "aroma", "tristeza", 2, "El olor a lluvia en el asfalto y el cansancio de toda la semana."),
-    (10, 20, 35, "texture", "ansiedad", 2, "Las manos frías sobre el teclado antes de enviar el correo importante."),
+    (1, 20, 40, "song", "tristeza", 4, "Sonó el bolero que cantaba mi papá y tuve que apagar la radio."),
+    (2, 21, 15, "place", "ansiedad", 4, "La estación del metro llena de gente a la hora pico me dejó sin aire."),
+    (3, 19, 0, "aroma", "tristeza", 5, "El olor a jabón de la ropa recién lavada me recordó la casa de antes."),
+    (4, 22, 20, "texture", "miedo", 4, "El silencio del apartamento y la manija de la puerta fría al llegar de noche."),
+    (5, 18, 30, "color", "tristeza", 4, "El cielo gris y las ganas de no contestar mensajes en todo el día."),
+    (6, 20, 10, "flavor", "enojo", 4, "El almuerzo salió mal y la discusión por teléfono me dejó con el estómago cerrado."),
+    (7, 21, 50, "song", "tristeza", 5, "Una canción de la universidad y las fotos del grupo que ya no se junta."),
+    (8, 19, 25, "place", "ansiedad", 4, "El pasillo del hospital mientras esperaba los resultados de mi mamá."),
+    (9, 22, 0, "aroma", "tristeza", 4, "El olor a lluvia en el asfalto y el cansancio de toda la semana."),
+    (10, 20, 35, "texture", "ansiedad", 4, "Las manos frías sobre el teclado antes de enviar el correo importante."),
     (11, 18, 45, "color", "calma", 2, "El verde del parque, el único rato del día en que respiré tranquilo."),
-    (12, 21, 5, "flavor", "tristeza", 1, "Comí sin hambre el arroz de ayer, solo por cumplir."),
-    (13, 19, 40, "song", "miedo", 2, "El timbre de una llamada desconocida a deshoras me aceleró el pulso."),
-    (14, 20, 20, "place", "nostalgia", 2, "Pasé por la panadería donde desayunábamos y ya cambiaron el letrero."),
+    (12, 21, 5, "flavor", "tristeza", 5, "Comí sin hambre el arroz de ayer, solo por cumplir."),
+    (13, 19, 40, "song", "miedo", 4, "El timbre de una llamada desconocida a deshoras me aceleró el pulso."),
+    (14, 20, 20, "place", "tristeza", 4, "Pasé por la panadería donde desayunábamos y ya cambiaron el letrero."),
     (15, 17, 55, "aroma", "gratitud", 2, "El café que me preparó un vecino sin preguntar nada: se lo agradecí."),
     (26, 11, 30, "flavor", "alegria", 4, "Almuerzo de domingo con mis primos, mucha risa y sobremesa larga."),
     (36, 16, 10, "color", "calma", 4, "El azul del mar desde el muelle en el viaje de fin de año."),

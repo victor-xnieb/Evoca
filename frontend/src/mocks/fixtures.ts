@@ -79,6 +79,13 @@ export const SAMPLE_MOOD_POINTS: MoodPoint[] = SAMPLE_EMOTIONS.map((emotion, ind
   id: `punto-${index}`,
   date: new Date(FIXED_NOW.getTime() - (6 - index) * 24 * 60 * 60 * 1000).toISOString(),
   intensity: [3, 4, 5, 3, 2, 4, 2][index],
+  // Ánimo como lo calcula el servidor: igual a la intensidad en emociones agradables, 6 − intensidad
+  // en las difíciles y 3 en la nostalgia.
+  mood: ["calma", "alegria", "gratitud"].includes(emotion)
+    ? [3, 4, 5, 3, 2, 4, 2][index]
+    : emotion === "nostalgia"
+      ? 3
+      : 6 - [3, 4, 5, 3, 2, 4, 2][index],
   emotion,
   emotionLabel: emotionLabel(emotion),
 }))

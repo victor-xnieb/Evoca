@@ -223,13 +223,13 @@ en la orientación de Mateo, que la pausa 7 días).
 | GET | `/api/v1/auth/reminder/status/` | Si toca avisar ahora (hora alcanzada, sin aviso pendiente y sin huella hoy) |
 | POST | `/api/v1/auth/reminder/ack/` | Marca el aviso para no repetirlo hoy (o, cada hora, en esta hora) |
 | GET | `/api/v1/support/content/` | Textos, líneas de ayuda y palabras de riesgo vigentes (la versión aprobada más reciente) |
-| GET | `/api/v1/support/orientation/` | Si toca mostrar la orientación (ánimo de 2 o menos en 14 de los últimos 21 días) |
+| GET | `/api/v1/support/orientation/` | Si toca mostrar la orientación (ánimo de 2 o menos en 14 de los últimos 21 días; el ánimo combina emoción e intensidad, ver «Ánimo de una huella») |
 | POST | `/api/v1/support/events/` | Registra qué hizo la persona con la orientación (solo el tipo de evento) |
 | POST | `/api/v1/traces/suggest/` | Propone emoción e intensidad desde la nota (10 palabras o más) con IA; no guarda nada |
 | POST | `/api/v1/traces/search/` | HU12: huellas parecidas por significado a `query` (3 a 200 caracteres, en el cuerpo), de la más a la menos parecida, con `similarity` y `level` (`high`, `medium`, `low`). `mode`: `meaning` (IA) o `words` (respaldo por palabras); `pending`: huellas que la IA aún no ha preparado; `risk`: la frase tiene palabras de riesgo y no se buscó. 30 búsquedas por minuto |
 | GET/POST | `/api/v1/traces/` | Lista (la más reciente primero; filtros `?sensory_type=`, `?emotion=` y `?date=AAAA-MM-DD`) o crea huellas del usuario |
 | GET | `/api/v1/traces/catalog/` | Tipos sensoriales y emociones válidos, con su etiqueta |
-| GET | `/api/v1/traces/mood/?period=week|month` | Gráfica de ánimo: un punto por huella de los últimos 7 o 30 días y el promedio |
+| GET | `/api/v1/traces/mood/?period=week|month` | Gráfica de ánimo: un punto por huella de los últimos 7 o 30 días con su `mood` (ánimo) e `intensity`, y el promedio del ánimo |
 | GET | `/api/v1/traces/calendar/?month=AAAA-MM` | Calendario: por día, la emoción dominante, la intensidad promedio y cuántas huellas hay |
 | GET/PATCH/DELETE | `/api/v1/traces/{id}/` | Consulta, modifica o elimina una huella propia |
 | GET | `/api/v1/memories/` | Mapa de recuerdos como grafo (HU10): `nodes` (recuerdos aceptados con emoción dominante, número de huellas y `match`) y `edges` (`source`, `target`, `score` de 0 a 1 y `reason`). Filtros `?sensory_type=` y `?emotion=`: los nodos que no coinciden llegan con `match: false` y las aristas se calculan solo entre los que coinciden |
@@ -263,6 +263,21 @@ compara con los de la persona (`apps/traces/search.py`).
 - **Palabras de riesgo (HU6):** si la frase tiene una («suicidio», «matarse», «quiero morir»…),
   se abre de inmediato la pantalla de ayuda, como al escribir una nota, y la búsqueda no se hace:
   ni la app ni el servidor la envían a la IA (`apps/support/risk.py`, misma regla en los dos).
+
+### Ánimo de una huella (HU4, HU6)
+
+La intensidad dice qué tan fuerte fue una emoción, no qué tan bien estaba la persona. Por eso el
+ánimo de una huella (1 a 5) combina las dos cosas (`apps/traces/mood.py`):
+
+| Emoción | Ánimo |
+| --- | --- |
+| Alegría, calma, gratitud | Igual a la intensidad (5 = muy bien, 1 = mal) |
+| Tristeza, ansiedad, enojo, miedo | 6 − intensidad (5 = muy mal, 1 = bien) |
+| Nostalgia | Neutro (3), sea cual sea la intensidad |
+
+Lo usan la orientación de HU6 (un día es bajo si el promedio del ánimo de sus huellas es 2 o
+menos) y la gráfica de HU4. El calendario de HU7 sigue mostrando la intensidad promedio, que sí
+es intensidad.
 
 ### Recuerdos sugeridos con IA (HU9)
 

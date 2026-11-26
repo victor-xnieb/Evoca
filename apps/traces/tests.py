@@ -21,6 +21,7 @@ from apps.accounts.models import User
 from . import ai, memory_ai, memory_map, search
 from .management.commands.suggestion_stats import acceptance_stats
 from .models import Memory, MemoryTrace, Trace, TraceEmbedding
+from .mood import mood_score
 
 
 class TraceApiTests(APITestCase):
@@ -358,6 +359,18 @@ class MoodChartTests(APITestCase):
 
         self.assertEqual(response.data["average"], 3.7)
 
+    def test_points_and_average_use_the_mood_not_the_raw_intensity(self):
+        """Una tristeza 5 es ánimo 1 y una alegría 5, ánimo 5: el promedio del periodo es 3."""
+        self.add(1, 5, emotion="tristeza")
+        self.add(2, 5, emotion="alegria")
+        self.add(3, 4, emotion="nostalgia")
+
+        response = self.client.get(self.url, {"period": "week"})
+
+        moods = {point["emotion"]: (point["mood"], point["intensity"]) for point in response.data["points"]}
+        self.assertEqual(moods, {"tristeza": (1, 5), "alegria": (5, 5), "nostalgia": (3, 4)})
+        self.assertEqual(response.data["average"], 3.0)
+
     def test_empty_period_has_no_points_and_no_average(self):
         self.add(20, 3)  # solo hay datos del mes, no de la semana
 
@@ -414,7 +427,8 @@ class MoodChartTests(APITestCase):
         Trace.objects.bulk_update(created, ["created_at"])
 
         started = clock.perf_counter()
-        with self.assertNumQueries(2):
+        # Una sola consulta: el ánimo se calcula al armar los puntos.
+        with self.assertNumQueries(1):
             response = self.client.get(self.url, {"period": "month"})
         elapsed = clock.perf_counter() - started
 
@@ -1635,3 +1649,25 @@ class MeaningSearchTests(APITestCase):
         self.assertIn("3 huellas listas, 0 por preparar", output.getvalue())
         self.assertNotIn("abuela", output.getvalue())
         self.assertNotIn("busca@example.com", output.getvalue())
+
+
+class MoodScoreTests(SimpleTestCase):
+    """El ánimo de una huella combina emoción e intensidad (HU4, HU6)."""
+
+    def test_pleasant_emotions_keep_their_intensity(self):
+        for emotion in ["alegria", "calma", "gratitud"]:
+            with self.subTest(emotion=emotion):
+                self.assertEqual([mood_score(emotion, value) for value in range(1, 6)], [1, 2, 3, 4, 5])
+
+    def test_difficult_emotions_invert_it(self):
+        for emotion in ["tristeza", "ansiedad", "enojo", "miedo"]:
+            with self.subTest(emotion=emotion):
+                self.assertEqual([mood_score(emotion, value) for value in range(1, 6)], [5, 4, 3, 2, 1])
+
+    def test_nostalgia_is_neutral(self):
+        self.assertEqual({mood_score("nostalgia", value) for value in range(1, 6)}, {3})
+
+    def test_every_emotion_has_a_rule(self):
+        from .mood import DIFFICULT, PLEASANT
+
+        self.assertEqual(set(Trace.Emotion.values) - PLEASANT - DIFFICULT, {"nostalgia"})

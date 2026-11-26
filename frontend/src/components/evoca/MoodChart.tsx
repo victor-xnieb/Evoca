@@ -22,6 +22,9 @@ export interface MoodPoint {
   id: string
   /** Fecha y hora ISO del registro real. */
   date: string
+  /** Ánimo de 1 a 5: combina la emoción con su intensidad (lo calcula el servidor). */
+  mood: number
+  /** Qué tan fuerte fue la emoción, de 1 a 5. */
   intensity: number
   emotion: string
   emotionLabel: string
@@ -72,17 +75,20 @@ function ChartTooltip({ active, payload }: TooltipContentProps) {
   if (!datum) return null
   return (
     <div className="rounded-xl border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-lifted">
-      <p className="font-semibold">{datum.emotionLabel}</p>
+      <p className="font-semibold">
+        {datum.emotionLabel} · intensidad {datum.intensity} de 5
+      </p>
       <p className="text-muted-foreground">
-        Intensidad {datum.intensity} de 5 · {formatDate(datum.date, { hour: "numeric", minute: "2-digit" })}
+        Ánimo {datum.mood} de 5 · {formatDate(datum.date, { hour: "numeric", minute: "2-digit" })}
       </p>
     </div>
   )
 }
 
 /**
- * Gráfica de ánimo: un punto por registro real (color + ícono de su emoción), línea de
- * promedio del periodo, descripción textual y tabla alternativa accesible.
+ * Gráfica de ánimo: un punto por registro real (color + ícono de su emoción) a la altura de su
+ * ánimo, que combina la emoción con su intensidad; línea de promedio del periodo, descripción
+ * textual y tabla alternativa accesible.
  */
 export function MoodChart({
   points,
@@ -137,14 +143,20 @@ export function MoodChart({
   const summary =
     average === null
       ? `${points.length} registros ${periodLabel}.`
-      : `Promedio ${periodLabel}: ${formatAverage(average)} de 5, con ${points.length} ${
+      : `Ánimo promedio ${periodLabel}: ${formatAverage(average)} de 5, con ${points.length} ${
           points.length === 1 ? "registro" : "registros"
         }.`
 
   return (
     <figure className={cn("flex flex-col gap-4", className)} aria-describedby={summaryId}>
       <figcaption id={summaryId} className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="text-lg font-semibold">{summary}</span>
+        <span className="flex flex-col gap-1">
+          <span className="text-lg font-semibold">{summary}</span>
+          <span className="text-sm text-muted-foreground">
+            El ánimo combina la emoción y su intensidad: una tristeza o una ansiedad intensa lo bajan, y una alegría o una
+            calma intensa lo suben.
+          </span>
+        </span>
         <Button variant="ghost" size="sm" onClick={() => setShowTable((value) => !value)} aria-expanded={showTable}>
           {showTable ? "Ver gráfica" : "Ver como tabla"}
         </Button>
@@ -159,6 +171,7 @@ export function MoodChart({
               <th scope="col" className="px-4 py-2 font-semibold">Fecha</th>
               <th scope="col" className="px-4 py-2 font-semibold">Emoción</th>
               <th scope="col" className="px-4 py-2 font-semibold">Intensidad</th>
+              <th scope="col" className="px-4 py-2 font-semibold">Ánimo</th>
             </tr>
           </thead>
           <tbody>
@@ -167,6 +180,7 @@ export function MoodChart({
                 <td className="px-4 py-2">{formatDate(datum.date, { hour: "numeric", minute: "2-digit" })}</td>
                 <td className="px-4 py-2">{datum.emotionLabel}</td>
                 <td className="px-4 py-2 tabular-nums">{datum.intensity} de 5</td>
+                <td className="px-4 py-2 tabular-nums">{datum.mood} de 5</td>
               </tr>
             ))}
           </tbody>
@@ -212,7 +226,7 @@ export function MoodChart({
               <Tooltip content={<ChartTooltip />} cursor={{ stroke: "var(--border)" }} />
               <Line
                 type="monotone"
-                dataKey="intensity"
+                dataKey="mood"
                 stroke="var(--foreground)"
                 strokeOpacity={0.35}
                 strokeWidth={2.5}

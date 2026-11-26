@@ -266,7 +266,7 @@ cuándo y cómo buscar apoyo profesional sin recibir diagnósticos.
 
 | Escenario | Medida | Prueba automática | Pantalla | Estado |
 | --- | --- | --- | --- | --- |
-| 1 · Con ánimo de 2 o menos en 14 de los últimos 21 días, al abrir la app veo un mensaje de orientación cálido y sin diagnóstico | Ánimo del día = promedio de la intensidad de sus huellas; 14 días bajos sí, 13 no; ventana de 21 días en hora de Bogotá; los días sin huellas no cuentan | `apps/support/tests.py` (`OrientationTests`: `test_shows_with_fourteen_low_days_in_the_last_twenty_one`, `test_thirteen_low_days_are_not_enough`, `test_a_day_is_low_when_its_average_is_two_or_less`, `test_only_the_last_twenty_one_days_count`, `test_days_without_traces_do_not_count_as_low`, `test_never_counts_other_peoples_traces`); `frontend/src/app/hu6.test.tsx` (escenario 1: sin palabras de diagnóstico; sin mensaje si no se cumple la regla) | Inicio ([captura](capturas/hu6-orientacion.jpg)) | Cumplido |
+| 1 · Con ánimo de 2 o menos en 14 de los últimos 21 días, al abrir la app veo un mensaje de orientación cálido y sin diagnóstico | Ánimo del día = promedio del ánimo de sus huellas, que combina emoción e intensidad (ver «Corrección posterior»); 14 días bajos sí, 13 no; ventana de 21 días en hora de Bogotá; los días sin huellas no cuentan | `apps/support/tests.py` (`OrientationTests`: `test_shows_with_fourteen_low_days_in_the_last_twenty_one`, `test_thirteen_low_days_are_not_enough`, `test_a_day_is_low_when_its_average_is_two_or_less`, `test_only_the_last_twenty_one_days_count`, `test_days_without_traces_do_not_count_as_low`, `test_never_counts_other_peoples_traces`); `frontend/src/app/hu6.test.tsx` (escenario 1: sin palabras de diagnóstico; sin mensaje si no se cumple la regla) | Inicio ([captura](capturas/hu6-orientacion.jpg)) | Cumplido |
 | 1 · …puedo cerrarlo con «Ahora no» y la app registra si abrí la ruta de ayuda | Eventos `orientation_shown`, `orientation_dismissed` y `help_opened`, sin texto; tras responder no vuelve a aparecer en 7 días | `test_now_not_closes_it_for_seven_days`, `test_records_when_the_help_route_is_opened`, `test_events_only_store_the_kind_never_text`, `test_export_includes_and_account_deletion_removes_the_events`; `hu6.test.tsx` («Ahora no» y ruta de ayuda) | `/ayuda` ([captura](capturas/hu6-ruta-ayuda.jpg)) | Cumplido |
 | 2 · Al escribir una palabra de riesgo aparece de inmediato una pantalla con líneas oficiales, sin pasos intermedios | Se abre con la letra que completa la frase, sin guardar ni enviar la nota; las líneas se llaman con un toque (`tel:`) y el foco va a la primera; sin importar mayúsculas, tildes ni signos, y no dentro de otras palabras | `hu6.test.tsx` (escenario 2: al completar la frase; no se reabre por la misma frase pero sí por una nueva; al editar, lo ya escrito no la abre; normalización) | Pantalla completa ([claro](capturas/hu6-ayuda-inmediata.jpg), [oscuro](capturas/hu6-ayuda-oscuro.jpg)) | Cumplido |
 | 3 · Cuando el psicólogo asesor aprueba y actualiza textos y palabras, la app usa la nueva versión sin publicarse de nuevo | La app pide el contenido al servidor cada vez que lo usa; se sirve la versión aprobada más reciente; un borrador nuevo no reemplaza a la aprobada | `SupportContentTests` (`test_an_approved_version_replaces_the_previous_one`, `test_a_newer_draft_does_not_replace_the_approved_version`, `test_approval_needs_who_approved_it`, `test_each_line_needs_a_name_and_a_phone`); `hu6.test.tsx` (escenario 3: palabra y texto nuevos; sin conexión usa la última versión) | Administrador de Django, «Contenidos de orientación» | Cumplido |
@@ -364,6 +364,24 @@ Recorrido completo con Playwright y **Gemini real** (`gemini-3.5-flash-lite`), c
 - No hay secretos en Git ni datos personales o notas en los logs.
 - Las rutas privadas requieren autenticación y filtran por el usuario autenticado.
 - Cualquier criterio parcial se marca como «parcial» con su razón; nunca como cumplido.
+
+## Corrección posterior: el ánimo según la emoción (HU4 y HU6)
+
+Al revisar el Sprint 1, la profesora señaló que la intensidad no es el ánimo: una tristeza de
+intensidad 2 no es un mal día, pero una de intensidad 5 sí; y con la alegría es al revés. Antes,
+HU6 y HU4 usaban la intensidad directamente. Ahora el ánimo de una huella (`apps/traces/mood.py`)
+es la intensidad en alegría, calma y gratitud; 6 − intensidad en tristeza, ansiedad, enojo y
+miedo; y neutro (3) en nostalgia.
+
+- **HU6:** un día es bajo si el promedio del ánimo de sus huellas es 2 o menos (antes, de la
+  intensidad). Así el criterio «mi ánimo fue 2 o menos» se cumple como está escrito.
+- **HU4:** la gráfica dibuja el ánimo; al tocar un punto y en la tabla se ven la emoción, su
+  intensidad y el ánimo. El promedio es del ánimo.
+- **Datos demo:** Mateo, Valentina y Santiago tienen ahora emociones difíciles intensas (4 o 5) en
+  sus días bajos, así que siguen viendo la orientación.
+- **Pruebas:** `OrientationTests` (tristezas intensas sí, leves no; alegrías débiles sí, fuertes
+  no; nostalgia neutra; un día mezcla sus emociones), `MoodScoreTests`,
+  `test_points_and_average_use_the_mood_not_the_raw_intensity` y `hu4.test.tsx`.
 
 ## Resumen final del Sprint
 

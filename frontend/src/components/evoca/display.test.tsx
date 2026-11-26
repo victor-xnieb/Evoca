@@ -75,7 +75,7 @@ describe("MoodChart", () => {
   it("resume el promedio y ofrece una tabla con cada registro real", async () => {
     renderWithProviders(<MoodChart points={SAMPLE_MOOD_POINTS} average={3.3} periodLabel="esta semana" />)
 
-    expect(screen.getByText("Promedio esta semana: 3,3 de 5, con 7 registros.")).toBeInTheDocument()
+    expect(screen.getByText("Ánimo promedio esta semana: 3,3 de 5, con 7 registros.")).toBeInTheDocument()
     expect(screen.getAllByRole("row")).toHaveLength(SAMPLE_MOOD_POINTS.length + 1)
 
     await userEvent.click(screen.getByRole("button", { name: "Ver como tabla" }))

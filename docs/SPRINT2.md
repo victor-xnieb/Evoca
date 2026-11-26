@@ -185,6 +185,10 @@ parecidas aunque no usen esas palabras, para recuperar un recuerdo sin acordarme
     con las que faltan; `manage.py embed_traces` prepara todo por lotes.
   - Respaldo por palabras (sin tildes) si la IA no está, falla o llega al límite. La frase no se
     guarda ni se registra; 30 búsquedas por minuto por persona.
+  - **Palabras de riesgo (corrección pedida al revisar):** una frase como «suicidio» o «matarse»
+    no se busca ni se envía a la IA (`apps/support/risk.py`, misma regla que la app) y responde
+    `risk`. La migración `support/0003` agrega al **borrador** de HU6 «matarse», «suicidarse»,
+    «me voy a matar» y otras formas; las versiones aprobadas por el asesor no se tocan.
 - **Interfaz** (`MeaningSearch`, `SimilarityMeter`, `use-meaning-search`):
   - Barra «Buscar por significado» en **Mis huellas**; los resultados reemplazan la lista
     mientras hay búsqueda y se conservan al abrir una huella y volver.
@@ -192,6 +196,9 @@ parecidas aunque no usen esas palabras, para recuperar un recuerdo sin acordarme
   - Sin resultados: «No encontramos huellas parecidas a «…»» y «Registrar una huella», que abre
     **Nueva huella** con la frase en la nota.
   - Avisos de búsqueda por palabras y de huellas por preparar; error con reintento.
+  - Al escribir una palabra de riesgo se abre de inmediato la pantalla de ayuda de HU6 («Volver a
+    la búsqueda»); al buscarla aparece «Estamos aquí contigo» con «Ver líneas de ayuda», sin
+    llamar al servidor.
 
 ### Evidencia
 
@@ -200,6 +207,7 @@ parecidas aunque no usen esas palabras, para recuperar un recuerdo sin acordarme
 | 1 · Huellas relacionadas por significado, no solo por palabras | `apps/traces/tests.py` (`MeaningSearchTests`: `test_scenario_1_*`, `test_vectors_are_stored_and_reused…`, `test_the_vector_describes…`, `test_each_search_prepares_at_most_the_limit…`, `test_gemini_request_uses_the_embedding_model…`, `test_only_my_traces_are_searched`); `frontend/src/app/hu12.test.tsx` (escenario 1) | Cumplido |
 | 2 · Ordenadas por relevancia y con qué tan parecidas son | `test_scenario_2_*`, `test_only_traces_close_to_the_best_one…`; `hu12.test.tsx` (escenario 2) | Cumplido |
 | 3 · Sin resultados, lo dice y propone registrar una huella | `test_scenario_3_*`, `test_without_traces…`; `hu12.test.tsx` (escenario 3: lleva a Nueva huella con la frase) | Cumplido |
+| Palabras de riesgo (HU6) en la búsqueda | `test_a_phrase_with_risk_words_is_neither_searched_nor_sent_to_the_ai`, `test_risk_words_are_matched_whole…`; `apps/support/tests.py` (`test_the_draft_includes_more_ways_of_saying_it`, `test_the_server_finds_risk_words_like_the_app`); `hu12.test.tsx` (HU12 con HU6) | Cumplido |
 | Errores de la IA (subtarea de pruebas) | `test_when_the_ai_fails_it_searches_by_words…` (tiempo agotado, sin red, 429), `test_without_a_key…`, `test_vectors_of_the_wrong_size…`, `test_limits_searches_per_person` | Cumplido |
 
 **Prueba con Gemini real** (María, 125 huellas): «olor a lluvia» → 7 resultados en 1,1 s, todos

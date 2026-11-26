@@ -226,7 +226,7 @@ en la orientación de Mateo, que la pausa 7 días).
 | GET | `/api/v1/support/orientation/` | Si toca mostrar la orientación (ánimo de 2 o menos en 14 de los últimos 21 días) |
 | POST | `/api/v1/support/events/` | Registra qué hizo la persona con la orientación (solo el tipo de evento) |
 | POST | `/api/v1/traces/suggest/` | Propone emoción e intensidad desde la nota (10 palabras o más) con IA; no guarda nada |
-| POST | `/api/v1/traces/search/` | HU12: huellas parecidas por significado a `query` (3 a 200 caracteres, en el cuerpo), de la más a la menos parecida, con `similarity` y `level` (`high`, `medium`, `low`). `mode`: `meaning` (IA) o `words` (respaldo por palabras); `pending`: huellas que la IA aún no ha preparado. 30 búsquedas por minuto |
+| POST | `/api/v1/traces/search/` | HU12: huellas parecidas por significado a `query` (3 a 200 caracteres, en el cuerpo), de la más a la menos parecida, con `similarity` y `level` (`high`, `medium`, `low`). `mode`: `meaning` (IA) o `words` (respaldo por palabras); `pending`: huellas que la IA aún no ha preparado; `risk`: la frase tiene palabras de riesgo y no se buscó. 30 búsquedas por minuto |
 | GET/POST | `/api/v1/traces/` | Lista (la más reciente primero; filtros `?sensory_type=`, `?emotion=` y `?date=AAAA-MM-DD`) o crea huellas del usuario |
 | GET | `/api/v1/traces/catalog/` | Tipos sensoriales y emociones válidos, con su etiqueta |
 | GET | `/api/v1/traces/mood/?period=week|month` | Gráfica de ánimo: un punto por huella de los últimos 7 o 30 días y el promedio |
@@ -260,6 +260,9 @@ compara con los de la persona (`apps/traces/search.py`).
 - Sin clave, con error o con el límite agotado, la búsqueda sigue **por palabras** (sin tildes ni
   mayúsculas) y la app lo dice. La frase va en el cuerpo de la petición (no en la URL) y no se
   guarda ni se registra.
+- **Palabras de riesgo (HU6):** si la frase tiene una («suicidio», «matarse», «quiero morir»…),
+  se abre de inmediato la pantalla de ayuda, como al escribir una nota, y la búsqueda no se hace:
+  ni la app ni el servidor la envían a la IA (`apps/support/risk.py`, misma regla en los dos).
 
 ### Recuerdos sugeridos con IA (HU9)
 

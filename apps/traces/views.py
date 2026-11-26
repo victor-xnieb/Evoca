@@ -14,7 +14,7 @@ from rest_framework.throttling import ScopedRateThrottle
 
 from apps.support.risk import find_risk_terms
 
-from . import ai, memory_ai, memory_map, search
+from . import ai, memory_ai, memory_map, search, stats
 
 from .models import Memory, MemoryTrace, Trace
 from .mood import mood_score
@@ -132,6 +132,8 @@ class TraceViewSet(viewsets.ModelViewSet):
             self.throttle_scope = "ai_suggest"
         if self.action == "search":
             self.throttle_scope = "ai_search"
+        if self.action == "stats_elements":
+            self.throttle_scope = "ai_elements"
         return super().get_throttles()
 
     @action(detail=False, methods=["post"], throttle_classes=[ScopedRateThrottle])
@@ -213,6 +215,33 @@ class TraceViewSet(viewsets.ModelViewSet):
                 "points": points,
             }
         )
+
+    @action(detail=False, methods=["get"])
+    def stats(self, request):
+        """
+        HU13: cuántas huellas registro por tipo, los 5 elementos más frecuentes y el ánimo
+        promedio de cada uno, en los últimos 30 días (?period=month, por defecto) o en total
+        (?period=all). Con menos de 10 huellas responde cuántas faltan. No llama a la IA:
+        `pending` dice cuántas huellas aún no tienen su elemento reconocido.
+        """
+        period = request.query_params.get("period", "month")
+        if period not in stats.PERIODS:
+            raise ValidationError({"period": "El periodo debe ser «month» (últimos 30 días) o «all» (todas)."})
+        return Response(stats.sensation_stats(request.user, period))
+
+    @action(detail=False, methods=["post"], url_path="stats/elements", throttle_classes=[ScopedRateThrottle])
+    def stats_elements(self, request):
+        """
+        HU13: reconoce con la IA el elemento de las huellas que aún no lo tienen, como mucho
+        EVOCA_STATS_EXTRACT_PER_REQUEST por vez. La app lo pide mientras `pending` sea mayor que
+        0. Si la IA no está disponible responde `status: "unavailable"` y las estadísticas siguen
+        con lo que ya se reconoció.
+        """
+        # Con menos de 10 huellas no hay estadísticas (escenario 3): no se gasta IA.
+        if Trace.objects.filter(user=request.user).count() < stats.MIN_TRACES:
+            return Response({"status": "ok", "extracted": 0, "pending": 0})
+        status_value, done, pending = stats.safe_extract(request.user, settings.EVOCA_STATS_EXTRACT_PER_REQUEST)
+        return Response({"status": status_value, "extracted": done, "pending": pending})
 
     @action(detail=False, methods=["get"])
     def calendar(self, request):

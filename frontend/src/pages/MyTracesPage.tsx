@@ -7,10 +7,13 @@ import { GlassCard } from "@/components/evoca/GlassCard"
 import { PageTransition } from "@/components/evoca/PageTransition"
 import { TraceCard, TraceCardSkeleton } from "@/components/evoca/TraceCard"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/hooks/use-auth"
 import { useCatalog } from "@/hooks/use-catalog"
+import { useMeaningSearch } from "@/hooks/use-meaning-search"
 import { labelOf, tracesApi } from "@/lib/traces"
 import type { Trace } from "@/lib/types"
 
+import { MeaningSearchForm, MeaningSearchResults } from "./traces/MeaningSearch"
 import { SensationEmotionFilters } from "./traces/SensationEmotionFilters"
 
 type ListState =
@@ -18,13 +21,19 @@ type ListState =
   | { status: "error"; message: string }
   | { status: "ready"; items: Trace[]; count: number; page: number; hasMore: boolean; loadingMore: boolean }
 
-/** HU3: todas mis huellas, de la más reciente a la más antigua, filtrables por tipo y emoción. */
+/**
+ * HU3: todas mis huellas, de la más reciente a la más antigua, filtrables por tipo y emoción.
+ * HU12: arriba, «Buscar por significado»; mientras hay una búsqueda, sus resultados reemplazan la lista.
+ */
 export function MyTracesPage() {
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
   const location = useLocation()
   const notice = (location.state as { notice?: string } | null)?.notice
   const { catalog } = useCatalog()
+  const { user } = useAuth()
+  const meaning = useMeaningSearch(user?.id)
+  const searching = meaning.state.status !== "idle"
   const type = params.get("tipo")
   const emotion = params.get("emocion")
   const filtered = Boolean(type || emotion)
@@ -93,11 +102,23 @@ export function MyTracesPage() {
         </p>
       )}
 
-      {catalog && (
+      <MeaningSearchForm state={meaning.state} onSearch={meaning.search} onClear={meaning.clear} />
+
+      {meaning.state.status !== "idle" && (
+        <MeaningSearchResults
+          state={meaning.state}
+          catalog={catalog}
+          onOpen={open}
+          onRetry={() => meaning.search(meaning.state.status === "idle" ? "" : meaning.state.query)}
+          onClear={meaning.clear}
+        />
+      )}
+
+      {!searching && catalog && (
         <SensationEmotionFilters catalog={catalog} sensoryType={type} emotion={emotion} onChange={setFilter} />
       )}
 
-      {list.status === "loading" && (
+      {!searching && list.status === "loading" && (
         <div className="flex flex-col gap-3" role="status" aria-label="Cargando tus huellas">
           <TraceCardSkeleton />
           <TraceCardSkeleton />
@@ -105,7 +126,7 @@ export function MyTracesPage() {
         </div>
       )}
 
-      {list.status === "error" && (
+      {!searching && list.status === "error" && (
         <GlassCard>
           <EmptyState
             variant="error"
@@ -126,7 +147,7 @@ export function MyTracesPage() {
         </GlassCard>
       )}
 
-      {list.status === "ready" && list.count === 0 && (
+      {!searching && list.status === "ready" && list.count === 0 && (
         <GlassCard>
           {filtered ? (
             <EmptyState
@@ -155,7 +176,7 @@ export function MyTracesPage() {
         </GlassCard>
       )}
 
-      {list.status === "ready" && list.count > 0 && (
+      {!searching && list.status === "ready" && list.count > 0 && (
         <section aria-labelledby="resultados" className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3 rounded-2xl bg-background/75 px-3 py-1 backdrop-blur-md">
             <h2 id="resultados" className="text-base font-semibold">

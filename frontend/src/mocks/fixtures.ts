@@ -7,6 +7,7 @@ import type { HelpLine } from "@/components/evoca/SupportCard"
 import type { EmotionSlug } from "@/lib/emotions"
 import type { MemoryEdge, MemoryNode, MemorySuggestion } from "@/lib/memories"
 import type { Option, SensoryType } from "@/lib/sensory"
+import type { SensationStats } from "@/lib/stats"
 import type { Trace } from "@/lib/types"
 
 export const EMOTION_OPTIONS: Option<EmotionSlug>[] = [
@@ -129,4 +130,62 @@ export const SAMPLE_SUGGESTION: MemorySuggestion = {
   status: "suggested",
   suggested_at: "2026-11-05T14:00:00-05:00",
   traces: SAMPLE_TRACES.slice(0, 3),
+}
+
+/** HU13: estadísticas de mis sensaciones de los últimos 30 días, con los elementos ya reconocidos. */
+export const SAMPLE_SENSATION_STATS: SensationStats = {
+  period: "month",
+  total: 137,
+  required: 10,
+  missing: 0,
+  ready: true,
+  count: 32,
+  average_mood: 4.0,
+  types: [
+    {
+      type: "aroma",
+      label: "Aroma",
+      count: 9,
+      average_mood: 4.4,
+      top_elements: [
+        { name: "café", type: "aroma", count: 4, average_mood: 4.0 },
+        { name: "lluvia", type: "aroma", count: 3, average_mood: 4.3 },
+        { name: "perfume", type: "aroma", count: 1, average_mood: 5.0 },
+      ],
+    },
+    {
+      type: "song",
+      label: "Canción",
+      count: 6,
+      average_mood: 4.3,
+      top_elements: [{ name: "salsa", type: "song", count: 3, average_mood: 4.3 }],
+    },
+    {
+      type: "texture",
+      label: "Textura",
+      count: 5,
+      average_mood: 4.0,
+      top_elements: [{ name: "cobija", type: "texture", count: 3, average_mood: 4.0 }],
+    },
+    {
+      type: "place",
+      label: "Lugar",
+      count: 5,
+      average_mood: 3.2,
+      top_elements: [
+        { name: "parque", type: "place", count: 3, average_mood: 3.7 },
+        { name: "trancón", type: "place", count: 1, average_mood: 2.0 },
+      ],
+    },
+    { type: "flavor", label: "Sabor", count: 4, average_mood: 4.5, top_elements: [] },
+    { type: "color", label: "Color", count: 3, average_mood: 3.7, top_elements: [] },
+  ],
+  top_elements: [
+    { name: "café", type: "aroma", count: 4, average_mood: 4.0 },
+    { name: "salsa", type: "song", count: 3, average_mood: 4.3 },
+    { name: "lluvia", type: "aroma", count: 3, average_mood: 4.3 },
+    { name: "cobija", type: "texture", count: 3, average_mood: 4.0 },
+    { name: "parque", type: "place", count: 3, average_mood: 3.7 },
+  ],
+  pending: 0,
 }

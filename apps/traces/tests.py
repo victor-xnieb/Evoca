@@ -1,5 +1,6 @@
 import json
 import time as clock
+from array import array
 from io import StringIO
 import urllib.error
 from collections import Counter
@@ -17,9 +18,9 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
 
-from . import ai, memory_ai, memory_map
+from . import ai, memory_ai, memory_map, search
 from .management.commands.suggestion_stats import acceptance_stats
-from .models import Memory, MemoryTrace, Trace
+from .models import Memory, MemoryTrace, Trace, TraceEmbedding
 
 
 class TraceApiTests(APITestCase):
@@ -1338,3 +1339,279 @@ class MemorySuggestionsTests(APITestCase):
         self.assertEqual(stats, {"suggested": 5, "accepted": 3, "discarded": 1, "pending": 1, "acceptance_rate": 0.75})
         self.assertIn("Aceptación: 75 % (cumple el 70 % del criterio)", output.getvalue())
         self.assertNotIn("finca", output.getvalue())
+
+
+# HU12: vectores de prueba de 4 dimensiones. Cada eje es un tema y reúne palabras distintas con
+# el mismo significado («lluvia», «mojada», «aguacero»…), como lo haría un modelo real.
+TOPICS = [
+    ("lluvia", "mojad", "aguacero", "tormenta"),
+    ("mar", "playa", "arena", "olas"),
+    ("nervio", "entrevista", "ansiedad", "examen"),
+]
+
+
+def topic_vector(text):
+    text = text.lower()
+    return [float(sum(word in text for word in words)) for words in TOPICS] + [0.1]
+
+
+@override_settings(
+    EVOCA_AI_API_KEY="clave-de-prueba",
+    EVOCA_AI_PROVIDER="gemini",
+    EVOCA_AI_EMBEDDING_DIMENSIONS=4,
+    EVOCA_SEARCH_MIN_SIMILARITY=0.6,
+    EVOCA_SEARCH_SPREAD=0.1,
+    EVOCA_SEARCH_EMBED_PER_REQUEST=40,
+)
+class MeaningSearchTests(APITestCase):
+    """HU12: buscar huellas por significado con vectores de la IA, con respaldo por palabras."""
+
+    url = "/api/v1/traces/search/"
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(email="busca@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        self.client.force_authenticate(self.user)
+        self.calls = []
+
+    def provider(self, error=None, vectors=None):
+        def ask(texts, task_type):
+            self.calls.append((task_type, list(texts)))
+            if error:
+                raise error
+            return vectors if vectors is not None else [topic_vector(text) for text in texts]
+
+        return mock.patch.dict(search.PROVIDERS, {"gemini": ask})
+
+    def trace(self, note, sensory_type="aroma", emotion="calma", user=None, **extra):
+        return Trace.objects.create(user=user or self.user, sensory_type=sensory_type, note=note, emotion=emotion, mood_intensity=3, **extra)
+
+    def search(self, query):
+        return self.client.post(self.url, {"query": query}, format="json")
+
+    def documents_embedded(self):
+        return [text for task, texts in self.calls if task == "RETRIEVAL_DOCUMENT" for text in texts]
+
+    # Escenario 1
+    def test_scenario_1_finds_traces_by_meaning_not_only_by_identical_words(self):
+        wet = self.trace("Olor a tierra mojada saliendo de clase.")
+        self.trace("La arena caliente de la playa.", sensory_type="texture", emotion="alegria")
+        self.trace("Las manos frías antes de la entrevista.", sensory_type="texture", emotion="ansiedad")
+
+        with self.provider():
+            response = self.search("olor a lluvia")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["mode"], "meaning")
+        # «lluvia» no aparece en la nota y aun así es el resultado.
+        self.assertEqual([item["trace"]["id"] for item in response.data["results"]], [str(wet.pk)])
+        self.assertNotIn("lluvia", wet.note)
+        self.assertEqual(response.data["query"], "olor a lluvia")
+
+    # Escenario 2
+    def test_scenario_2_results_are_ordered_by_relevance_and_say_how_similar_they_are(self):
+        storm = self.trace("Aguacero y tormenta con la ropa mojada.")
+        rain = self.trace("La lluvia en la ventana mientras el mar se oía a lo lejos.")
+
+        # Margen amplio: aquí importa el orden, no cuáles entran.
+        with self.provider(), self.settings(EVOCA_SEARCH_SPREAD=0.4):
+            results = self.search("lluvia, tormenta y aguacero").data["results"]
+
+        self.assertEqual([item["trace"]["id"] for item in results], [str(storm.pk), str(rain.pk)])
+        self.assertGreater(results[0]["similarity"], results[1]["similarity"])
+        self.assertEqual(results[0]["level"], "high")
+        self.assertIn(results[1]["level"], {"high", "medium", "low"})
+        self.assertEqual(results[0]["trace"]["note"], storm.note)
+
+    def test_only_traces_close_to_the_best_one_are_results(self):
+        self.trace("Lluvia, tormenta y aguacero en la finca.")
+        self.trace("La lluvia en la playa con olas y arena.")
+
+        with self.provider(), self.settings(EVOCA_SEARCH_SPREAD=0.05):
+            results = self.search("lluvia y tormenta").data["results"]
+
+        self.assertEqual(len(results), 1)
+
+    # Escenario 3
+    def test_scenario_3_without_related_traces_there_are_no_results(self):
+        self.trace("Olor a tierra mojada saliendo de clase.")
+        self.trace("La arena caliente de la playa.")
+
+        with self.provider():
+            response = self.search("programación en Java")
+
+        self.assertEqual((response.data["count"], response.data["results"], response.data["mode"]), (0, [], "meaning"))
+
+    def test_without_traces_there_is_nothing_to_search_and_the_ai_is_not_called(self):
+        with self.provider():
+            response = self.search("olor a lluvia")
+
+        self.assertEqual(response.data["results"], [])
+        self.assertEqual(self.calls, [])
+
+    # Vectores guardados
+    def test_vectors_are_stored_and_reused_until_the_trace_changes(self):
+        wet = self.trace("Olor a tierra mojada.")
+        self.trace("La arena de la playa.")
+
+        with self.provider():
+            self.search("olor a lluvia")
+            self.assertEqual(len(self.documents_embedded()), 2)
+            self.assertEqual(TraceEmbedding.objects.count(), 2)
+
+            self.search("la playa")
+            self.assertEqual(len(self.documents_embedded()), 2)
+
+            self.client.patch(f"/api/v1/traces/{wet.pk}/", {"note": "Olor a lluvia sobre el pasto."}, format="json")
+            self.search("olor a lluvia")
+
+        documents = self.documents_embedded()
+        self.assertEqual(len(documents), 3)
+        self.assertIn("Olor a lluvia sobre el pasto.", documents[-1])
+        stored = TraceEmbedding.objects.get(trace=wet)
+        self.assertEqual(stored.model, "gemini-embedding-2")
+        self.assertEqual(len(array("f", bytes(stored.vector))), 4)
+
+    def test_the_vector_describes_type_emotion_tags_and_note(self):
+        self.trace("Olor a tierra mojada.", tags=["lluvia", "finca"])
+
+        with self.provider():
+            self.search("olor a lluvia")
+
+        self.assertEqual(self.documents_embedded(), ["Aroma · Calma · lluvia, finca\nOlor a tierra mojada."])
+        self.assertEqual([texts for task, texts in self.calls if task == "RETRIEVAL_QUERY"], [["olor a lluvia"]])
+
+    def test_each_search_prepares_at_most_the_limit_and_says_how_many_are_pending(self):
+        for index in range(3):
+            self.trace(f"Lluvia número {index}.")
+
+        with self.provider(), self.settings(EVOCA_SEARCH_EMBED_PER_REQUEST=2):
+            first = self.search("lluvia").data
+            second = self.search("lluvia").data
+
+        self.assertEqual((first["pending"], first["count"]), (1, 2))
+        self.assertEqual((second["pending"], second["count"]), (0, 3))
+
+    def test_deleting_a_trace_deletes_its_vector(self):
+        wet = self.trace("Olor a tierra mojada.")
+        with self.provider():
+            self.search("lluvia")
+
+        self.client.delete(f"/api/v1/traces/{wet.pk}/")
+
+        self.assertFalse(TraceEmbedding.objects.exists())
+
+    # Errores de la IA
+    def test_when_the_ai_fails_it_searches_by_words_without_accents_and_never_logs_the_query(self):
+        song = self.trace("Una canción vieja en la radio de la abuela.", sensory_type="song")
+        self.trace("El olor a café.")
+        failures = [
+            TimeoutError(),
+            urllib.error.URLError("sin red"),
+            urllib.error.HTTPError("https://x", 429, "Demasiadas", {}, None),
+        ]
+        for failure in failures:
+            with self.subTest(failure=type(failure).__name__), self.provider(error=failure):
+                with self.assertLogs("apps.traces.search", level="WARNING") as logs:
+                    response = self.search("cancion de la ABUELA")
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                self.assertEqual(response.data["mode"], "words")
+                self.assertEqual([item["trace"]["id"] for item in response.data["results"]], [str(song.pk)])
+                self.assertEqual(response.data["results"][0]["level"], "high")
+                self.assertNotIn("abuela", " ".join(logs.output).lower())
+
+    def test_without_a_key_it_searches_by_words(self):
+        self.trace("Olor a tierra mojada.")
+        with self.provider(), self.settings(EVOCA_AI_API_KEY=""), self.assertLogs("apps.traces.search", level="WARNING"):
+            response = self.search("tierra")
+
+        self.assertEqual((response.data["mode"], response.data["count"]), ("words", 1))
+        self.assertEqual(self.calls, [])
+
+    def test_vectors_of_the_wrong_size_or_amount_are_rejected(self):
+        self.trace("Olor a tierra mojada.")
+        for vectors in [[[1.0, 0.0]], [], [[0.0, 0.0, 0.0, 0.0]]]:
+            with self.subTest(vectors=vectors), self.provider(vectors=vectors), self.assertLogs("apps.traces.search", level="WARNING"):
+                self.assertEqual(self.search("tierra").data["mode"], "words")
+        self.assertFalse(TraceEmbedding.objects.exists())
+
+    def test_gemini_request_uses_the_embedding_model_task_type_and_the_key_in_the_header(self):
+        self.trace("Olor a tierra mojada.")
+        captured = []
+
+        class Reply:
+            def __init__(self, count):
+                self.count = count
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return json.dumps({"embeddings": [{"values": [1.0, 0.0, 0.0, 0.1]}] * self.count}).encode()
+
+        def fake_urlopen(request, timeout):
+            body = json.loads(request.data)
+            captured.append((request, timeout, body))
+            return Reply(len(body["requests"]))
+
+        with mock.patch("urllib.request.urlopen", fake_urlopen), self.settings(EVOCA_AI_EMBED_TIMEOUT=10.0):
+            response = self.search("olor a lluvia")
+
+        self.assertEqual(response.data["mode"], "meaning")
+        document, query = captured
+        self.assertTrue(document[0].full_url.endswith("/models/gemini-embedding-2:batchEmbedContents"))
+        self.assertEqual(document[0].get_header("X-goog-api-key"), "clave-de-prueba")
+        self.assertNotIn("clave-de-prueba", document[0].full_url)
+        self.assertEqual(document[1], 10.0)
+        self.assertEqual(document[2]["requests"][0]["taskType"], "RETRIEVAL_DOCUMENT")
+        self.assertEqual(document[2]["requests"][0]["outputDimensionality"], 4)
+        self.assertEqual(query[2]["requests"][0]["taskType"], "RETRIEVAL_QUERY")
+        self.assertEqual(query[2]["requests"][0]["content"]["parts"][0]["text"], "olor a lluvia")
+
+    # Validación y privacidad
+    def test_the_query_goes_in_the_body_and_must_have_at_least_three_letters(self):
+        self.assertEqual(self.client.get(self.url, {"query": "lluvia"}).status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        response = self.search("ab")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["query"][0], "Escribe al menos 3 letras.")
+        self.assertEqual(self.client.post(self.url, {}, format="json").data["query"][0], "Escribe qué quieres buscar.")
+        self.assertEqual(self.search("x" * 201).status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_only_my_traces_are_searched(self):
+        other = User.objects.create_user(email="otra@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1991, 1, 1))
+        self.trace("Lluvia y tormenta en la finca.", user=other)
+        mine = self.trace("Olor a tierra mojada.")
+
+        with self.provider():
+            results = self.search("lluvia").data["results"]
+        with self.provider(error=TimeoutError()), self.assertLogs("apps.traces.search", level="WARNING"):
+            words = self.search("tormenta").data["results"]
+
+        self.assertEqual([item["trace"]["id"] for item in results], [str(mine.pk)])
+        self.assertEqual(words, [])
+        self.assertFalse(TraceEmbedding.objects.filter(trace__user=other).exists())
+        self.client.force_authenticate(None)
+        self.assertEqual(self.search("lluvia").status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_limits_searches_per_person(self):
+        with self.provider():
+            codes = [self.search("lluvia").status_code for _ in range(31)]
+
+        self.assertEqual(codes[:30], [status.HTTP_200_OK] * 30)
+        self.assertEqual(codes[30], status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_embed_traces_prepares_every_trace_and_prints_only_counts(self):
+        for index in range(3):
+            self.trace(f"Lluvia número {index} en casa de la abuela.")
+        output = StringIO()
+
+        with self.provider():
+            call_command("embed_traces", "--email", "busca@example.com", stdout=output)
+
+        self.assertEqual(TraceEmbedding.objects.count(), 3)
+        self.assertIn("3 huellas listas, 0 por preparar", output.getvalue())
+        self.assertNotIn("abuela", output.getvalue())
+        self.assertNotIn("busca@example.com", output.getvalue())

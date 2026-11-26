@@ -163,7 +163,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
     # Cada sugerencia de IA consume cuota del proveedor: límite por persona.
-    "DEFAULT_THROTTLE_RATES": {"ai_suggest": "20/min", "ai_memories": "5/min", "ai_search": "30/min"},
+    "DEFAULT_THROTTLE_RATES": {"ai_suggest": "20/min", "ai_memories": "5/min", "ai_search": "30/min", "ai_elements": "10/min"},
 }
 
 EVOCA_TERMS_VERSION = os.getenv("EVOCA_TERMS_VERSION", "draft-v1")
@@ -191,6 +191,10 @@ EVOCA_SEARCH_EMBED_PER_REQUEST = int(os.getenv("EVOCA_SEARCH_EMBED_PER_REQUEST",
 # con gemini-embedding-2: frases con sentido dan 0,67 o más; frases ajenas, 0,55 o menos.
 EVOCA_SEARCH_MIN_SIMILARITY = float(os.getenv("EVOCA_SEARCH_MIN_SIMILARITY", "0.6"))
 EVOCA_SEARCH_SPREAD = float(os.getenv("EVOCA_SEARCH_SPREAD", "0.1"))
+# Estadísticas de mis sensaciones (HU13): la IA saca el elemento de cada nota (40 notas por
+# llamada); cada pedido de la app reconoce como mucho estas huellas, y espera esto por llamada.
+EVOCA_STATS_EXTRACT_PER_REQUEST = int(os.getenv("EVOCA_STATS_EXTRACT_PER_REQUEST", "80"))
+EVOCA_AI_ELEMENTS_TIMEOUT = float(os.getenv("EVOCA_AI_ELEMENTS_TIMEOUT", "15.0"))
 
 # Mapa de recuerdos (HU10): afinidad mínima (0 a 1) para unir dos recuerdos con una línea y
 # máximo de conexiones por recuerdo, para que el grafo siga siendo legible.

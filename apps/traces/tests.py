@@ -2031,3 +2031,154 @@ class ElementParsingTests(SimpleTestCase):
             }
         )
         self.assertEqual(stats.parse_elements(raw, 2), {1: "café"})
+
+
+class CentralMemoryTests(APITestCase):
+    """HU11: marcar mis recuerdos centrales (hasta 5), verlos destacados y liberar su lugar al borrarlos."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(email="central@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        self.client.force_authenticate(self.user)
+
+    def memory(self, name="Tardes en la finca", user=None, status_value=Memory.Status.ACCEPTED, traces=1):
+        owner = user or self.user
+        memory = Memory.objects.create(user=owner, name=name, status=status_value)
+        for index in range(traces):
+            trace = Trace.objects.create(
+                user=owner, sensory_type="aroma", note=f"{name} {index}", emotion="calma", mood_intensity=4
+            )
+            MemoryTrace.objects.create(memory=memory, trace=trace)
+        return memory
+
+    def mark(self, memory, central=True):
+        return self.client.post(f"/api/v1/memories/{memory.pk}/central/", {"central": central}, format="json")
+
+    def graph(self):
+        return self.client.get("/api/v1/memories/").data
+
+    # Escenario 1
+    def test_scenario_1_marking_and_unmarking_is_saved(self):
+        memory = self.memory()
+
+        response = self.mark(memory)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            {key: response.data[key] for key in ("id", "central", "central_count", "max_central")},
+            {"id": str(memory.pk), "central": True, "central_count": 1, "max_central": 5},
+        )
+        memory.refresh_from_db()
+        self.assertTrue(memory.is_central)
+        self.assertIsNotNone(memory.central_at)
+
+        response = self.mark(memory, central=False)
+
+        self.assertEqual((response.data["central"], response.data["central_count"]), (False, 0))
+        memory.refresh_from_db()
+        self.assertEqual((memory.is_central, memory.central_at), (False, None))
+
+    def test_scenario_1_marking_twice_keeps_the_original_date(self):
+        memory = self.memory()
+        first = self.mark(memory).data["central_at"]
+        self.assertEqual(self.mark(memory).data["central_at"], first)
+
+    def test_scenario_1_at_most_5_central_memories(self):
+        memories = [self.memory(f"Recuerdo {index}") for index in range(6)]
+        for memory in memories[:5]:
+            self.assertEqual(self.mark(memory).status_code, status.HTTP_200_OK)
+
+        response = self.mark(memories[5])
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(str(response.data["code"]), "central_limit")
+        self.assertIn("Ya tienes 5 recuerdos centrales", str(response.data["central"]))
+        self.assertFalse(Memory.objects.get(pk=memories[5].pk).is_central)
+        # Uno que ya es central se puede volver a marcar sin pasar del máximo.
+        self.assertEqual(self.mark(memories[0]).status_code, status.HTTP_200_OK)
+        # Al quitar uno, se libera su lugar.
+        self.mark(memories[0], central=False)
+        self.assertEqual(self.mark(memories[5]).data["central_count"], 5)
+
+    def test_a_memory_without_traces_does_not_take_a_place(self):
+        empty = self.memory("Sin huellas", traces=0)
+        empty.is_central = True
+        empty.save()
+        memories = [self.memory(f"Recuerdo {index}") for index in range(5)]
+        for memory in memories:
+            self.assertEqual(self.mark(memory).status_code, status.HTTP_200_OK)
+
+    def test_only_a_memory_of_the_map_can_be_central(self):
+        suggestion = self.memory("Sugerido", status_value=Memory.Status.SUGGESTED)
+        response = self.mark(suggestion)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Memory.objects.get(pk=suggestion.pk).is_central)
+
+    def test_the_body_must_say_true_or_false(self):
+        memory = self.memory()
+        for body in [{}, {"central": "quizás"}]:
+            with self.subTest(body=body):
+                response = self.client.post(f"/api/v1/memories/{memory.pk}/central/", body, format="json")
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_i_cannot_mark_or_delete_memories_of_others(self):
+        other = User.objects.create_user(email="otra@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        theirs = self.memory("Ajeno", user=other)
+        self.assertEqual(self.mark(theirs).status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(self.client.delete(f"/api/v1/memories/{theirs.pk}/").status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(Memory.objects.filter(pk=theirs.pk, is_central=False).exists())
+
+    def test_others_central_memories_do_not_count(self):
+        other = User.objects.create_user(email="otra@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        for index in range(5):
+            Memory.objects.filter(pk=self.memory(f"Ajeno {index}", user=other).pk).update(is_central=True)
+        self.assertEqual(self.mark(self.memory()).data["central_count"], 1)
+
+    def test_needs_a_session(self):
+        memory = self.memory()
+        self.client.force_authenticate(None)
+        self.assertEqual(self.mark(memory).status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(self.client.delete(f"/api/v1/memories/{memory.pk}/").status_code, status.HTTP_401_UNAUTHORIZED)
+
+    # Escenario 2
+    def test_scenario_2_the_map_marks_central_memories(self):
+        central, other = self.memory("Central"), self.memory("Otro")
+        self.mark(central)
+
+        graph = self.graph()
+
+        nodes = {node["name"]: node for node in graph["nodes"]}
+        self.assertTrue(nodes["Central"]["central"])
+        self.assertIsNotNone(nodes["Central"]["central_at"])
+        self.assertEqual((nodes["Otro"]["central"], nodes["Otro"]["central_at"]), (False, None))
+        self.assertEqual((graph["central_count"], graph["max_central"]), (1, 5))
+        self.assertTrue(self.client.get(f"/api/v1/memories/{central.pk}/").data["central"])
+        self.assertFalse(self.client.get(f"/api/v1/memories/{other.pk}/").data["central"])
+
+    def test_scenario_2_filters_keep_central_memories_in_the_map(self):
+        self.mark(self.memory("Central"))
+        graph = self.client.get("/api/v1/memories/", {"emotion": "tristeza"}).data
+        self.assertEqual([(node["central"], node["match"]) for node in graph["nodes"]], [(True, False)])
+        self.assertEqual(graph["central_count"], 1)
+
+    # Escenario 3
+    def test_scenario_3_deleting_a_central_memory_frees_its_place(self):
+        memories = [self.memory(f"Recuerdo {index}") for index in range(6)]
+        for memory in memories[:5]:
+            self.mark(memory)
+        kept_traces = list(memories[0].traces.values_list("pk", flat=True))
+
+        response = self.client.delete(f"/api/v1/memories/{memories[0].pk}/")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        graph = self.graph()
+        self.assertNotIn(str(memories[0].pk), [node["id"] for node in graph["nodes"]])
+        self.assertEqual(graph["central_count"], 4)
+        # Sus huellas no se borran: siguen en «Mis huellas».
+        self.assertEqual(Trace.objects.filter(pk__in=kept_traces).count(), len(kept_traces))
+        self.assertEqual(self.mark(memories[5]).data["central_count"], 5)
+
+    def test_scenario_3_a_suggestion_is_discarded_not_deleted(self):
+        suggestion = self.memory("Sugerido", status_value=Memory.Status.SUGGESTED)
+        response = self.client.delete(f"/api/v1/memories/{suggestion.pk}/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(Memory.objects.filter(pk=suggestion.pk).exists())

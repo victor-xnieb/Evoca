@@ -11,6 +11,10 @@ export interface MemorySphere {
   /** Cuántas huellas lo forman: el tamaño de la esfera. */
   trace_count: number
   sensory_types: string[]
+  /** HU11: es uno de los recuerdos que más definen a la persona (hasta 5); se destaca. */
+  central?: boolean
+  /** Desde cuándo es central: ordena la sección de centrales. */
+  central_at?: string | null
 }
 
 export interface MemoryNode extends MemorySphere {
@@ -35,7 +39,22 @@ export interface MemoryGraph {
   edges: MemoryEdge[]
   /** Máximo de conexiones por recuerdo que usa el servidor. */
   max_links: number
+  /** HU11: cuántos recuerdos centrales tiene la persona y el máximo permitido. */
+  central_count?: number
+  max_central?: number
 }
+
+/** Respuesta al marcar o desmarcar un recuerdo central (POST /memories/:id/central/). */
+export interface CentralResponse {
+  id: string
+  central: boolean
+  central_at: string | null
+  central_count: number
+  max_central: number
+}
+
+/** HU11 · Escenario 1: como mucho 5 recuerdos centrales. */
+export const MAX_CENTRAL = 5
 
 export type MemoryStatus = "suggested" | "accepted" | "discarded"
 
@@ -85,6 +104,10 @@ export const memoriesApi = {
   rename: (id: string, name: string) => api.patch<MemorySuggestion>(`memories/${id}/`, { name }),
   removeTrace: (id: string, traceId: string) => api.delete<MemorySuggestion>(`memories/${id}/traces/${traceId}/`),
   discard: (id: string) => api.post<void>(`memories/${id}/discard/`, {}),
+  /** HU11: marcar o desmarcar un recuerdo como central. */
+  setCentral: (id: string, central: boolean) => api.post<CentralResponse>(`memories/${id}/central/`, { central }),
+  /** HU11: borrar un recuerdo del mapa (sus huellas no se borran). */
+  remove: (id: string) => api.delete(`memories/${id}/`),
 }
 
 /** Espera máxima para que la IA agrupe las huellas: más que una nota, pero no indefinida. */
@@ -93,6 +116,13 @@ export const SUGGEST_MEMORIES_TIMEOUT_MS = 20_000
 /** Diámetro de la esfera (px) según sus huellas: crece rápido al principio y luego se modera. */
 export function sphereDiameter(traceCount: number) {
   return Math.round(Math.min(150, 56 + 22 * Math.sqrt(Math.max(0, traceCount - 1))))
+}
+
+/** HU11: los recuerdos centrales, del que se marcó primero al más reciente. */
+export function centralMemories<T extends MemorySphere>(nodes: T[]) {
+  return nodes
+    .filter((node) => node.central)
+    .sort((a, b) => (a.central_at ?? "").localeCompare(b.central_at ?? "") || a.name.localeCompare(b.name))
 }
 
 /** Afinidad como porcentaje legible («72 %»). */

@@ -242,6 +242,8 @@ en la orientación de Mateo, que la pausa 7 días).
 | PATCH | `/api/v1/memories/{id}/` | Renombra un recuerdo sugerido o aceptado (`name`) |
 | DELETE | `/api/v1/memories/{id}/traces/{trace_id}/` | Separa una huella de la sugerencia (la última no: se descarta) |
 | POST | `/api/v1/memories/{id}/discard/` | Descarta la sugerencia; sus huellas quedan libres para otra |
+| POST | `/api/v1/memories/{id}/central/` | HU11: marca (`{"central": true}`) o desmarca (`false`) un recuerdo del mapa como central. Máximo 5: el sexto responde 400 con `code: central_limit`. El mapa trae `central`, `central_at`, `central_count` y `max_central` |
+| DELETE | `/api/v1/memories/{id}/` | HU11: borra un recuerdo del mapa (sus huellas no se borran); si era central, libera su lugar. Una sugerencia no se borra: se descarta |
 
 ### Búsqueda por significado (HU12)
 
@@ -302,6 +304,16 @@ La intensidad dice qué tan fuerte fue una emoción, no qué tan bien estaba la 
 Lo usan la orientación de HU6 (un día es bajo si el promedio del ánimo de sus huellas es 2 o
 menos) y la gráfica de HU4. El calendario de HU7 sigue mostrando la intensidad promedio, que sí
 es intensidad.
+
+### Recuerdos centrales (HU11)
+
+Los recuerdos que más definen a la persona. Desde el panel de un recuerdo del mapa se marca o
+desmarca como central (como mucho `Memory.MAX_CENTRAL`, 5; el servidor lo controla aunque
+lleguen dos pedidos a la vez). Los centrales se destacan con una estrella y un anillo dorado,
+siempre muestran su nombre en el mapa y aparecen en «Mis recuerdos centrales», encima del mapa,
+del primero que se marcó al último. Borrar un recuerdo («Borrar recuerdo», con confirmación) no
+borra sus huellas y, si era central, libera su lugar. Un recuerdo que se quedó sin huellas no
+ocupa lugar. En la demo, María tiene 3 centrales.
 
 ### Recuerdos sugeridos con IA (HU9)
 

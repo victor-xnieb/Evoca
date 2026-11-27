@@ -409,8 +409,10 @@ DEMO_USERS = [
         "traces": MARIA,
         "memories": MARIA_MEMORIES,
         "tags": MARIA_TAGS,
+        # HU11: tres recuerdos centrales (le quedan dos lugares de cinco).
+        "centrals": ["La familia y sus abrazos", "Sabores de la infancia", "Días de calma"],
         "reminder": {"enabled": True, "frequency": "daily", "time": time(20, 0)},
-        "shows": "ánimo variado: lista y filtros, gráfica semanal y mensual, calendario de tres meses, mapa con 40 recuerdos de más de un año; estadísticas con café, lluvia y salsa entre lo más registrado; ya registró hoy",
+        "shows": "ánimo variado: lista y filtros, gráfica semanal y mensual, calendario de tres meses, mapa con 40 recuerdos de más de un año; estadísticas con café, lluvia y salsa entre lo más registrado; 3 recuerdos centrales; ya registró hoy",
     },
     {
         "email": "mateo.demo@example.com",
@@ -540,9 +542,17 @@ class Command(BaseCommand):
             for trace, at in zip(traces, moments):
                 Trace.objects.filter(pk=trace.pk).update(created_at=at, updated_at=at)
             memories = spec.get("memories", [])
+            centrals = spec.get("centrals", [])
             for name, explanation, positions in memories:
+                central = name in centrals
                 memory = Memory.objects.create(
-                    user=user, name=name, explanation=explanation, status=Memory.Status.ACCEPTED
+                    user=user,
+                    name=name,
+                    explanation=explanation,
+                    status=Memory.Status.ACCEPTED,
+                    is_central=central,
+                    # En el orden de la lista: el primero es el más antiguo.
+                    central_at=now - timedelta(days=30 - centrals.index(name)) if central else None,
                 )
                 MemoryTrace.objects.bulk_create([MemoryTrace(memory=memory, trace=traces[index]) for index in positions])
             for name, explanation, positions in spec.get("suggestions", []):

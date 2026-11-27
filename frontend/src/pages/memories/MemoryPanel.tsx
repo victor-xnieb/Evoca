@@ -1,4 +1,4 @@
-import { Link2, X } from "lucide-react"
+import { Link2, Star, Trash2, X } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router"
 
@@ -8,8 +8,26 @@ import { EmptyState } from "@/components/evoca/EmptyState"
 import { GlassCard } from "@/components/evoca/GlassCard"
 import { TraceCard, TraceCardSkeleton } from "@/components/evoca/TraceCard"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { isEmotionSlug } from "@/lib/emotions"
-import { affinityPercent, connectionsOf, memoriesApi, type MemoryDetail, type MemoryEdge, type MemoryNode } from "@/lib/memories"
+import {
+  affinityPercent,
+  connectionsOf,
+  MAX_CENTRAL,
+  memoriesApi,
+  type MemoryDetail,
+  type MemoryEdge,
+  type MemoryNode,
+} from "@/lib/memories"
 import { labelOf, type TraceCatalog } from "@/lib/traces"
 
 type DetailState = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; memory: MemoryDetail }
@@ -22,19 +40,55 @@ export interface MemoryPanelProps {
   edges: MemoryEdge[]
   catalog: TraceCatalog | null
   onSelect: (id: string | null) => void
+  /** HU11: cuántos recuerdos centrales hay y el máximo. */
+  centralCount?: number
+  maxCentral?: number
+  /** Se marcó o desmarcó como central: el mapa se vuelve a pedir. */
+  onChanged?: () => void
+  /** Se borró el recuerdo. */
+  onDeleted?: () => void
 }
 
 /**
  * Lo que se ve al tocar una esfera (HU10 · escenario 2): sus conexiones con el motivo de
  * cada una y sus huellas, de la más reciente a la más antigua. No tapa el mapa, que sigue
- * resaltando las conexiones del recuerdo elegido.
+ * resaltando las conexiones del recuerdo elegido. HU11: desde aquí se marca o desmarca como
+ * central y se borra.
  */
-export function MemoryPanel({ memory, nodes, edges, catalog, onSelect }: MemoryPanelProps) {
+export function MemoryPanel({
+  memory,
+  nodes,
+  edges,
+  catalog,
+  onSelect,
+  centralCount = 0,
+  maxCentral = MAX_CENTRAL,
+  onChanged,
+  onDeleted,
+}: MemoryPanelProps) {
   const navigate = useNavigate()
   // El resultado se guarda junto al id: al elegir otra esfera se ve «cargando» sin reiniciar el estado.
   const [loaded, setLoaded] = useState<{ id: string; state: DetailState } | null>(null)
   const [attempt, setAttempt] = useState(0)
   const detail = loaded && loaded.id === memory.id ? loaded.state : LOADING
+  const [busy, setBusy] = useState(false)
+  const [actionError, setActionError] = useState<{ id: string; message: string } | null>(null)
+  const atLimit = !memory.central && centralCount >= maxCentral
+
+  const run = async (work: () => Promise<unknown>, done?: () => void) => {
+    setBusy(true)
+    setActionError(null)
+    try {
+      await work()
+      done?.()
+    } catch (error) {
+      setActionError({ id: memory.id, message: (error as Error).message })
+    } finally {
+      setBusy(false)
+    }
+  }
+  const toggleCentral = () => run(() => memoriesApi.setCentral(memory.id, !memory.central), onChanged)
+  const remove = () => run(() => memoriesApi.remove(memory.id), onDeleted)
 
   useEffect(() => {
     const id = memory.id
@@ -78,6 +132,62 @@ export function MemoryPanel({ memory, nodes, edges, catalog, onSelect }: MemoryP
       </header>
 
       <p className="text-base text-foreground/80">{memory.explanation || "Huellas que guardas juntas en este recuerdo."}</p>
+
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant={memory.central ? "secondary" : "outline"}
+            className="h-11 rounded-full px-5"
+            disabled={busy || atLimit}
+            onClick={toggleCentral}
+          >
+            <Star aria-hidden="true" fill={memory.central ? "var(--emotion-alegria)" : "none"} />
+            {memory.central ? "Quitar de centrales" : "Marcar como central"}
+          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button type="button" variant="ghost" className="h-11 rounded-full px-4" disabled={busy}>
+                <Trash2 aria-hidden="true" />
+                Borrar recuerdo
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>¿Borrar «{memory.name}»?</DialogTitle>
+                <DialogDescription>
+                  El recuerdo desaparece del mapa{memory.central ? " y de tus recuerdos centrales, y se libera su lugar" : ""}.
+                  Sus huellas no se borran: siguen en «Mis huellas». No se puede deshacer.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2">
+                <DialogClose asChild>
+                  <Button type="button" variant="ghost" className="h-11 rounded-full px-5">
+                    Cancelar
+                  </Button>
+                </DialogClose>
+                <DialogClose asChild>
+                  <Button type="button" variant="destructive" className="h-11 rounded-full px-5" onClick={remove}>
+                    Borrar recuerdo
+                  </Button>
+                </DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {memory.central
+            ? "Es uno de tus recuerdos centrales: se destaca en el mapa y está a la mano arriba."
+            : atLimit
+              ? `Ya tienes ${maxCentral} recuerdos centrales. Quita uno para elegir este.`
+              : `Los recuerdos centrales son los que más te definen. Llevas ${centralCount} de ${maxCentral}.`}
+        </p>
+        {actionError?.id === memory.id && (
+          <p role="alert" className="text-sm font-semibold text-destructive">
+            {actionError.message}
+          </p>
+        )}
+      </div>
 
       <section aria-labelledby="conexiones" className="flex flex-col gap-2">
         <h3 id="conexiones" className="inline-flex items-center gap-2 text-base font-semibold">

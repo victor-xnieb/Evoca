@@ -1,3 +1,4 @@
+import { Star } from "lucide-react"
 import type { CSSProperties, MouseEvent } from "react"
 
 import { getEmotionVisual, isEmotionSlug } from "@/lib/emotions"
@@ -36,7 +37,8 @@ const plural = (count: number) => `${count} ${count === 1 ? "huella" : "huellas"
 /**
  * Un recuerdo en el mapa (HU10): esfera del color de su emoción, del tamaño de sus huellas,
  * con su nombre debajo. El color nunca va solo: lo acompañan el ícono de la emoción y el
- * nombre accesible («Recuerdo: emoción, N huellas»).
+ * nombre accesible («Recuerdo: emoción, N huellas»). Un recuerdo central (HU11) lleva una
+ * estrella y un anillo dorado, y lo dice su nombre accesible.
  */
 export function MemorySphere({
   memory,
@@ -59,7 +61,7 @@ export function MemorySphere({
       type="button"
       data-testid="memory-sphere"
       data-emotion={memory.emotion}
-      aria-label={`${memory.name}: ${emotionLabel}, ${plural(memory.trace_count)}`}
+      aria-label={`${memory.name}: ${emotionLabel}, ${plural(memory.trace_count)}${memory.central ? ", recuerdo central" : ""}`}
       aria-pressed={selected}
       onClick={(event) => onOpen?.(memory, event)}
       style={{ "--sphere-color": visual.color, width: Math.max(size, LABEL_WIDTH) } as CSSProperties}
@@ -83,6 +85,21 @@ export function MemorySphere({
         {selected && (
           <span aria-hidden="true" className="absolute inset-[12%] rounded-full border-2 border-(--sphere-color)" />
         )}
+        {memory.central && (
+          <>
+            <span
+              aria-hidden="true"
+              data-central-ring
+              className="absolute inset-[6%] rounded-full border-[3px] border-dashed border-(--emotion-alegria)"
+            />
+            <span
+              aria-hidden="true"
+              className="absolute top-[4%] right-[4%] z-10 grid size-7 place-items-center rounded-full bg-(--emotion-alegria) text-(--emotion-alegria-ink) shadow-soft"
+            >
+              <Star className="size-4" fill="currentColor" strokeWidth={1.5} />
+            </span>
+          </>
+        )}
         {isEmotionSlug(memory.emotion) && animated ? (
           <EmotionOrb emotion={memory.emotion} size={size} animated phase={phase} interactive={false} decorative />
         ) : isEmotionSlug(memory.emotion) ? (
@@ -93,7 +110,10 @@ export function MemorySphere({
       </span>
       {showLabel && (
         <span data-sphere-label className="flex max-w-full flex-col items-center rounded-2xl bg-background/80 px-2 py-0.5">
-          <span className="line-clamp-2 text-sm leading-tight font-semibold text-foreground">{memory.name}</span>
+          <span className="line-clamp-2 text-sm leading-tight font-semibold text-foreground">
+            {memory.central && <Star aria-hidden="true" className="mr-1 inline size-3.5 align-[-2px] text-(--emotion-alegria-ink)" fill="var(--emotion-alegria)" strokeWidth={1.5} />}
+            {memory.name}
+          </span>
           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" aria-hidden="true">
             <Icon className="size-3" strokeWidth={2.4} />
             {plural(memory.trace_count)}

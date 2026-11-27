@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeAll, describe, expect, it } from "vitest"
 
-import type { Letter } from "@/lib/diary"
+import type { DiaryPage, Letter, Notebook } from "@/lib/diary"
 import { DRAFT_HELP_LINES, EMOTION_OPTIONS, SENSORY_OPTIONS } from "@/mocks/fixtures"
 import { mockApi, SAMPLE_USER, sentBody } from "@/test/api-mock"
 import { renderApp } from "@/test/render-app"
@@ -46,7 +46,18 @@ const OPENED = letter("l-3", { opens_on: "2026-11-20", ready: true, opened_at: "
 
 const open = (path: string) => renderApp({ path, user: SAMPLE_USER, locked: false })
 
+// jsdom no mide el texto: el editor de la página de respuesta necesita estas funciones.
+function emptyRects() {
+  return Object.assign([], { item: () => null }) as unknown as DOMRectList
+}
+
 beforeAll(async () => {
+  Range.prototype.getClientRects = emptyRects
+  Range.prototype.getBoundingClientRect = () => new DOMRect(0, 0, 0, 0)
+  if (!document.elementFromPoint) document.elementFromPoint = () => null
+  const text = Text.prototype as unknown as { getClientRects?: () => DOMRectList }
+  if (!text.getClientRects) text.getClientRects = emptyRects
+  await import("@/pages/diary/NotebookPage")
   await import("@/pages/DiaryPage")
   await import("@/pages/diary/LetterWritePage")
   await import("@/pages/diary/LetterPage")
@@ -199,5 +210,128 @@ describe("HU19 · Escenario 3: en el Cuadernillo veo cuántas cartas tengo y cu�
     open("/cuadernillo")
     const section = await screen.findByRole("region", { name: "Cartas a mi yo del futuro" }, { timeout: 8000 })
     expect(await within(section).findByText("Escribe una carta y elige cuándo abrirla. Hasta ese día queda sellada.")).toBeInTheDocument()
+  })
+})
+
+describe("HU19 · Al abrir la carta: así estabas, responder y sellar otra", () => {
+  const MOMENT = {
+    day: "2026-08-31",
+    emotion: "calma",
+    today_emotion: "alegria",
+    traces: [
+      { id: "t-1", sensory_type: "aroma", note: "El olor a eucalipto subiendo a Monserrate.", emotion: "calma", mood_intensity: 4, at: "2026-08-31T08:00:00-05:00" },
+      { id: "t-2", sensory_type: "color", note: "La ciudad entera desde arriba.", emotion: "gratitud", mood_intensity: 5, at: "2026-09-01T06:00:00-05:00" },
+    ],
+  }
+  const READ: Letter = { ...OPENED, moment: MOMENT, reply: null, next_letters: [], previous: null }
+  const now = "2026-11-27T10:00:00Z"
+  const notebook = (id: string, title: string): Notebook => ({ id, title, cover: "terracota", paper: "lined", page_count: 1, created_at: now, updated_at: now })
+  const CATALOG = { body: { sensory_types: SENSORY_OPTIONS, emotions: EMOTION_OPTIONS } }
+
+  it("muestra cómo estaba al escribirla y la compara con hoy", async () => {
+    mockApi({ "GET traces/catalog/": CATALOG, "GET diary/notebooks/": { body: [] }, "GET diary/letters/l-3/": { body: READ } })
+    open("/cuadernillo/cartas/l-3")
+
+    const card = await screen.findByRole("region", { name: "Así estabas cuando la escribiste" }, { timeout: 8000 })
+    expect(card).toHaveTextContent("tu emoción fue")
+    expect(await within(card).findByText("Entonces: Calma · Hoy: Alegría")).toBeInTheDocument()
+    const traces = within(card).getByRole("list", { name: "Huellas de esa semana" })
+    expect(within(traces).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/mis-huellas/t-1", "/mis-huellas/t-2"])
+    expect(traces).toHaveTextContent("El olor a eucalipto subiendo a Monserrate.")
+  })
+
+  it("sin huellas ese día ni esa semana, lo dice", async () => {
+    mockApi({
+      "GET traces/catalog/": CATALOG,
+      "GET diary/notebooks/": { body: [] },
+      "GET diary/letters/l-3/": { body: { ...READ, moment: { ...MOMENT, emotion: null, traces: [] } } },
+    })
+    open("/cuadernillo/cartas/l-3")
+    const card = await screen.findByRole("region", { name: "Así estabas cuando la escribiste" }, { timeout: 8000 })
+    expect(card).toHaveTextContent("Ese día no registraste huellas.")
+    expect(card).toHaveTextContent("Esa semana no registraste huellas.")
+    expect(card).not.toHaveTextContent("Entonces:")
+  })
+
+  it("«Escribir una respuesta» crea la página en el cuaderno elegido y la abre enlazada a la carta", async () => {
+    const reply: DiaryPage = {
+      id: "p-9",
+      notebook: "n-2",
+      day: "2026-11-27",
+      paper: "",
+      font: "caveat",
+      ink: "sepia",
+      content: { type: "doc", content: [{ type: "paragraph" }] },
+      text: "",
+      day_emotion: null,
+      reply_to: { id: "l-3", written: "2026-08-31" },
+      created_at: now,
+      updated_at: now,
+    }
+    const fetchMock = mockApi({
+      "GET traces/catalog/": CATALOG,
+      "GET support/content/": SUPPORT,
+      "GET diary/notebooks/": { body: [notebook("n-1", "Mi diario"), notebook("n-2", "Viajes")] },
+      "GET diary/letters/l-3/": { body: READ },
+      "POST diary/letters/l-3/reply/": { status: 201, body: { page: "p-9", notebook: "n-2" } },
+      "GET diary/notebooks/n-2/": { body: notebook("n-2", "Viajes") },
+      "GET diary/notebooks/n-2/pages/": { body: [reply] },
+    })
+    const user = userEvent.setup()
+    open("/cuadernillo/cartas/l-3")
+
+    await user.selectOptions(await screen.findByLabelText("Responder en", {}, { timeout: 8000 }), "Viajes")
+    await user.click(screen.getByRole("button", { name: "Escribir una respuesta" }))
+
+    expect(await screen.findByRole("link", { name: "Respuesta a tu carta del 31 de agosto de 2026" }, { timeout: 8000 })).toHaveAttribute(
+      "href",
+      "/cuadernillo/cartas/l-3",
+    )
+    expect(sentBody(fetchMock, "POST diary/letters/l-3/reply/")).toEqual({ notebook: "n-2" })
+  })
+
+  it("si ya le respondí, lleva a mi respuesta; y muestra la cadena de cartas", async () => {
+    mockApi({
+      "GET traces/catalog/": CATALOG,
+      "GET diary/letters/l-3/": {
+        body: {
+          ...READ,
+          reply: { page: "p-9", notebook: "n-2" },
+          previous: { id: "l-0", written: "2026-02-14" },
+          next_letters: [{ id: "l-4", opens_on: "2027-11-27", ready: false }],
+        },
+      },
+    })
+    open("/cuadernillo/cartas/l-3")
+
+    const actions = await screen.findByRole("region", { name: "¿Y ahora?" }, { timeout: 8000 })
+    expect(within(actions).getByRole("link", { name: "Ver mi respuesta" })).toHaveAttribute("href", "/cuadernillo/n-2?hoja=p-9")
+    expect(within(actions).queryByRole("button", { name: "Escribir una respuesta" })).not.toBeInTheDocument()
+    expect(within(actions).getByRole("link", { name: "tu carta del 14 de febrero de 2026" })).toHaveAttribute("href", "/cuadernillo/cartas/l-0")
+    expect(within(actions).getByRole("link", { name: "Después sellaste otra carta: se abre el 27 de noviembre de 2027" })).toHaveAttribute(
+      "href",
+      "/cuadernillo/cartas/l-4",
+    )
+  })
+
+  it("«Sellar otra carta» escribe una carta que sigue a la que leí", async () => {
+    const fetchMock = mockApi({
+      "GET traces/catalog/": CATALOG,
+      "GET support/content/": SUPPORT,
+      "GET diary/notebooks/": { body: [] },
+      "GET diary/letters/l-3/": { body: READ },
+      "POST diary/letters/": { status: 201, body: letter("l-4", { opens_on: "2027-11-27", follows: "l-3" }) },
+    })
+    const user = userEvent.setup()
+    open("/cuadernillo/cartas/l-3")
+
+    await user.click(await screen.findByRole("link", { name: "Sellar otra carta" }, { timeout: 8000 }))
+    expect(await screen.findByText("Esta carta seguirá a la que acabas de leer.", {}, { timeout: 8000 })).toBeInTheDocument()
+    await user.type(screen.getByLabelText("Tu carta"), "Ojalá sigas respondiendo.")
+    fireEvent.change(screen.getByLabelText("Se abre el"), { target: { value: "2027-11-27" } })
+    await user.click(screen.getByRole("button", { name: "Sellar carta" }))
+
+    expect(await screen.findByRole("heading", { name: "Carta sellada" })).toBeInTheDocument()
+    expect(sentBody(fetchMock, "POST diary/letters/")).toEqual({ content: "Ojalá sigas respondiendo.", opens_on: "2027-11-27", font: "caveat", ink: "sepia", follows: "l-3" })
   })
 })

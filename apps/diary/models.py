@@ -68,6 +68,8 @@ class Page(models.Model):
     font = models.CharField(max_length=10, choices=Font.choices, default=Font.CAVEAT)
     ink = models.CharField(max_length=10, choices=Ink.choices, default=Ink.SEPIA)
     content = EncryptedTextField(blank=True, default="")
+    # HU19: si la página es la respuesta a una carta a mi yo del futuro.
+    reply_to = models.OneToOneField("Letter", null=True, blank=True, on_delete=models.SET_NULL, related_name="reply")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -122,6 +124,8 @@ class Letter(models.Model):
     opens_on = models.DateField()
     # Cuándo la persona abrió el sobre (null = sin abrir).
     opened_at = models.DateTimeField(null=True, blank=True)
+    # La carta que se escribió al terminar de leer otra («Sellar otra carta»): forman una cadena.
+    follows = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="followed_by")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -135,3 +139,8 @@ class Letter(models.Model):
     def ready(self):
         """Llegó su fecha: ya se puede abrir."""
         return self.opens_on <= timezone.localdate()
+
+    @property
+    def is_open(self):
+        """Ya se abrió el sobre (y llegó su fecha): su contenido se puede leer."""
+        return bool(self.ready and self.opened_at)

@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.utils import timezone
 from rest_framework import serializers
 
-from . import content
+from . import content, moments
 from .models import Letter, Notebook, Page, Paper
 
 
@@ -33,10 +33,12 @@ class PageSerializer(serializers.ModelSerializer):
     day_emotion = serializers.SerializerMethodField()
     # HU18: recuerdos sugeridos desde esta página y las frases que se iluminan.
     evocation = serializers.SerializerMethodField()
+    # HU19: la carta a la que responde esta página (o null).
+    reply_to = serializers.SerializerMethodField()
 
     class Meta:
         model = Page
-        fields = ("id", "notebook", "day", "paper", "font", "ink", "content", "text", "day_emotion", "evocation", "created_at", "updated_at")
+        fields = ("id", "notebook", "day", "paper", "font", "ink", "content", "text", "day_emotion", "evocation", "reply_to", "created_at", "updated_at")
         read_only_fields = ("id", "notebook", "created_at", "updated_at")
 
     def validate_content(self, value):
@@ -54,6 +56,10 @@ class PageSerializer(serializers.ModelSerializer):
         from .evoke import view
 
         return view(page)
+
+    def get_reply_to(self, page):
+        letter = page.reply_to
+        return {"id": str(letter.id), "written": timezone.localtime(letter.created_at).date()} if letter else None
 
     def get_day_emotion(self, page):
         return self.context.get("emotions", {}).get(page.day)
@@ -82,11 +88,31 @@ class LetterSerializer(serializers.ModelSerializer):
     )
     opens_on = serializers.DateField(error_messages={"required": "Elige cuándo se abre.", "invalid": "Elige cuándo se abre."})
     ready = serializers.BooleanField(read_only=True)
+    # «Sellar otra carta»: la carta (ya abierta) que se estaba leyendo al escribir esta.
+    follows = serializers.PrimaryKeyRelatedField(
+        queryset=Letter.objects.none(),
+        pk_field=serializers.UUIDField(),
+        required=False,
+        allow_null=True,
+        error_messages={"does_not_exist": "Esa carta no existe.", "incorrect_type": "Esa carta no existe."},
+    )
 
     class Meta:
         model = Letter
-        fields = ("id", "opens_on", "font", "ink", "content", "ready", "opened_at", "created_at")
+        fields = ("id", "opens_on", "font", "ink", "content", "ready", "opened_at", "follows", "created_at")
         read_only_fields = ("id", "opened_at", "created_at")
+
+    def get_fields(self):
+        fields = super().get_fields()
+        request = self.context.get("request")
+        # Solo se encadena con una carta propia.
+        fields["follows"].queryset = Letter.objects.filter(user=request.user) if request else Letter.objects.none()
+        return fields
+
+    def validate_follows(self, value):
+        if value and not value.is_open:
+            raise serializers.ValidationError("Solo puedes seguir una carta que ya abriste.")
+        return value
 
     def validate_opens_on(self, value):
         today = timezone.localdate()
@@ -98,7 +124,19 @@ class LetterSerializer(serializers.ModelSerializer):
 
     def to_representation(self, letter):
         data = super().to_representation(letter)
-        # Sellada (o sin abrir): el contenido no sale del servidor.
-        if not (letter.ready and letter.opened_at):
+        # Sellada (o sin abrir): el contenido no sale del servidor, ni nada de lo que acompaña su lectura.
+        if not letter.is_open:
             data.pop("content")
+            return data
+        # Abierta: cómo estaba la persona al escribirla, su respuesta y las cartas que siguieron.
+        data["moment"] = moments.letter_moment(letter)
+        reply = getattr(letter, "reply", None)
+        data["reply"] = {"page": str(reply.id), "notebook": str(reply.notebook_id)} if reply else None
+        data["next_letters"] = [
+            {"id": str(item.id), "opens_on": item.opens_on, "ready": item.ready} for item in letter.followed_by.order_by("opens_on")
+        ]
+        previous = letter.follows
+        data["previous"] = (
+            {"id": str(previous.id), "written": timezone.localtime(previous.created_at).date()} if previous else None
+        )
         return data

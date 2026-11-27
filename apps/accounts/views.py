@@ -197,6 +197,7 @@ def diary_export(user):
                     "ink": page.ink,
                     "text": content.plain_text(content.load(page.content)),
                     "content": content.load(page.content),
+                    "reply_to": str(page.reply_to_id) if page.reply_to_id else None,
                     "updated_at": page.updated_at,
                 }
                 for page in notebook.pages.all()
@@ -217,6 +218,7 @@ def letters_export(user):
             "font": letter.font,
             "ink": letter.ink,
             "content": letter.content,
+            "follows": str(letter.follows_id) if letter.follows_id else None,
             "created_at": letter.created_at,
         }
         for letter in Letter.objects.filter(user=user)

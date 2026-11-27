@@ -569,6 +569,16 @@ class SeedDemoTests(TestCase):
         self.assertEqual(self.client_for("valentina.demo@example.com").get("/api/v1/memories/").data["nodes"], [])
         self.assertEqual(len(self.client_for("valentina.demo@example.com").get("/api/v1/memories/suggestions/").data["suggestions"]), 2)
 
+    def test_maria_has_three_central_memories(self):
+        """HU11: María tiene 3 recuerdos centrales (le quedan 2 lugares) y se ven en su mapa."""
+        self.run_seed()
+        graph = self.client_for("maria.demo@example.com").get("/api/v1/memories/").data
+        centrals = sorted(node["name"] for node in graph["nodes"] if node["central"])
+        self.assertEqual(centrals, ["Días de calma", "La familia y sus abrazos", "Sabores de la infancia"])
+        self.assertEqual((graph["central_count"], graph["max_central"]), (3, 5))
+        for email in ("mateo.demo@example.com", "juliana.demo@example.com"):
+            self.assertFalse(Memory.objects.filter(user__email=email, is_central=True).exists())
+
     def test_reset_recreates_the_memories_without_duplicates(self):
         self.run_seed()
         self.run_seed("--reset")

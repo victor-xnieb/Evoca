@@ -16,7 +16,7 @@ trabajo sigue la prioridad del Jira.
 | 3 | HU12 · Buscar recuerdos por significado con IA | SCRUM-22 | Medium | SCRUM-60 | SCRUM-61 | SCRUM-62 | `feature/hu12-busqueda-significado-ia` | En dev |
 | 4 | HU13 · Ver estadísticas de mis sensaciones | SCRUM-23 | Medium | SCRUM-63 | SCRUM-64 | SCRUM-65 | `feature/hu13-estadisticas-sensaciones` | En dev |
 | 5 | HU11 · Marcar mis recuerdos centrales | SCRUM-21 | Low | SCRUM-57 | SCRUM-58 | SCRUM-59 | `feature/hu11-recuerdos-centrales` | En dev |
-| 6 | HU14 · Ver patrones de mi semana con IA | SCRUM-24 | Low | SCRUM-66 | SCRUM-67 | SCRUM-68 | `feature/hu14-patrones-semana-ia` | Pendiente |
+| 6 | HU14 · Ver patrones de mi semana con IA | SCRUM-24 | Low | SCRUM-66 | SCRUM-67 | SCRUM-68 | `feature/hu14-patrones-semana-ia` | En rama, por aprobar |
 | 7 | HU15 · Descubrir mis islas | SCRUM-25 | Low | SCRUM-69 | SCRUM-70 | SCRUM-71 | `feature/hu15-islas` | Pendiente |
 | 8 | HU16 · Grabar una nota de voz en la huella | SCRUM-26 | Lowest | SCRUM-72 | SCRUM-73 | SCRUM-74 | `feature/hu16-nota-de-voz` | Pendiente |
 
@@ -335,6 +335,60 @@ borrar. Se agregó «Borrar recuerdo» (con confirmación): borra el recuerdo, n
 | 1 · Marcar o desmarcar se guarda, hasta 5 | `apps/traces/tests.py` (`CentralMemoryTests`: `test_scenario_1_*`, `test_a_memory_without_traces…`, `test_only_a_memory_of_the_map…`, `test_the_body_must_say…`, `test_i_cannot_mark_or_delete_memories_of_others`, `test_others_central_memories_do_not_count`); `frontend/src/app/hu11.test.tsx` (escenario 1, límite y error) | Cumplido |
 | 2 · Destacados en el mapa y en su sección | `test_scenario_2_*`; `apps/accounts/tests.py` (`test_maria_has_three_central_memories`); `hu11.test.tsx` (escenario 2: sección en orden, estrella y anillo, nombre accesible) | Cumplido |
 | 3 · Al borrarlo deja de aparecer y libera su lugar | `test_scenario_3_*` (sus huellas siguen; una sugerencia no se borra); `hu11.test.tsx` (escenario 3: confirmación, cancelar) | Cumplido |
+
+---
+
+## HU14 · Ver patrones de mi semana con IA (SCRUM-24)
+
+**Historia.** Como usuario, quiero un resumen semanal con patrones entre mis huellas y mi ánimo,
+para entender qué me hace sentir mejor o peor.
+
+**Escenarios**
+
+1. Dado que tengo al menos 5 registros en la semana, cuando llega el resumen semanal, entonces
+   recibo de 1 a 3 patrones entre mis huellas y mi ánimo.
+2. Dado que veo un patrón, cuando lo reviso, entonces está escrito como observación y indica con
+   qué registros se calculó.
+3. Dado que estoy en ajustes, cuando desactivo el resumen semanal, entonces dejo de recibirlo.
+
+**Subtareas:** Backend SCRUM-66 · Interfaz SCRUM-67 · Pruebas SCRUM-68.
+
+**Decisiones del equipo.** La app no tiene correo ni notificaciones en segundo plano, así que el
+resumen «llega» como tarjeta en **Inicio**. Resume la semana anterior completa (lunes a domingo):
+desde el lunes se ve el mismo resumen toda la semana, preparado una sola vez.
+
+### Qué se hizo
+
+- **Backend (SCRUM-66):**
+  - `WeeklySummary` (un resumen por persona y semana, con sus patrones y los id de las huellas de
+    cada uno) y `WeeklySummaryPreference` (activo por defecto); migración `traces/0007_weekly_summary`.
+  - `apps/traces/weekly.py`: la IA recibe las huellas de la semana numeradas (día y hora, tipo,
+    emoción, intensidad, ánimo, etiquetas y nota; sin las notas con palabras de riesgo) y responde
+    de 1 a 3 patrones con los números de sus huellas. Se valida todo: como mucho 3, cada uno con
+    al menos 2 huellas reales, sin repetidos y de hasta 240 caracteres; si no queda ninguno válido
+    no se guarda nada.
+  - `GET /api/v1/weekly-summary/` (no llama a la IA), `POST /api/v1/weekly-summary/generate/` (5
+    por minuto) y `GET/PUT /api/v1/weekly-summary/settings/`.
+- **Interfaz (SCRUM-67):**
+  - Tarjeta «Tu semana» en Inicio: rango de fechas y número de registros; los patrones; «Calculado
+    con N registros» despliega esas huellas (fecha, tipo, emoción, intensidad y ánimo) y cada una
+    abre su detalle. Aclara que son observaciones, no diagnósticos, y enlaza a Ajustes.
+  - Estados: preparando, menos de 5 registros («faltó 1»), IA no disponible con «Intentar de
+    nuevo», y sin tarjeta si está desactivado o no se puede consultar.
+  - **Ajustes → Resumen semanal**: interruptor como el del recordatorio.
+
+### Evidencia
+
+| Escenario | Prueba automática | Estado |
+| --- | --- | --- |
+| 1 · Con 5 registros o más llegan de 1 a 3 patrones | `apps/traces/tests.py` (`WeeklySummaryTests`: `test_scenario_1_*`, `test_with_fewer_than_5_traces…`, `test_only_my_traces…`; `LastWeekTests`); `frontend/src/app/hu14.test.tsx` (escenario 1) | Cumplido |
+| 2 · Escrito como observación y con sus registros | `test_scenario_2_*`, `test_notes_with_risk_words…`; `hu14.test.tsx` (escenario 2) | Cumplido |
+| 3 · Al desactivarlo deja de llegar | `test_scenario_3_*`; `hu14.test.tsx` (escenario 3: Inicio sin tarjeta, interruptor en Ajustes) | Cumplido |
+| Semana con pocos datos y fallo de la IA (subtarea de pruebas) | `test_with_fewer_than_5_traces…`, `test_when_the_ai_fails…` (sin red, tiempo agotado, 429), `test_without_a_key…`, `test_scenario_1_without_valid_patterns…`, `test_limits_generation_requests_per_person`; `hu14.test.tsx` (pocos registros, IA no disponible, error) | Cumplido |
+
+**Prueba con Gemini real** (semana del 16 al 22 de noviembre): María (9 huellas) recibe 2 patrones
+en 1,1 s; Mateo (7) recibe «Las noches en que registraste texturas o colores asociados a la
+tristeza tu ánimo fue muy bajo», calculado con 3 registros; una cuenta con 4 huellas ve que faltó 1.
 
 ---
 

@@ -9,6 +9,7 @@ urlpatterns = [
     path("api/v1/auth/", include("apps.accounts.urls")),
     path("api/v1/traces/", include("apps.traces.urls")),
     path("api/v1/memories/", include("apps.traces.memory_urls")),
+    path("api/v1/weekly-summary/", include("apps.traces.weekly_urls")),
     path("api/v1/support/", include("apps.support.urls")),
 ]
 

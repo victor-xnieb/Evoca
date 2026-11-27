@@ -243,6 +243,9 @@ en la orientación de Mateo, que la pausa 7 días).
 | DELETE | `/api/v1/memories/{id}/traces/{trace_id}/` | Separa una huella de la sugerencia (la última no: se descarta) |
 | POST | `/api/v1/memories/{id}/discard/` | Descarta la sugerencia; sus huellas quedan libres para otra |
 | POST | `/api/v1/memories/{id}/central/` | HU11: marca (`{"central": true}`) o desmarca (`false`) un recuerdo del mapa como central. Máximo 5: el sexto responde 400 con `code: central_limit`. El mapa trae `central`, `central_at`, `central_count` y `max_central` |
+| GET | `/api/v1/weekly-summary/` | HU14: resumen de la semana pasada (lunes a domingo). `status`: `disabled`, `too_few` (menos de 5 huellas; `missing`), `pending` (aún no se prepara), `unavailable` o `ready` con `patterns` (`text`, `trace_count` y `traces` con fecha, tipo, emoción, intensidad, ánimo y nota). No llama a la IA |
+| POST | `/api/v1/weekly-summary/generate/` | HU14: prepara el resumen con la IA si hace falta (una sola vez por semana; 5 pedidos por minuto) y responde lo mismo que el GET |
+| GET/PUT | `/api/v1/weekly-summary/settings/` | HU14: si la persona recibe el resumen semanal (`enabled`, activo por defecto) |
 | DELETE | `/api/v1/memories/{id}/` | HU11: borra un recuerdo del mapa (sus huellas no se borran); si era central, libera su lugar. Una sugerencia no se borra: se descarta |
 
 ### Búsqueda por significado (HU12)
@@ -304,6 +307,17 @@ La intensidad dice qué tan fuerte fue una emoción, no qué tan bien estaba la 
 Lo usan la orientación de HU6 (un día es bajo si el promedio del ánimo de sus huellas es 2 o
 menos) y la gráfica de HU4. El calendario de HU7 sigue mostrando la intensidad promedio, que sí
 es intensidad.
+
+### Patrones de mi semana (HU14)
+
+Desde el lunes, **Inicio** muestra «Tu semana»: de 1 a 3 patrones entre las huellas y el ánimo
+de la semana anterior (lunes a domingo), si tuvo al menos 5 huellas (`apps/traces/weekly.py`).
+La IA (Gemini, solo desde el servidor) lo prepara una sola vez por semana y queda guardado en
+`WeeklySummary`; abrir Inicio no llama a la IA si ya está. Cada patrón está escrito como
+observación (sin diagnósticos ni consejos) y dice con qué huellas se calculó: se pueden ver y
+abrir. La IA recibe día y hora, tipo, emoción, intensidad, ánimo (HU4/HU6), etiquetas y nota;
+las notas con palabras de riesgo (HU6) no se envían. Con menos de 5 huellas dice cuántas
+faltaron. Se desactiva en **Ajustes → Resumen semanal** y deja de aparecer.
 
 ### Recuerdos centrales (HU11)
 

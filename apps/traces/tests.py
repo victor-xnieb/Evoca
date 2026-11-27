@@ -20,9 +20,9 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
 
-from . import ai, memory_ai, memory_map, search, stats
+from . import ai, memory_ai, memory_map, search, stats, weekly
 from .management.commands.suggestion_stats import acceptance_stats
-from .models import Memory, MemoryTrace, Trace, TraceElement, TraceEmbedding
+from .models import Memory, MemoryTrace, Trace, TraceElement, TraceEmbedding, WeeklySummary
 from .mood import mood_score
 
 
@@ -2182,3 +2182,222 @@ class CentralMemoryTests(APITestCase):
         response = self.client.delete(f"/api/v1/memories/{suggestion.pk}/")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertTrue(Memory.objects.filter(pk=suggestion.pk).exists())
+
+
+def weekly_answer(*patterns):
+    return json.dumps({"patterns": [{"text": text, "traces": numbers} for text, numbers in patterns]})
+
+
+@override_settings(EVOCA_AI_API_KEY="test-key", EVOCA_AI_PROVIDER="gemini")
+class WeeklySummaryTests(APITestCase):
+    """HU14: patrones de mi semana con IA (resumen de la semana pasada, de lunes a domingo)."""
+
+    url = "/api/v1/weekly-summary/"
+    generate_url = "/api/v1/weekly-summary/generate/"
+    settings_url = "/api/v1/weekly-summary/settings/"
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(email="semana@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        self.client.force_authenticate(self.user)
+        self.start, self.end = weekly.last_week()
+        self.calls = []
+
+    def provider(self, answer=None, error=None):
+        def ask(text):
+            self.calls.append(text)
+            if error:
+                raise error
+            return answer if answer is not None else weekly_answer(
+                ("Las tardes con canciones tu ánimo fue más alto.", [1, 2]),
+                ("Los aromas de la mañana acompañaron un ánimo tranquilo.", [3, 4, 5]),
+            )
+
+        return mock.patch.dict(weekly.PROVIDERS, {"gemini": ask})
+
+    def add(self, day, note="Una tarde con música.", emotion="alegria", intensity=4, user=None, hour=15, sensory_type="song"):
+        moment = timezone.make_aware(datetime.combine(self.start + timedelta(days=day), time(hour, 0)))
+        return Trace.objects.create(
+            user=user or self.user, sensory_type=sensory_type, note=note, emotion=emotion,
+            mood_intensity=intensity, happened_at=moment,
+        )
+
+    def week(self, count=5):
+        return [self.add(index % 7, note=f"Huella número {index}.") for index in range(count)]
+
+    def generate(self, **provider):
+        with self.provider(**provider):
+            return self.client.post(self.generate_url)
+
+    # Escenario 1
+    def test_scenario_1_with_5_traces_last_week_it_brings_1_to_3_patterns(self):
+        self.week(5)
+
+        pending = self.client.get(self.url).data
+        self.assertEqual((pending["status"], pending["count"]), ("pending", 5))
+        self.assertEqual((pending["week_start"], pending["week_end"]), (self.start, self.end))
+        self.assertEqual(self.calls, [])
+
+        data = self.generate().data
+
+        self.assertEqual(data["status"], "ready")
+        self.assertEqual([pattern["text"] for pattern in data["patterns"]], [
+            "Las tardes con canciones tu ánimo fue más alto.",
+            "Los aromas de la mañana acompañaron un ánimo tranquilo.",
+        ])
+        self.assertEqual(WeeklySummary.objects.filter(user=self.user, week_start=self.start).count(), 1)
+
+    def test_scenario_1_it_is_prepared_once_per_week(self):
+        self.week(5)
+        self.generate()
+        self.calls.clear()
+
+        self.assertEqual(self.generate().data["status"], "ready")
+        self.assertEqual(self.client.get(self.url).data["status"], "ready")
+        self.assertEqual(self.calls, [])
+
+    def test_scenario_1_at_most_3_patterns_each_with_2_real_traces(self):
+        self.week(6)
+        answer = weekly_answer(
+            ("Uno.", [1, 2]), ("Dos.", [2, 3]), ("Tres.", [4, 5]), ("Cuatro.", [5, 6]),
+            ("Con una sola huella.", [1]), ("Con números que no existen.", [7, 99]), ("Uno.", [3, 4]),
+        )
+        data = self.generate(answer=answer).data
+        self.assertEqual([pattern["text"] for pattern in data["patterns"]], ["Uno.", "Dos.", "Tres."])
+
+    def test_scenario_1_without_valid_patterns_nothing_is_saved(self):
+        self.week(5)
+        for answer in ["no es json", json.dumps({"patterns": []}), weekly_answer(("Sin huellas.", [])), weekly_answer(("x" * 241, [1, 2]))]:
+            with self.subTest(answer=answer[:30]):
+                self.assertEqual(self.generate(answer=answer).data["status"], "unavailable")
+        self.assertFalse(WeeklySummary.objects.exists())
+
+    def test_with_fewer_than_5_traces_it_says_how_many_were_missing(self):
+        self.week(4)
+        # Las de esta semana y las de hace dos semanas no cuentan.
+        Trace.objects.create(user=self.user, sensory_type="aroma", note="Hoy.", emotion="calma", mood_intensity=3)
+        self.add(-3, note="Hace dos semanas.")
+
+        data = self.generate().data
+
+        self.assertEqual((data["status"], data["count"], data["missing"], data["required"]), ("too_few", 4, 1, 5))
+        self.assertEqual(self.calls, [])
+
+    def test_only_my_traces_count_and_are_sent(self):
+        other = User.objects.create_user(email="otra@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        for index in range(5):
+            self.add(index, note=f"Ajena {index}.", user=other)
+        self.week(4)
+        self.assertEqual(self.client.get(self.url).data["status"], "too_few")
+        self.add(5, note="La quinta mía.")
+        self.generate()
+        self.assertNotIn("Ajena", "".join(self.calls))
+
+    # Escenario 2
+    def test_scenario_2_each_pattern_says_with_which_traces_it_was_calculated(self):
+        traces = [
+            self.add(0, "Salsa en la sala.", "alegria", 5),
+            self.add(1, "Una canción triste.", "tristeza", 5),
+            self.add(2, "Café de la mañana.", "calma", 3, sensory_type="aroma"),
+            self.add(3, "Lluvia.", "nostalgia", 4, sensory_type="aroma"),
+            self.add(4, "Pan recién hecho.", "gratitud", 4, sensory_type="flavor"),
+        ]
+        pattern = self.generate(answer=weekly_answer(("Las canciones movieron tu ánimo.", [2, 1]))).data["patterns"][0]
+
+        self.assertEqual(pattern["trace_count"], 2)
+        self.assertEqual(
+            [(item["id"], item["note"], item["emotion"], item["mood_intensity"], item["mood"]) for item in pattern["traces"]],
+            [(str(traces[0].pk), "Salsa en la sala.", "alegria", 5, 5), (str(traces[1].pk), "Una canción triste.", "tristeza", 5, 1)],
+        )
+        self.assertIn("date", pattern["traces"][0])
+
+    def test_scenario_2_a_deleted_trace_leaves_the_pattern_but_not_the_trace(self):
+        traces = self.week(5)
+        self.generate(answer=weekly_answer(("Patrón.", [1, 2, 3])))
+        traces[0].delete()
+        pattern = self.client.get(self.url).data["patterns"][0]
+        self.assertEqual((pattern["trace_count"], len(pattern["traces"])), (3, 2))
+
+    def test_scenario_2_the_ai_is_asked_for_observations_with_mood(self):
+        self.add(0, "Salsa en la sala.", "tristeza", 5)
+        self.week(4)
+        self.generate()
+        sent = self.calls[0]
+        self.assertIn("Canción · Tristeza 5 · ánimo 1", sent)
+        self.assertIn(["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"][self.start.weekday()], sent)
+        self.assertIn("observación", weekly.SYSTEM_PROMPT)
+        self.assertIn("Sin diagnósticos", weekly.SYSTEM_PROMPT)
+        self.assertNotIn("semana@example.com", sent)
+
+    def test_notes_with_risk_words_are_not_sent_to_the_ai(self):
+        self.add(0, "Pensé en el suicidio toda la tarde.", "tristeza", 5)
+        self.week(4)
+        self.generate()
+        self.assertNotIn("suicidio", self.calls[0])
+        self.assertIn("(nota no incluida)", self.calls[0])
+
+    # Fallos de la IA (subtarea de pruebas)
+    def test_when_the_ai_fails_it_says_so_and_tries_again_later(self):
+        self.week(5)
+        failures = [
+            urllib.error.URLError("sin red"),
+            TimeoutError(),
+            urllib.error.HTTPError("https://ai.example", 429, "Too Many Requests", {}, None),
+            ai.SuggestionUnavailable("respuesta sin contenido"),
+        ]
+        for error in failures:
+            with self.subTest(error=type(error).__name__), self.assertLogs("apps.traces.weekly", "WARNING") as logs:
+                self.assertEqual(self.generate(error=error).data["status"], "unavailable")
+                self.assertNotIn("Huella número", " ".join(logs.output))
+        self.assertFalse(WeeklySummary.objects.exists())
+        self.assertEqual(self.generate().data["status"], "ready")
+
+    @override_settings(EVOCA_AI_API_KEY="")
+    def test_without_a_key_it_is_unavailable(self):
+        self.week(5)
+        self.assertEqual(self.generate().data["status"], "unavailable")
+        self.assertEqual(self.calls, [])
+
+    # Escenario 3
+    def test_scenario_3_turning_it_off_stops_the_summary(self):
+        self.week(5)
+        self.assertEqual(self.client.get(self.settings_url).data, {"enabled": True})
+
+        response = self.client.put(self.settings_url, {"enabled": False}, format="json")
+
+        self.assertEqual(response.data, {"enabled": False})
+        self.assertEqual(self.client.get(self.url).data["status"], "disabled")
+        self.assertEqual(self.generate().data["status"], "disabled")
+        self.assertEqual(self.calls, [])
+
+        self.client.put(self.settings_url, {"enabled": True}, format="json")
+        self.assertEqual(self.client.get(self.url).data["status"], "pending")
+
+    def test_scenario_3_the_setting_is_per_person_and_validated(self):
+        other = User.objects.create_user(email="otra@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        self.client.put(self.settings_url, {"enabled": False}, format="json")
+        self.assertTrue(weekly.is_enabled(other))
+        self.assertEqual(self.client.put(self.settings_url, {}, format="json").status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_needs_a_session(self):
+        self.client.force_authenticate(None)
+        for method, url in [("get", self.url), ("post", self.generate_url), ("get", self.settings_url)]:
+            with self.subTest(url=url):
+                self.assertEqual(getattr(self.client, method)(url).status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_limits_generation_requests_per_person(self):
+        self.week(4)
+        with self.provider():
+            codes = [self.client.post(self.generate_url).status_code for _ in range(6)]
+        self.assertEqual(codes[:5], [status.HTTP_200_OK] * 5)
+        self.assertEqual(codes[5], status.HTTP_429_TOO_MANY_REQUESTS)
+
+
+class LastWeekTests(SimpleTestCase):
+    """HU14: la semana del resumen es la anterior completa, de lunes a domingo."""
+
+    def test_any_day_of_a_week_points_to_the_previous_monday_to_sunday(self):
+        for today in [date(2026, 11, 23), date(2026, 11, 26), date(2026, 11, 29)]:
+            with self.subTest(today=today):
+                self.assertEqual(weekly.last_week(today), (date(2026, 11, 16), date(2026, 11, 22)))
+        self.assertEqual(weekly.last_week(date(2026, 11, 30)), (date(2026, 11, 23), date(2026, 11, 29)))

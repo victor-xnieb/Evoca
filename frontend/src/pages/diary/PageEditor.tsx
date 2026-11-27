@@ -5,7 +5,7 @@ import { BubbleMenu } from "@tiptap/react/menus"
 import StarterKit from "@tiptap/starter-kit"
 import { Highlighter, Sparkles, Underline as UnderlineIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react"
-import { useNavigate } from "react-router"
+import { Link, useNavigate } from "react-router"
 
 import { Button } from "@/components/ui/button"
 import { useReducedMotion } from "@/hooks/use-reduced-motion"
@@ -258,6 +258,15 @@ export function PageEditor({ page, notebookPaper, catalog, onChange }: PageEdito
             {emotionName ? `Emoción del día: ${emotionName}` : "Día sin huellas"}
           </span>
         </header>
+        {/* HU19: si esta página responde a una carta a mi yo del futuro, lleva a ella. */}
+        {page.reply_to && (
+          <Link
+            to={`/cuadernillo/cartas/${page.reply_to.id}`}
+            className="relative mb-2 inline-flex min-h-11 items-center font-sans text-sm font-semibold text-(--diary-ink) underline underline-offset-4"
+          >
+            Respuesta a tu carta del {formatDate(`${page.reply_to.written}T12:00:00`, { day: "numeric", month: "long", year: "numeric" })}
+          </Link>
+        )}
 
         {editor && (
           <BubbleMenu

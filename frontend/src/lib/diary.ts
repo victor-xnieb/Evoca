@@ -73,6 +73,8 @@ export interface DiaryPage {
   day_emotion: string | null
   /** HU18: recuerdos sugeridos desde esta página y frases que se iluminan. */
   evocation?: Evocation
+  /** HU19: la carta a la que responde esta página. */
+  reply_to?: { id: string; written: string } | null
   created_at: string
   updated_at: string
 }
@@ -136,7 +138,22 @@ export interface Letter {
   ready: boolean
   opened_at: string | null
   created_at: string
+  /** La carta que se estaba leyendo al escribir esta («Sellar otra carta»). */
+  follows?: string | null
   content?: string
+  /** Solo en una carta abierta: cómo estaba al escribirla, su respuesta y la cadena. */
+  moment?: LetterMoment
+  reply?: { page: string; notebook: string } | null
+  next_letters?: Array<{ id: string; opens_on: string; ready: boolean }>
+  previous?: { id: string; written: string } | null
+}
+
+/** «Así estabas cuando la escribiste»: la emoción de ese día, la de hoy y huellas de esa semana. */
+export interface LetterMoment {
+  day: string
+  emotion: string | null
+  today_emotion: string | null
+  traces: Array<{ id: string; sensory_type: string; note: string; emotion: string; mood_intensity: number; at: string }>
 }
 
 export interface LetterFields {
@@ -144,6 +161,7 @@ export interface LetterFields {
   opens_on: string
   font: DiaryFont
   ink: Ink
+  follows?: string
 }
 
 export const coverOf = (value: string) => COVERS.find((cover) => cover.value === value) ?? COVERS[0]
@@ -171,4 +189,7 @@ export const diaryApi = {
   sealLetter: (fields: LetterFields) => api.post<Letter>("diary/letters/", fields),
   /** Abre el sobre si ya llegó su fecha y trae la carta. */
   openLetter: (id: string) => api.post<Letter>(`diary/letters/${id}/open/`),
+  /** Una página de hoy que responde a la carta (en el cuaderno elegido o el último en que escribí). */
+  replyLetter: (id: string, notebook?: string) =>
+    api.post<{ page: string; notebook: string }>(`diary/letters/${id}/reply/`, notebook ? { notebook } : {}),
 }

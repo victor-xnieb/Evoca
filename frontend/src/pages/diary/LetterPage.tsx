@@ -13,6 +13,7 @@ import { useReducedMotion } from "@/hooks/use-reduced-motion"
 import { diaryApi, fontOf, fontSizeOf, inkVar, type Letter } from "@/lib/diary"
 import { formatDate } from "@/lib/format"
 
+import { LetterActions, LetterMomentCard } from "./AfterReading"
 import { dayLabel, daysUntil } from "./letters"
 
 import "@fontsource/caveat/400.css"
@@ -147,6 +148,8 @@ export function LetterPage() {
               Tu carta del {written(letter)}
             </h1>
             <LetterPaper letter={letter} delay={justOpened ? 0.8 : 0} />
+            {letter.moment && <LetterMomentCard moment={letter.moment} />}
+            <LetterActions letter={letter} />
           </motion.div>
         ) : (
           <motion.div

@@ -417,11 +417,12 @@ MARIA_DIARY = [
 ]
 
 
-# Cartas de María a su yo del futuro (HU19): una que llega hoy (para ver el aviso en Inicio y
+# Cartas de María a su yo del futuro (HU19): una que llega hoy, escrita un día de calma (para ver el
+# aviso en Inicio, abrir el sobre y «Así estabas cuando la escribiste») y otra sellada por meses.
 # abrir el sobre) y otra sellada por meses. (escrita hace días, se abre en días, letra, tinta, texto)
 MARIA_LETTERS = [
     (
-        90, 0, "caveat", "vino",
+        88, 0, "caveat", "vino",
         "Querida María de noviembre:\n\nHoy es un día de lluvia y estoy tomando café en la ventana. "
         "Espero que sigas buscando esos ratos tranquilos y que la salsa con tu hermana siga sonando en la cocina.\n\n"
         "Con cariño, la María de agosto.",

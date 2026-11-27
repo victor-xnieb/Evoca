@@ -1,7 +1,7 @@
 import { ArrowLeft, Stamp } from "lucide-react"
 import { motion } from "motion/react"
 import { useId, useState, type CSSProperties, type FormEvent } from "react"
-import { Link } from "react-router"
+import { Link, useSearchParams } from "react-router"
 
 import { Envelope } from "@/components/evoca/Envelope"
 import { PageTransition } from "@/components/evoca/PageTransition"
@@ -26,6 +26,8 @@ import "@/styles/diary.css"
  */
 export function LetterWritePage() {
   const reduced = useReducedMotion()
+  // «Sellar otra carta» desde una carta abierta: la nueva sigue a esa.
+  const follows = useSearchParams()[0].get("desde") ?? undefined
   const textId = useId()
   const dateId = useId()
   const fontId = useId()
@@ -57,6 +59,7 @@ export function LetterWritePage() {
           opens_on: opensOn,
           font,
           ink,
+          follows,
         }),
       )
     } catch (problem) {
@@ -108,6 +111,7 @@ export function LetterWritePage() {
         </Link>
         <h1 className="text-3xl font-semibold">Carta a mi yo del futuro</h1>
         <p className="text-base text-muted-foreground">Escríbele a quien serás. Quedará sellada hasta el día que elijas.</p>
+        {follows && <p className="text-sm font-semibold">Esta carta seguirá a la que acabas de leer.</p>}
       </div>
 
       <form onSubmit={submit} noValidate className="flex flex-col gap-5">

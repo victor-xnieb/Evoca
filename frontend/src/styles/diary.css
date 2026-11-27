@@ -1,0 +1,124 @@
+/*
+ * Cuadernillo (HU17): papel, tinta y portadas. Se carga solo con la pestaña «Cuadernillo».
+ * El papel es crema y granulado; en modo oscuro pasa a «papel nocturno» (azul grisáceo suave)
+ * y la tinta a tonos claros, con buen contraste.
+ */
+
+:root {
+  --paper: #fbf4e6;
+  --paper-edge: #efe2c9;
+  --paper-line: rgba(84, 120, 160, 0.22);
+  --paper-margin: rgba(214, 120, 110, 0.35);
+  --paper-shadow: rgba(60, 40, 20, 0.16);
+  --paper-grain: 0.05;
+  --ink-sepia: #4a2e1f;
+  --ink-azul: #1f3f7a;
+  --ink-verde: #285a3c;
+  --ink-vino: #7c2236;
+  --ink-morado: #4f2f7a;
+}
+
+.dark {
+  --paper: #2b3240;
+  --paper-edge: #232937;
+  --paper-line: rgba(170, 190, 225, 0.16);
+  --paper-margin: rgba(230, 140, 140, 0.25);
+  --paper-shadow: rgba(0, 0, 0, 0.45);
+  --paper-grain: 0.07;
+  --ink-sepia: #f1e3cf;
+  --ink-azul: #b9d0ff;
+  --ink-verde: #b7e3c4;
+  --ink-vino: #ffc0cc;
+  --ink-morado: #dcc8ff;
+}
+
+/* Hoja: color de papel, grano sutil, sombra en los bordes y hacia el lomo. */
+.diary-paper {
+  position: relative;
+  background-color: var(--paper);
+  /* Sombra hacia el lomo. */
+  background-image: linear-gradient(90deg, var(--paper-shadow), transparent 6%);
+  box-shadow:
+    0 1px 2px var(--paper-shadow),
+    0 18px 40px -18px var(--paper-shadow),
+    inset 0 0 0 1px var(--paper-edge);
+  --line-gap: 2.25rem;
+}
+
+/* Grano del papel: muy sutil, encima del color y debajo de la escritura. */
+.diary-paper::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.25  0 0 0 0 0.15  0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  opacity: var(--paper-grain);
+  pointer-events: none;
+}
+
+/* Patrones del papel: líneas finas y tenues que no compiten con la escritura. */
+.diary-lines {
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--line-gap) - 1px), var(--paper-line) calc(var(--line-gap) - 1px), var(--paper-line) var(--line-gap));
+  background-position: 0 calc(1.25rem - 0.2rem);
+}
+.diary-grid {
+  background-image:
+    linear-gradient(to right, var(--paper-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--paper-line) 1px, transparent 1px);
+  background-size: 1.5rem 1.5rem;
+}
+.diary-dots {
+  background-image: radial-gradient(circle, var(--paper-line) 1.4px, transparent 1.6px);
+  background-size: 1.5rem 1.5rem;
+}
+
+/* Lo escrito: letra manuscrita, al ritmo de las líneas, sin el borde del editor. */
+.diary-writing .ProseMirror {
+  min-height: 24rem;
+  outline: none;
+  font-size: var(--diary-size, 1.5rem);
+  line-height: var(--line-gap, 2.25rem);
+  color: var(--diary-ink, var(--ink-sepia));
+  caret-color: var(--diary-ink, var(--ink-sepia));
+  word-break: break-word;
+}
+.diary-writing .ProseMirror p {
+  margin: 0;
+  min-height: var(--line-gap, 2.25rem);
+}
+/* Foco visible pero discreto: escribir no debe sentirse dentro de una caja. */
+.diary-writing .ProseMirror:focus-visible {
+  outline: 2px dashed color-mix(in oklab, var(--ring) 55%, transparent);
+  outline-offset: 8px;
+  border-radius: 0.5rem;
+}
+.diary-writing .ProseMirror mark {
+  border-radius: 0.25em;
+  padding: 0 0.1em;
+  color: inherit;
+  box-decoration-break: clone;
+}
+.diary-writing .ProseMirror u {
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.2em;
+}
+.diary-writing .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* Portada: tela o cartón con su color, lomo más oscuro y cinta marcador. */
+.diary-cover {
+  background-color: var(--cover);
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 5px),
+    repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.05) 0 2px, transparent 2px 5px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.28) 0, rgba(0, 0, 0, 0.08) 10%, transparent 14%);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.18),
+    0 22px 36px -20px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}

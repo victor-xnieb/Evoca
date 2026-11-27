@@ -38,6 +38,10 @@ services:
       # Sugerencia de emoción con Gemini (HU8). Sin clave, la app funciona sin sugerencia.
       - key: EVOCA_AI_API_KEY
         sync: false
+      # Cuadernillo (HU17): clave Fernet que cifra las páginas y las cartas. Obligatoria; no se
+      # debe perder ni cambiar (sin ella, lo escrito no se puede leer).
+      - key: EVOCA_DIARY_KEY
+        sync: false
       # Cuentas de demostración: "true" crea las que falten al arrancar; "reset" las recrea
       # (déjalo así un solo despliegue); cualquier otro valor no hace nada.
       - key: EVOCA_SEED_DEMO

@@ -13,6 +13,9 @@ export const MyTracesPage = lazy(() => import("@/pages/MyTracesPage").then((m) =
 export const TraceDetailPage = lazy(() => import("@/pages/TraceDetailPage").then((m) => ({ default: m.TraceDetailPage })))
 export const MoodPage = lazy(() => import("@/pages/MoodPage").then((m) => ({ default: m.MoodPage })))
 export const HelpPage = lazy(() => import("@/pages/HelpPage").then((m) => ({ default: m.HelpPage })))
+// HU17: el Cuadernillo trae el editor y las letras manuscritas: se carga solo al abrirlo.
+export const DiaryPage = lazy(() => import("@/pages/DiaryPage").then((m) => ({ default: m.DiaryPage })))
+export const NotebookPage = lazy(() => import("@/pages/diary/NotebookPage").then((m) => ({ default: m.NotebookPage })))
 export const SettingsPage = lazy(() => import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })))
 
 export function Deferred({ children }: { children: ReactNode }) {

@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.traces",
     "apps.support",
+    "apps.diary",
 ]
 
 MIDDLEWARE = [
@@ -201,6 +202,9 @@ EVOCA_AI_WEEKLY_TIMEOUT = float(os.getenv("EVOCA_AI_WEEKLY_TIMEOUT", "15.0"))
 EVOCA_AI_ISLANDS_TIMEOUT = float(os.getenv("EVOCA_AI_ISLANDS_TIMEOUT", "20.0"))
 # Notas de voz (HU16): 60 s a 64 kbps ocupan ~480 KB (Opus o AAC de iPhone); se deja holgura.
 EVOCA_VOICE_MAX_BYTES = int(os.getenv("EVOCA_VOICE_MAX_BYTES", str(1_500_000)))
+# Cuadernillo (HU17): clave Fernet con la que se cifran las páginas y las cartas. Obligatoria en
+# producción; no se debe perder ni cambiar (sin ella, lo escrito no se puede leer).
+EVOCA_DIARY_KEY = os.getenv("EVOCA_DIARY_KEY", "")
 
 # Mapa de recuerdos (HU10): afinidad mínima (0 a 1) para unir dos recuerdos con una línea y
 # máximo de conexiones por recuerdo, para que el grafo siga siendo legible.

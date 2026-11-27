@@ -12,15 +12,19 @@ el entorno). Esos valores por defecto están en el repositorio: con DEBUG=False 
 el comando exige definir las variables EVOCA_DEMO_*, para no publicar cuentas con claves conocidas.
 """
 
+import json
 import os
 from datetime import date, datetime, time, timedelta
 
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import AccessPin, ConsentRecord, DailyReminder, User
+from apps.diary.crypto import fernet
+from apps.diary.models import Notebook, Page
 from apps.traces.models import Memory, MemoryTrace, Trace
 
 DEMO_PASSWORD = "EvocaDemo!2026"
@@ -393,6 +397,33 @@ MARIA_REPEATS = [
 ]
 MARIA = MARIA + MARIA_REPEATS
 
+# Cuadernillo de María (HU17): un cuaderno con páginas recientes llenas de aromas, canciones y
+# lugares, que la IA de HU18 puede convertir en recuerdos. (días atrás, letra, tinta, párrafos)
+MARIA_DIARY = [
+    ("Mi diario", "terracota", "lined", [
+        (0, "caveat", "sepia", [
+            "Hoy la casa olía a café desde temprano y me quedé un rato en la ventana viendo llover.",
+            "En la radio sonó una salsa vieja que bailábamos con mi hermana y terminé cantándola sola en la cocina.",
+        ]),
+        (1, "kalam", "azul", [
+            "Fui al parque del barrio después de clase. El pasto estaba mojado y se sentía fresco en los pies.",
+            "Me acordé de las tardes con mi abuela, cuando hacía chocolate con pan y nos contaba historias.",
+        ]),
+        (3, "patrick", "verde", [
+            "Día largo en la universidad. La biblioteca estaba en silencio y la cobija que llevé me ayudó a concentrarme.",
+        ]),
+    ]),
+    ("Viajes", "azul", "dots", []),
+]
+
+
+def diary_document(paragraphs):
+    return json.dumps(
+        {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": text}]} for text in paragraphs]},
+        ensure_ascii=False,
+    )
+
+
 # Recuerdos sugeridos por la IA y aún sin revisar (HU9): (nombre, explicación, posiciones). Así la
 # demo muestra «aceptar, renombrar o separar» aunque la IA no esté configurada.
 VALENTINA_SUGGESTIONS = [
@@ -411,6 +442,7 @@ DEMO_USERS = [
         "tags": MARIA_TAGS,
         # HU11: tres recuerdos centrales (le quedan dos lugares de cinco).
         "centrals": ["La familia y sus abrazos", "Sabores de la infancia", "Días de calma"],
+        "diary": MARIA_DIARY,
         "reminder": {"enabled": True, "frequency": "daily", "time": time(20, 0)},
         "shows": "ánimo variado: lista y filtros, gráfica semanal y mensual, calendario de tres meses, mapa con 40 recuerdos de más de un año; estadísticas con café, lluvia y salsa entre lo más registrado; 3 recuerdos centrales; ya registró hoy",
     },
@@ -560,6 +592,7 @@ class Command(BaseCommand):
                     user=user, name=name, explanation=explanation, status=Memory.Status.SUGGESTED, suggested_at=now
                 )
                 MemoryTrace.objects.bulk_create([MemoryTrace(memory=memory, trace=traces[index]) for index in positions])
+            self.create_diary(user, today, spec.get("diary", []))
             self.stdout.write(
                 self.style.SUCCESS(
                     f"· {spec['email']}: {len(moments)} huellas, {len(memories)} recuerdos · {spec['shows']}"
@@ -567,3 +600,20 @@ class Command(BaseCommand):
             )
 
         self.stdout.write("La contraseña y el PIN están en apps/accounts/management/commands/seed_demo.py (o en EVOCA_DEMO_*).")
+
+    def create_diary(self, user, today, notebooks):
+        """HU17: cuadernos de ejemplo. Sin la clave del Cuadernillo, se omiten (lo demás sigue)."""
+        if not notebooks:
+            return
+        try:
+            fernet()  # Se revisa antes de escribir nada en la base.
+        except ImproperlyConfigured:
+            self.stdout.write(self.style.WARNING("  Cuadernillo omitido: falta EVOCA_DIARY_KEY."))
+            return
+        for title, cover, paper, pages in notebooks:
+            notebook = Notebook.objects.create(user=user, title=title, cover=cover, paper=paper)
+            for days_ago, font, ink, paragraphs in pages:
+                Page.objects.create(
+                    notebook=notebook, user=user, day=today - timedelta(days=days_ago), font=font, ink=ink,
+                    content=diary_document(paragraphs),
+                )

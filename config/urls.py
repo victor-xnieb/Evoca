@@ -11,6 +11,7 @@ urlpatterns = [
     path("api/v1/memories/", include("apps.traces.memory_urls")),
     path("api/v1/weekly-summary/", include("apps.traces.weekly_urls")),
     path("api/v1/islands/", include("apps.traces.island_urls")),
+    path("api/v1/diary/", include("apps.diary.urls")),
     path("api/v1/support/", include("apps.support.urls")),
 ]
 

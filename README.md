@@ -245,6 +245,9 @@ en la orientación de Mateo, que la pausa 7 días).
 | DELETE | `/api/v1/memories/{id}/traces/{trace_id}/` | Separa una huella de la sugerencia (la última no: se descarta) |
 | POST | `/api/v1/memories/{id}/discard/` | Descarta la sugerencia; sus huellas quedan libres para otra |
 | POST | `/api/v1/memories/{id}/central/` | HU11: marca (`{"central": true}`) o desmarca (`false`) un recuerdo del mapa como central. Máximo 5: el sexto responde 400 con `code: central_limit`. El mapa trae `central`, `central_at`, `central_count` y `max_central` |
+| GET/POST | `/api/v1/diary/notebooks/` | HU17: mis cuadernos (con `page_count`) o un cuaderno nuevo (`title`, `cover`, `paper`). PATCH y DELETE en `/api/v1/diary/notebooks/{id}/` |
+| GET/POST | `/api/v1/diary/notebooks/{id}/pages/` | HU17: las páginas del cuaderno o una página nueva (de hoy si no se indica `day`) |
+| GET/PATCH/DELETE | `/api/v1/diary/pages/{id}/` | HU17: una página: `content` (documento del editor), `text`, `paper`, `font`, `ink`, `day` y `day_emotion` (emoción dominante de las huellas de ese día) |
 | GET | `/api/v1/weekly-summary/` | HU14: resumen de la semana pasada (lunes a domingo). `status`: `disabled`, `too_few` (menos de 5 huellas; `missing`), `pending` (aún no se prepara), `unavailable` o `ready` con `patterns` (`text`, `trace_count` y `traces` con fecha, tipo, emoción, intensidad, ánimo y nota). No llama a la IA |
 | POST | `/api/v1/weekly-summary/generate/` | HU14: prepara el resumen con la IA si hace falta (una sola vez por semana; 5 pedidos por minuto) y responde lo mismo que el GET |
 | GET/PUT | `/api/v1/weekly-summary/settings/` | HU14: si la persona recibe el resumen semanal (`enabled`, activo por defecto) |
@@ -312,6 +315,24 @@ La intensidad dice qué tan fuerte fue una emoción, no qué tan bien estaba la 
 Lo usan la orientación de HU6 (un día es bajo si el promedio del ánimo de sus huellas es 2 o
 menos) y la gráfica de HU4. El calendario de HU7 sigue mostrando la intensidad promedio, que sí
 es intensidad.
+
+### Mi Cuadernillo (HU17)
+
+La pestaña **Cuadernillo** es un diario: una estantería de cuadernos (portada de tela con su
+color, título y cinta marcador) y, dentro, páginas de papel crema rayado, cuadriculado, de puntos
+o liso. Se escribe directo sobre la hoja con letra manuscrita (Caveat, Patrick Hand, Kalam o
+Indie Flower, guardadas en la app) y el color de tinta elegido; al seleccionar texto aparece una
+barra discreta para resaltar, subrayar o cambiar la tinta (editor TipTap). Lo escrito se guarda
+solo. La cinta de cada página toma el color de la emoción dominante de las huellas de ese día,
+con su nombre en texto (o un marcador neutro si ese día no hay huellas). Si aparece una palabra
+de riesgo, se abre de inmediato la ayuda de HU6. En modo oscuro el papel es «nocturno» (azul
+grisáceo) y la tinta, clara.
+
+- **Cifrado:** las páginas se guardan cifradas con Fernet (`apps/diary/crypto.py`) además del
+  cifrado en disco de Neon. La clave es `EVOCA_DIARY_KEY` (obligatoria en producción; en
+  desarrollo se deriva de `DJANGO_SECRET_KEY`). Sin clave, el Cuadernillo responde 503 sin datos.
+- El Cuadernillo entra en la exportación de datos y se borra con la cuenta (Ley 1581).
+- En la demo, María tiene «Mi diario» con 3 páginas recientes y «Viajes» vacío.
 
 ### Nota de voz (HU16)
 

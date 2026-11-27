@@ -8,11 +8,13 @@ import { AuthLayout } from "./AuthLayout"
 import {
   CreatePinPage,
   Deferred,
+  DiaryPage,
   HelpPage,
   MemoriesPage,
   MoodPage,
   MyTracesPage,
   NewTracePage,
+  NotebookPage,
   RegisterPage,
   SettingsPage,
   TraceDetailPage,
@@ -120,6 +122,22 @@ export const routes: RouteObject[] = [
         element: (
           <Deferred>
             <SettingsPage />
+          </Deferred>
+        ),
+      },
+      {
+        path: "cuadernillo",
+        element: (
+          <Deferred>
+            <DiaryPage />
+          </Deferred>
+        ),
+      },
+      {
+        path: "cuadernillo/:notebookId",
+        element: (
+          <Deferred>
+            <NotebookPage />
           </Deferred>
         ),
       },

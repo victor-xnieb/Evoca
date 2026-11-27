@@ -19,6 +19,9 @@ trabajo sigue la prioridad del Jira.
 | 6 | HU14 · Ver patrones de mi semana con IA | SCRUM-24 | Low | SCRUM-66 | SCRUM-67 | SCRUM-68 | `feature/hu14-patrones-semana-ia` | En dev |
 | 7 | HU15 · Descubrir mis islas | SCRUM-25 | Low | SCRUM-69 | SCRUM-70 | SCRUM-71 | `feature/hu15-islas` | En dev |
 | 8 | HU16 · Grabar una nota de voz en la huella | SCRUM-26 | Lowest | SCRUM-72 | SCRUM-73 | SCRUM-74 | `feature/hu16-nota-de-voz` | En dev |
+| 9 | HU17 · Escribir en mi Cuadernillo | SCRUM-76 | Highest | SCRUM-79 | SCRUM-80 | SCRUM-81 | `feature/hu17-cuadernillo` | En rama, por aprobar |
+| 10 | HU18 · Evocar recuerdos a partir de lo que escribo | SCRUM-77 | High | SCRUM-82 | SCRUM-83 | SCRUM-84 | `feature/hu18-evocar` | Pendiente |
+| 11 | HU19 · Escribir cartas a mi yo del futuro | SCRUM-78 | Medium | SCRUM-85 | SCRUM-86 | SCRUM-87 | `feature/hu19-cartas-futuro` | Pendiente |
 
 ---
 
@@ -508,6 +511,75 @@ nota de voz, la **nota escrita es opcional**. La voz no se transcribe (no está 
 | 2 · Se guarda como huella con tipo, emoción e intensidad | `test_scenario_2_*`, `test_iphone_recordings_are_accepted_too`, `test_the_list_brings_the_duration…`, `test_deleting_the_trace_deletes_its_voice`; `hu16.test.tsx` (escenario 2: guarda sin nota escrita y se escucha en el detalle) | Cumplido |
 | 3 · Sin permiso del micrófono explica por qué y deja escribir | `hu16.test.tsx` (escenario 3: permiso negado, sin micrófono, navegador sin grabación); `test_scenario_3_without_voice_the_written_note_is_required` | Cumplido |
 | Permisos, duración máxima y reproducción (subtarea de pruebas) | Las anteriores, más la prueba de punta a punta en Chrome con un micrófono simulado: graba 3,5 s, se escucha, se guarda (201) sin nota escrita, se reproduce en el detalle y otra cuenta recibe 404 | Cumplido |
+
+---
+
+## HU17 · Escribir en mi Cuadernillo (SCRUM-76)
+
+Épica nueva **Cuadernillo** (SCRUM-75), agregada al sprint por decisión del equipo (propuesta en
+`docs/SPRINT3_PROPUESTA.md`).
+
+**Historia.** Como usuario, quiero un cuadernillo donde escribir cómo me siento, que se vea y se
+sienta como un cuaderno de papel, para contar con mis palabras lo que vivo.
+
+**Escenarios**
+
+1. Dado que abro la pestaña «Cuadernillo», cuando creo un cuaderno con título, color de portada y
+   tipo de papel, entonces aparece en mi estantería y puedo abrirlo y escribir en sus páginas con
+   letra manuscrita y el color de tinta que elija.
+2. Dado que escribí en una página, cuando salgo y vuelvo a abrirla, entonces el texto, el tipo de
+   papel y la tinta se conservan, y la página muestra la emoción dominante de ese día con su color
+   y su nombre (o un marcador neutro si ese día no hay huellas).
+3. Dado que escribo en una página, cuando aparece una palabra de riesgo de la lista aprobada,
+   entonces se muestra de inmediato la pantalla con líneas de ayuda.
+
+**Subtareas:** Backend SCRUM-79 · Interfaz SCRUM-80 · Pruebas SCRUM-81.
+
+**Decisiones del equipo.** Editor de texto enriquecido **TipTap** (resaltar, subrayar y tinta por
+palabra); páginas **cifradas** en la app además de Neon; las cartas de HU19 entran completas en
+la exportación.
+
+**Librerías nuevas (versión fija, publicadas hace más de dos semanas):** `@tiptap/react`,
+`@tiptap/pm`, `@tiptap/starter-kit`, `@tiptap/extension-highlight` y
+`@tiptap/extension-text-style` 3.33.1 (el editor); `@fontsource/caveat`, `patrick-hand`, `kalam`
+e `indie-flower` 5.3.0 (letras manuscritas guardadas en la app, como las demás fuentes);
+`cryptography` 50.0.2 (cifrado Fernet; compatible con Python 3.10 y 3.14).
+
+### Qué se hizo
+
+- **Backend (SCRUM-79):**
+  - App `apps/diary`: `Notebook` (título, portada, papel) y `Page` (día, papel propio o el del
+    cuaderno, letra, tinta y contenido cifrado); migración `diary/0001_initial`.
+  - `EncryptedTextField` con Fernet y `EVOCA_DIARY_KEY`; sin clave en producción, el Cuadernillo
+    responde 503 antes de tocar la base.
+  - El contenido es el documento del editor (JSON); se valida su forma y tamaño (hasta 20.000
+    caracteres) y se saca su texto plano.
+  - API propia de cada persona; la emoción del día usa la regla del calendario (HU7).
+  - El Cuadernillo entra en la exportación de datos y se borra con la cuenta; `seed_demo` crea el
+    cuaderno de María (o lo omite y avisa si falta la clave).
+- **Interfaz (SCRUM-80):**
+  - Pestaña «Cuadernillo» (séptima de la barra), estantería con portadas de tela y cinta, y
+    diálogo «Nuevo cuaderno».
+  - Cuaderno abierto: una hoja a la vez, que pasa deslizando el dedo o con «Anterior» y
+    «Siguiente», con un giro suave sobre el lomo (solo un fundido con «reducir movimiento»).
+  - Hoja de papel crema con grano sutil, sombra hacia el lomo, margen y líneas tenues; papel
+    nocturno en modo oscuro. Letra, tinta y papel por página; barra flotante al seleccionar
+    texto; guardado automático («Guardado»).
+  - Cinta con el color de la emoción del día y «Emoción del día: Calma» (o «Día sin huellas»).
+  - Palabras de riesgo vigiladas mientras se escribe (HU6), con «Volver a mi página».
+  - Historia `NotebookCover` en Storybook.
+
+### Evidencia
+
+| Escenario | Prueba automática | Estado |
+| --- | --- | --- |
+| 1 · Crear un cuaderno y escribir con letra manuscrita y tinta | `apps/diary/tests.py` (`test_scenario_1_*`); `frontend/src/app/hu17.test.tsx` (escenario 1: estantería, crear, validar, nueva página) | Cumplido |
+| 2 · Se conserva y muestra la emoción del día | `test_scenario_2_*`, `test_the_text_is_stored_encrypted`; `hu17.test.tsx` (escenario 2: emoción en texto, día sin huellas, letra/tinta/papel, guardado automático) | Cumplido |
+| 3 · Palabra de riesgo abre la ayuda | `hu17.test.tsx` (escenario 3: al escribirla; lo ya escrito no la reabre) | Cumplido |
+| Privacidad (subtarea de pruebas) | `test_only_my_notebooks_and_pages`, `test_needs_a_session`, `test_the_export_includes_my_diary…`, `test_without_the_key_in_production…`, `DiaryContentTests`; `apps/accounts/tests.py` (cuaderno demo, semilla sin clave) | Cumplido |
+
+**Prueba de punta a punta en Chrome:** María abre «Mi diario», escribe, resalta una palabra,
+recarga y todo se conserva; al escribir «suicidio» se abre la ayuda de inmediato.
 
 ---
 

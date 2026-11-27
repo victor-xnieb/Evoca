@@ -11,4 +11,6 @@ psycopg[binary]==3.3.6
 # Despliegue en Render: servidor de producción y archivos estáticos del administrador.
 gunicorn==26.2.0
 whitenoise==6.12.0
+# Cuadernillo (HU17): cifrado de las páginas y las cartas (Fernet).
+cryptography==50.0.2
 

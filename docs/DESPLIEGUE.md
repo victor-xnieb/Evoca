@@ -46,6 +46,7 @@ nada nuevo en Neon ni en Render.
 | --- | --- |
 | `DATABASE_URL` | La cadena de Neon **con `-pooler`** |
 | `EVOCA_AI_API_KEY` | La clave de Gemini |
+| `EVOCA_DIARY_KEY` | La clave que cifra el Cuadernillo (HU17). Genérala una sola vez con `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` y guárdala en un lugar seguro |
 | `EVOCA_DEMO_PASSWORD` | La contraseña que elegiste para las cuentas demo |
 | `EVOCA_DEMO_PIN` | El PIN de 4 dígitos |
 
@@ -122,6 +123,11 @@ Las cuentas nuevas toman la contraseña y el PIN que ya tienes en `EVOCA_DEMO_PA
 `EVOCA_DEMO_PIN`.
 
 ## Cosas a tener en cuenta
+
+- **Clave del Cuadernillo (HU17):** si el servicio ya existe, agrega `EVOCA_DIARY_KEY` en
+  *Environment* antes de desplegar el Cuadernillo. Sin ella, el Cuadernillo responde «no está
+  disponible» y la semilla no crea el cuaderno de ejemplo (lo demás funciona). **No la pierdas ni
+  la cambies:** las páginas se guardan cifradas con ella y sin la misma clave no se pueden leer.
 
 - **Plan gratuito:** el backend duerme tras 15 minutos sin uso y la primera visita tarda en
   responder. Antes de una presentación, abre la app unos minutos antes. La base de Neon también

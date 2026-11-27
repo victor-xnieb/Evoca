@@ -158,6 +158,8 @@ class ExportView(APIView):
                 }
                 for memory in memories
             ],
+            # HU17: el Cuadernillo, descifrado (es de la persona).
+            "diary": diary_export(user),
         }
         filename = f"evoca-mis-datos-{timezone.localdate().isoformat()}.json"
         return Response(data, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
@@ -171,6 +173,35 @@ class AccountView(APIView):
         serializer.is_valid(raise_exception=True)
         request.user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def diary_export(user):
+    from apps.diary import content
+    from apps.diary.models import Notebook
+
+    return [
+        {
+            "id": str(notebook.id),
+            "title": notebook.title,
+            "cover": notebook.cover,
+            "paper": notebook.paper,
+            "created_at": notebook.created_at,
+            "pages": [
+                {
+                    "id": str(page.id),
+                    "day": page.day,
+                    "paper": page.paper or notebook.paper,
+                    "font": page.font,
+                    "ink": page.ink,
+                    "text": content.plain_text(content.load(page.content)),
+                    "content": content.load(page.content),
+                    "updated_at": page.updated_at,
+                }
+                for page in notebook.pages.all()
+            ],
+        }
+        for notebook in Notebook.objects.filter(user=user).prefetch_related("pages")
+    ]
 
 
 def own_reminder(user):

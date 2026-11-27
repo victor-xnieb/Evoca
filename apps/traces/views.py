@@ -642,4 +642,11 @@ class MemoryViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.G
         data = memory_sphere(memory, entries)
         data["status"] = memory.status
         data["traces"] = TraceSerializer(traces, many=True).data
+        # HU18: si nació de una página del Cuadernillo, la esfera puede abrirla.
+        from apps.diary.models import PageMemory
+
+        link = PageMemory.objects.filter(memory=memory).select_related("page").first()
+        data["diary_page"] = (
+            {"id": str(link.page.pk), "notebook": str(link.page.notebook_id), "day": link.page.day} if link else None
+        )
         return Response(data)

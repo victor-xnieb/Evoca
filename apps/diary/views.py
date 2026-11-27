@@ -8,12 +8,14 @@ from django.db.models import Count
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from apps.traces.models import Trace
 from apps.traces.views import dominant_emotion, local_start, with_moment
 
-from . import crypto
+from . import crypto, evoke
 from .models import Notebook, Page
 from .serializers import NotebookSerializer, PageSerializer
 
@@ -88,7 +90,8 @@ class PageViewSet(DiaryErrors, mixins.RetrieveModelMixin, mixins.UpdateModelMixi
     """Una página: leerla, guardar lo escrito (y su papel, letra y tinta) o borrarla."""
 
     serializer_class = PageSerializer
-    http_method_names = ["get", "patch", "delete"]
+    # POST solo para evocar y decidir las sugerencias (HU18); las páginas se crean en su cuaderno.
+    http_method_names = ["get", "post", "patch", "delete"]
 
     def get_queryset(self):
         return Page.objects.filter(user=self.request.user)
@@ -100,6 +103,63 @@ class PageViewSet(DiaryErrors, mixins.RetrieveModelMixin, mixins.UpdateModelMixi
             if page:
                 context["emotions"] = day_emotions(self.request.user, [page.day])
         return context
+
+    def get_throttles(self):
+        if self.action == "evoke":
+            self.throttle_scope = "ai_evoke"
+        return super().get_throttles()
+
+    def page_data(self, page):
+        page = Page.objects.get(pk=page.pk)  # Con su evocación al día.
+        return PageSerializer(page, context={"emotions": day_emotions(self.request.user, [page.day])}).data
+
+    @action(detail=True, methods=["post"], throttle_classes=[ScopedRateThrottle])
+    def evoke(self, request, pk=None):
+        """
+        HU18 · Escenario 1: la IA lee la página y propone huellas y recuerdos. Responde `status`
+        ("ok", "too_short", "risk" o "unavailable") y la página con su evocación.
+        """
+        page = self.get_object()
+        status_value, _ = evoke.evoke(page)
+        return Response({"status": status_value, "page": self.page_data(page)})
+
+    def suggestion_index(self, page, index):
+        if not hasattr(page, "evocation"):
+            raise ValidationError({"detail": "Esta página aún no tiene sugerencias."})
+        if int(index) >= len(evoke.load(page.evocation)["memories"]):
+            raise ValidationError({"detail": "Esa sugerencia no existe."})
+        return int(index)
+
+    @action(detail=True, methods=["post"], url_path=r"evocation/(?P<index>\d+)/accept")
+    def accept(self, request, pk=None, index=None):
+        """
+        HU18 · Escenario 2: acepta un recuerdo sugerido, con otro nombre (`name`) y solo con las
+        huellas que la persona deja (`traces`, sus índices). Crea las huellas y el recuerdo.
+        """
+        page = self.get_object()
+        position = self.suggestion_index(page, index)
+        name = (request.data.get("name") or "").strip()
+        if len(name) > 60:
+            raise ValidationError({"name": "El nombre puede tener hasta 60 caracteres."})
+        keep = request.data.get("traces")
+        if keep is not None and (not isinstance(keep, list) or not all(isinstance(i, int) and not isinstance(i, bool) for i in keep)):
+            raise ValidationError({"traces": "Indica qué huellas se quedan."})
+        try:
+            memory = evoke.accept(page, position, name=name or None, keep=keep)
+        except ValueError as error:
+            raise ValidationError({"detail": str(error)}) from None
+        return Response({"memory_id": str(memory.pk), "page": self.page_data(page)})
+
+    @action(detail=True, methods=["post"], url_path=r"evocation/(?P<index>\d+)/discard")
+    def discard(self, request, pk=None, index=None):
+        """HU18 · Escenario 2: descarta un recuerdo sugerido; nada se guarda como recuerdo."""
+        page = self.get_object()
+        position = self.suggestion_index(page, index)
+        try:
+            evoke.discard(page, position)
+        except ValueError as error:
+            raise ValidationError({"detail": str(error)}) from None
+        return Response({"page": self.page_data(page)})
 
     def perform_update(self, serializer):
         serializer.save()

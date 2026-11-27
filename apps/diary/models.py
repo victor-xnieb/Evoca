@@ -77,3 +77,32 @@ class Page(models.Model):
 
     def __str__(self):
         return f"{self.notebook_id} · {self.day}"
+
+
+class Evocation(models.Model):
+    """
+    HU18: lo que la IA propuso a partir de una página (huellas con la frase de donde salieron,
+    agrupadas en recuerdos sugeridos). Se guarda cifrado, porque cita lo escrito. Nada se vuelve
+    huella ni recuerdo hasta que la persona lo acepta.
+    """
+
+    page = models.OneToOneField(Page, on_delete=models.CASCADE, primary_key=True, related_name="evocation")
+    # JSON: {"traces": [...], "memories": [...]} (ver apps/diary/evoke.py).
+    payload = EncryptedTextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class EvokedTrace(models.Model):
+    """HU18: una huella aceptada que nació de una página, con la frase de donde salió (cifrada)."""
+
+    trace = models.OneToOneField("traces.Trace", on_delete=models.CASCADE, primary_key=True, related_name="evoked_from")
+    page = models.ForeignKey(Page, on_delete=models.CASCADE, related_name="evoked_traces")
+    quote = EncryptedTextField(blank=True, default="")
+
+
+class PageMemory(models.Model):
+    """HU18: un recuerdo aceptado que nació de una página: la esfera puede abrir su página."""
+
+    memory = models.OneToOneField("traces.Memory", on_delete=models.CASCADE, primary_key=True, related_name="born_in")
+    page = models.ForeignKey(Page, on_delete=models.CASCADE, related_name="memories")

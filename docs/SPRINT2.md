@@ -19,7 +19,7 @@ trabajo sigue la prioridad del Jira.
 | 6 | HU14 · Ver patrones de mi semana con IA | SCRUM-24 | Low | SCRUM-66 | SCRUM-67 | SCRUM-68 | `feature/hu14-patrones-semana-ia` | En dev |
 | 7 | HU15 · Descubrir mis islas | SCRUM-25 | Low | SCRUM-69 | SCRUM-70 | SCRUM-71 | `feature/hu15-islas` | En dev |
 | 8 | HU16 · Grabar una nota de voz en la huella | SCRUM-26 | Lowest | SCRUM-72 | SCRUM-73 | SCRUM-74 | `feature/hu16-nota-de-voz` | En dev |
-| 9 | HU17 · Escribir en mi Cuadernillo | SCRUM-76 | Highest | SCRUM-79 | SCRUM-80 | SCRUM-81 | `feature/hu17-cuadernillo` | En rama, por aprobar |
+| 9 | HU17 · Escribir en mi Cuadernillo | SCRUM-76 | Highest | SCRUM-79 | SCRUM-80 | SCRUM-81 | `feature/hu17-cuadernillo` | En dev |
 | 10 | HU18 · Evocar recuerdos a partir de lo que escribo | SCRUM-77 | High | SCRUM-82 | SCRUM-83 | SCRUM-84 | `feature/hu18-evocar` | Pendiente |
 | 11 | HU19 · Escribir cartas a mi yo del futuro | SCRUM-78 | Medium | SCRUM-85 | SCRUM-86 | SCRUM-87 | `feature/hu19-cartas-futuro` | Pendiente |
 

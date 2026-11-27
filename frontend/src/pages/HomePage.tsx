@@ -22,6 +22,7 @@ import type { Trace } from "@/lib/types"
 
 import { OrientationPrompt } from "./home/OrientationPrompt"
 import { RecentTraces } from "./home/RecentTraces"
+import { WeeklySummaryCard } from "./home/WeeklySummaryCard"
 
 const STEPS: Array<{ icon: LucideIcon; title: string; text: string; accent: EmotionSlug }> = [
   {
@@ -140,6 +141,9 @@ export function HomePage() {
           </GlassCard>
         )}
       </div>
+
+      {/* HU14: los patrones de la semana pasada, cuando hay registros suficientes. */}
+      <WeeklySummaryCard />
 
       {/* Segundo plano: cómo funciona, más pequeño y discreto. */}
       <motion.ol

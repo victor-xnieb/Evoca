@@ -9,6 +9,7 @@ import { useTheme, type ThemePreference } from "@/hooks/use-theme"
 import { DataSection } from "./settings/DataSection"
 import { ReminderSection } from "./settings/ReminderSection"
 import { SecuritySection } from "./settings/SecuritySection"
+import { WeeklySummarySection } from "./settings/WeeklySummarySection"
 
 const THEME_OPTIONS: Array<{ value: ThemePreference; label: string; icon: typeof Sun }> = [
   { value: "light", label: "Claro", icon: Sun },
@@ -48,6 +49,7 @@ export function SettingsPage() {
       </GlassCard>
 
       <ReminderSection />
+      <WeeklySummarySection />
       <SecuritySection />
       <DataSection />
     </PageTransition>

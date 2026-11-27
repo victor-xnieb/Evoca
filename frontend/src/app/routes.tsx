@@ -10,6 +10,8 @@ import {
   Deferred,
   DiaryPage,
   HelpPage,
+  LetterPage,
+  LetterWritePage,
   MemoriesPage,
   MoodPage,
   MyTracesPage,
@@ -130,6 +132,22 @@ export const routes: RouteObject[] = [
         element: (
           <Deferred>
             <DiaryPage />
+          </Deferred>
+        ),
+      },
+      {
+        path: "cuadernillo/cartas/nueva",
+        element: (
+          <Deferred>
+            <LetterWritePage />
+          </Deferred>
+        ),
+      },
+      {
+        path: "cuadernillo/cartas/:letterId",
+        element: (
+          <Deferred>
+            <LetterPage />
           </Deferred>
         ),
       },

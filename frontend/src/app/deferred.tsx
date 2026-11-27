@@ -16,6 +16,9 @@ export const HelpPage = lazy(() => import("@/pages/HelpPage").then((m) => ({ def
 // HU17: el Cuadernillo trae el editor y las letras manuscritas: se carga solo al abrirlo.
 export const DiaryPage = lazy(() => import("@/pages/DiaryPage").then((m) => ({ default: m.DiaryPage })))
 export const NotebookPage = lazy(() => import("@/pages/diary/NotebookPage").then((m) => ({ default: m.NotebookPage })))
+// HU19: escribir y abrir cartas a mi yo del futuro.
+export const LetterWritePage = lazy(() => import("@/pages/diary/LetterWritePage").then((m) => ({ default: m.LetterWritePage })))
+export const LetterPage = lazy(() => import("@/pages/diary/LetterPage").then((m) => ({ default: m.LetterPage })))
 export const SettingsPage = lazy(() => import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })))
 
 export function Deferred({ children }: { children: ReactNode }) {

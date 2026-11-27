@@ -146,3 +146,107 @@
     animation: none;
   }
 }
+
+/* HU19: el sobre de una carta, con su sello de cera. */
+:root {
+  --envelope: #f2e3c6;
+  --envelope-side: #ead6b1;
+  --envelope-flap: #e3cba1;
+  --envelope-edge: rgba(120, 80, 40, 0.22);
+  --wax: #9b2335;
+  --wax-light: #d0546a;
+  --wax-dark: #5e1020;
+}
+
+.dark {
+  --envelope: #3b4354;
+  --envelope-side: #343c4c;
+  --envelope-flap: #2d3442;
+  --envelope-edge: rgba(0, 0, 0, 0.4);
+}
+
+.evoca-envelope {
+  perspective: 900px;
+  filter: drop-shadow(0 14px 22px var(--paper-shadow));
+}
+
+.evoca-envelope > div {
+  border-radius: 0.75rem;
+}
+
+.evoca-envelope-back {
+  background: var(--envelope-side);
+  box-shadow: inset 0 0 0 1px var(--envelope-edge);
+}
+
+.evoca-envelope-side-left {
+  z-index: 1;
+  background: var(--envelope);
+  clip-path: polygon(0 0, 52% 56%, 0 100%);
+}
+
+.evoca-envelope-side-right {
+  z-index: 1;
+  background: var(--envelope);
+  clip-path: polygon(100% 0, 48% 56%, 100% 100%);
+}
+
+.evoca-envelope-bottom {
+  z-index: 2;
+  background: linear-gradient(to top, var(--envelope-side), var(--envelope));
+  clip-path: polygon(0 100%, 50% 48%, 100% 100%);
+}
+
+.evoca-envelope .evoca-envelope-flap {
+  border-radius: 0.75rem 0.75rem 0 0;
+  background: linear-gradient(to bottom, var(--envelope), var(--envelope-flap));
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  backface-visibility: visible;
+  transform-style: preserve-3d;
+}
+
+/* Cera: borde irregular, brillo arriba y relieve con un anillo y la inicial. */
+.evoca-wax {
+  aspect-ratio: 1;
+  border-radius: 48% 52% 46% 54% / 52% 46% 54% 48%;
+  background: radial-gradient(circle at 34% 30%, var(--wax-light), var(--wax) 45%, var(--wax-dark));
+  box-shadow:
+    0 3px 6px rgba(60, 10, 20, 0.35),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.28),
+    inset 0 2px 4px rgba(255, 255, 255, 0.25);
+}
+
+.evoca-wax-ring {
+  color: rgba(255, 225, 225, 0.82);
+  border: 2px solid rgba(255, 220, 220, 0.35);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* Llegó su fecha: el sello late suave con un halo. */
+.evoca-wax-ready::after {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  border-radius: 50%;
+  border: 2px solid var(--wax-light);
+  animation: wax-halo 2.4s ease-out infinite;
+}
+
+@keyframes wax-halo {
+  from {
+    transform: scale(0.85);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .evoca-wax-ready::after {
+    animation: none;
+    opacity: 0.6;
+  }
+}

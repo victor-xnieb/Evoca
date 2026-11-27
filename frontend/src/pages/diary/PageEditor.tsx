@@ -12,7 +12,7 @@ import { useReducedMotion } from "@/hooks/use-reduced-motion"
 
 import { getEmotionVisual } from "@/lib/emotions"
 import { formatDate } from "@/lib/format"
-import { diaryApi, FONTS, fontOf, HIGHLIGHTS, INKS, inkVar, PAPERS, type DiaryPage, type EvokeStatus, type PageChanges, type Paper } from "@/lib/diary"
+import { diaryApi, FONTS, fontOf, fontSizeOf, HIGHLIGHTS, INKS, inkVar, PAPERS, type DiaryPage, type EvokeStatus, type PageChanges, type Paper } from "@/lib/diary"
 import { labelOf, type TraceCatalog } from "@/lib/traces"
 import { cn } from "@/lib/utils"
 
@@ -29,8 +29,6 @@ import "@fontsource/indie-flower/400.css"
 type SaveState = "saved" | "saving" | "error"
 
 const SAVE_DELAY_MS = 800
-// Caveat tiene letras pequeñas: va un poco más grande. Todas quedan sobre los 16 px.
-const FONT_SIZE: Record<string, string> = { caveat: "1.6rem", patrick: "1.3rem", kalam: "1.2rem", indie: "1.3rem" }
 
 const PATTERN: Record<Paper, string> = { lined: "diary-lines", grid: "diary-grid", dots: "diary-dots", blank: "" }
 
@@ -236,7 +234,7 @@ export function PageEditor({ page, notebookPaper, catalog, onChange }: PageEdito
         style={
           {
             "--diary-ink": inkVar(page.ink),
-            "--diary-size": FONT_SIZE[page.font] ?? "1.4rem",
+            "--diary-size": fontSizeOf(page.font),
             fontFamily: font.family,
           } as CSSProperties
         }

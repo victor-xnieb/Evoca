@@ -120,6 +120,32 @@ export const HIGHLIGHTS: Array<{ color: string; label: string }> = [
   { color: "rgba(74, 143, 231, 0.38)", label: "Azul" },
 ]
 
+/** Tamaño de cada letra manuscrita: Caveat es pequeña y va más grande; todas quedan sobre los 16 px. */
+const FONT_SIZES: Record<string, string> = { caveat: "1.6rem", patrick: "1.3rem", kalam: "1.2rem", indie: "1.3rem" }
+export const fontSizeOf = (value: string) => FONT_SIZES[value] ?? "1.4rem"
+
+/**
+ * HU19: una carta a mi yo del futuro. `content` solo llega cuando ya se abrió el sobre; antes, el
+ * servidor dice cuándo se abre (`opens_on`) y si ya llegó su fecha (`ready`).
+ */
+export interface Letter {
+  id: string
+  opens_on: string
+  font: DiaryFont
+  ink: Ink
+  ready: boolean
+  opened_at: string | null
+  created_at: string
+  content?: string
+}
+
+export interface LetterFields {
+  content: string
+  opens_on: string
+  font: DiaryFont
+  ink: Ink
+}
+
 export const coverOf = (value: string) => COVERS.find((cover) => cover.value === value) ?? COVERS[0]
 export const fontOf = (value: string) => FONTS.find((font) => font.value === value) ?? FONTS[0]
 export const inkVar = (value: string) => `var(--ink-${value})`
@@ -139,4 +165,10 @@ export const diaryApi = {
   acceptSuggestion: (pageId: string, index: number, changes: { name?: string; traces?: number[] }) =>
     api.post<{ memory_id: string; page: DiaryPage }>(`diary/pages/${pageId}/evocation/${index}/accept/`, changes),
   discardSuggestion: (pageId: string, index: number) => api.post<{ page: DiaryPage }>(`diary/pages/${pageId}/evocation/${index}/discard/`),
+  /** HU19: mis cartas (sin su contenido mientras sigan selladas). */
+  letters: () => api.get<Letter[]>("diary/letters/"),
+  letter: (id: string) => api.get<Letter>(`diary/letters/${id}/`),
+  sealLetter: (fields: LetterFields) => api.post<Letter>("diary/letters/", fields),
+  /** Abre el sobre si ya llegó su fecha y trae la carta. */
+  openLetter: (id: string) => api.post<Letter>(`diary/letters/${id}/open/`),
 }

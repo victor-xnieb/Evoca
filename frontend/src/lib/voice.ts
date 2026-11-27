@@ -12,6 +12,21 @@ export interface VoiceRecording {
   duration: number
 }
 
+/**
+ * Cómo se pide el micrófono. Los valores por defecto del navegador son para videollamadas: la
+ * supresión de ruido corta la voz baja (se oye entrecortada) y la cancelación de eco no hace
+ * falta porque mientras se graba no suena nada. El control de volumen sí ayuda con voces bajas.
+ */
+export const VOICE_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: false,
+  noiseSuppression: false,
+  autoGainControl: true,
+  channelCount: 1,
+}
+
+/** Calidad de la grabación: 64 kbps es voz clara; 60 s ocupan ~480 KB (el límite es 1,5 MB). */
+export const AUDIO_BITS_PER_SECOND = 64_000
+
 /** Formatos que acepta el servidor, en orden de preferencia (Safari solo graba MP4). */
 const MIME_TYPES = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"]
 

@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import { MAX_VOICE_SECONDS, pickMimeType, recorderSupported, type VoiceRecording } from "@/lib/voice"
+import {
+  AUDIO_BITS_PER_SECOND,
+  MAX_VOICE_SECONDS,
+  pickMimeType,
+  recorderSupported,
+  VOICE_CONSTRAINTS,
+  type VoiceRecording,
+} from "@/lib/voice"
 
 export type RecorderState =
   | { status: "idle" }
@@ -58,7 +65,7 @@ export function useVoiceRecorder(onChange: (recording: VoiceRecording | null) =>
     notify.current(null)
     setState({ status: "requesting" })
     try {
-      stream.current = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.current = await navigator.mediaDevices.getUserMedia({ audio: VOICE_CONSTRAINTS })
     } catch (error) {
       const name = (error as DOMException).name
       if (name === "NotAllowedError" || name === "SecurityError") return setState({ status: "denied" })
@@ -71,7 +78,10 @@ export function useVoiceRecorder(onChange: (recording: VoiceRecording | null) =>
       })
     }
     const mimeType = pickMimeType()
-    const media = new MediaRecorder(stream.current, mimeType ? { mimeType } : undefined)
+    const media = new MediaRecorder(stream.current, {
+      audioBitsPerSecond: AUDIO_BITS_PER_SECOND,
+      ...(mimeType ? { mimeType } : {}),
+    })
     const chunks: Blob[] = []
     media.ondataavailable = (event) => {
       if (event.data.size > 0) chunks.push(event.data)

@@ -696,6 +696,24 @@ selladas, porque son datos de la persona (Ley 1581).
     sobre» y «Ahora no»). Si el Cuadernillo no responde, no se muestra.
   - Historia `Envelope` en Storybook.
 
+### Mejoras pedidas por el equipo al probarla
+
+Al revisar la HU se pidieron dos agregados para el momento de abrir el sobre (sin cambiar los
+escenarios):
+
+- **«Así estabas cuando la escribiste»:** debajo de la carta, la emoción dominante del día en que
+  se escribió (regla del calendario de HU7), una comparación suave con hoy («Entonces: Calma · Hoy:
+  Alegría») y hasta 3 huellas de esa semana (lunes a domingo), de tipos distintos y las más
+  intensas primero. Usa datos que ya existen, sin IA y sin guardar nada nuevo
+  (`apps/diary/moments.py`).
+- **Responder a tu yo del pasado:** «Escribir una respuesta» crea una página de hoy en el cuaderno
+  elegido (o en el último en que se escribió; si no hay ninguno, «Mi diario»), enlazada a la carta:
+  la página dice «Respuesta a tu carta del…» y la carta, «Ver mi respuesta». «Sellar otra carta»
+  escribe una nueva que sigue a la que se acaba de leer; desde cada carta se ve la anterior y las
+  siguientes. Solo se puede responder o seguir una carta propia ya abierta.
+- Migración `diary/0004_letter_replies` (`Page.reply_to` y `Letter.follows`); ambas entran en la
+  exportación. Nada de esto aparece mientras la carta esté sellada.
+
 ### Evidencia
 
 | Escenario | Prueba automática | Estado |
@@ -703,6 +721,7 @@ selladas, porque son datos de la persona (Ley 1581).
 | 1 · La carta queda sellada y no se lee antes de la fecha | `apps/diary/test_letters.py` (`test_scenario_1_*`: sellada, ni por la API antes de tiempo, no se edita ni se borra, validaciones), `test_the_letter_is_stored_encrypted`; `frontend/src/app/hu19.test.tsx` (escenario 1: sellar, validar, aviso del servidor, palabra de riesgo, carta sellada) | Cumplido |
 | 2 · Aviso en Inicio y abrir el sobre el día indicado | `test_scenario_2_*`; `hu19.test.tsx` (escenario 2: aviso y «Ahora no», sin aviso si no llegó ninguna o el Cuadernillo falla, abrir el sobre, volver a leerla) | Cumplido |
 | 3 · Cuántas cartas y cuándo se abre cada una, sin contenido | `test_scenario_3_*`; `hu19.test.tsx` (escenario 3: lista con fechas, sin cartas) | Cumplido |
+| Mejoras: «Así estabas», responder y sellar otra | `apps/diary/test_letter_reading.py` (momento del día y de la semana, sin huellas, nada si está sellada, respuesta en el último cuaderno o el elegido, cadena, solo cartas propias y abiertas, exportación); `hu19.test.tsx` (tarjeta, sin huellas, responder en otro cuaderno, ver respuesta y cadena, sellar otra) | Cumplido |
 | Antes de tiempo, día indicado, riesgo y aislamiento (subtarea de pruebas) | Las anteriores, más `test_only_my_letters`, `test_the_export_includes_my_letters_even_sealed…`, `test_without_the_key_in_production…`; `apps/accounts/tests.py` (`test_maria_has_a_letter_that_arrives_today…`) | Cumplido |
 
 **Prueba de punta a punta en Chrome:** María ve el aviso en Inicio, abre el sobre y lee la carta

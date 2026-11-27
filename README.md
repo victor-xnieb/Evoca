@@ -252,8 +252,9 @@ en la orientación de Mateo, que la pausa 7 días).
 | POST | `/api/v1/diary/pages/{id}/evocation/{n}/accept/` | HU18: acepta el recuerdo sugerido `n` (opcional `name` y `traces`, los índices de las huellas que se quedan); crea las huellas y el recuerdo. Responde `{memory_id, page}` |
 | POST | `/api/v1/diary/pages/{id}/evocation/{n}/discard/` | HU18: descarta la sugerencia `n` (no guarda nada; cuenta para la tasa de aceptación) |
 | GET/POST | `/api/v1/diary/letters/` | HU19: mis cartas a mi yo del futuro (`opens_on`, `ready`, `opened_at`; sin `content` mientras sigan selladas) o una carta nueva (`content`, `opens_on` desde mañana y hasta 10 años, `font`, `ink`). No se editan ni se borran |
-| GET | `/api/v1/diary/letters/{id}/` | HU19: una carta; trae `content` solo si ya se abrió |
+| GET | `/api/v1/diary/letters/{id}/` | HU19: una carta; si ya se abrió trae `content`, `moment` (emoción de ese día, la de hoy y hasta 3 huellas de esa semana), `reply`, `previous` y `next_letters` |
 | POST | `/api/v1/diary/letters/{id}/open/` | HU19: abre el sobre si ya llegó su fecha y devuelve la carta; antes responde 403 sin contenido |
+| POST | `/api/v1/diary/letters/{id}/reply/` | HU19: «Escribir una respuesta» a una carta abierta: página de hoy enlazada (`reply_to`) en el cuaderno `notebook` o en el último en que escribí. Responde `{page, notebook}`; si ya existe, la misma |
 | GET | `/api/v1/weekly-summary/` | HU14: resumen de la semana pasada (lunes a domingo). `status`: `disabled`, `too_few` (menos de 5 huellas; `missing`), `pending` (aún no se prepara), `unavailable` o `ready` con `patterns` (`text`, `trace_count` y `traces` con fecha, tipo, emoción, intensidad, ánimo y nota). No llama a la IA |
 | POST | `/api/v1/weekly-summary/generate/` | HU14: prepara el resumen con la IA si hace falta (una sola vez por semana; 5 pedidos por minuto) y responde lo mismo que el GET |
 | GET/PUT | `/api/v1/weekly-summary/settings/` | HU14: si la persona recibe el resumen semanal (`enabled`, activo por defecto) |
@@ -364,6 +365,12 @@ sobre se cierra y cae un sello de cera; desde ahí no se puede leer ni cambiar. 
 muestra cuántas cartas hay y cuándo se abre cada una, sin su contenido. Cuando llega la
 fecha, Inicio muestra un aviso amable («Llegó una carta de tu yo del pasado») y la carta se
 abre con su sobre.
+
+Al abrirla aparece **«Así estabas cuando la escribiste»**: la emoción dominante de ese día, una
+comparación suave con hoy («Entonces: Calma · Hoy: Alegría») y hasta 3 huellas de esa semana, de
+tipos distintos. Luego, **«Escribir una respuesta»** crea una página de hoy en el Cuadernillo
+enlazada a la carta (y la carta lleva a ella), y **«Sellar otra carta»** escribe una nueva que sigue
+a esta (`follows`): forman una cadena que se recorre desde cada carta.
 
 - **El servidor nunca entrega el contenido antes de la fecha** (ni en la lista, ni en el
   detalle, ni al intentar abrirla: 403). La fecha es la local del servidor (`TIME_ZONE`).

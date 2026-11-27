@@ -579,6 +579,26 @@ class SeedDemoTests(TestCase):
         for email in ("mateo.demo@example.com", "juliana.demo@example.com"):
             self.assertFalse(Memory.objects.filter(user__email=email, is_central=True).exists())
 
+    def test_maria_has_a_demo_notebook(self):
+        """HU17: María tiene un cuaderno con 3 páginas recientes y otro vacío."""
+        self.run_seed()
+        from apps.diary.models import Notebook
+
+        notebooks = {notebook.title: notebook.pages.count() for notebook in Notebook.objects.filter(user__email="maria.demo@example.com")}
+        self.assertEqual(notebooks, {"Mi diario": 3, "Viajes": 0})
+        self.assertIn("café", Notebook.objects.get(title="Mi diario").pages.last().content)
+
+    @override_settings(EVOCA_DIARY_KEY="", DEBUG=False)
+    def test_without_the_diary_key_the_seed_skips_the_notebook(self):
+        from apps.diary.models import Notebook
+
+        output = StringIO()
+        with mock.patch.dict("os.environ", {"EVOCA_DEMO_PASSWORD": "OtraClaveDeDemo!2026", "EVOCA_DEMO_PIN": "1357"}):
+            call_command("seed_demo", stdout=output)
+        self.assertFalse(Notebook.objects.exists())
+        self.assertIn("Cuadernillo omitido", output.getvalue())
+        self.assertTrue(User.objects.filter(email="maria.demo@example.com").exists())
+
     def test_reset_recreates_the_memories_without_duplicates(self):
         self.run_seed()
         self.run_seed("--reset")

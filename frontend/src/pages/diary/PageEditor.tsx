@@ -3,16 +3,23 @@ import { Color, TextStyle } from "@tiptap/extension-text-style"
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react"
 import { BubbleMenu } from "@tiptap/react/menus"
 import StarterKit from "@tiptap/starter-kit"
-import { Highlighter, Underline as UnderlineIcon } from "lucide-react"
+import { Highlighter, Sparkles, Underline as UnderlineIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react"
+import { useNavigate } from "react-router"
+
+import { Button } from "@/components/ui/button"
+import { useReducedMotion } from "@/hooks/use-reduced-motion"
 
 import { getEmotionVisual } from "@/lib/emotions"
 import { formatDate } from "@/lib/format"
-import { diaryApi, FONTS, fontOf, HIGHLIGHTS, INKS, inkVar, PAPERS, type DiaryPage, type PageChanges, type Paper } from "@/lib/diary"
+import { diaryApi, FONTS, fontOf, HIGHLIGHTS, INKS, inkVar, PAPERS, type DiaryPage, type EvokeStatus, type PageChanges, type Paper } from "@/lib/diary"
 import { labelOf, type TraceCatalog } from "@/lib/traces"
 import { cn } from "@/lib/utils"
 
 import { RiskHelp } from "../traces/RiskHelp"
+import { EvocationPanel } from "./EvocationPanel"
+import { EvokeHighlights, evokeKey } from "./evoke-highlights"
+import { EvokeSparks } from "./EvokeSparks"
 
 import "@fontsource/caveat/400.css"
 import "@fontsource/patrick-hand/400.css"
@@ -42,8 +49,15 @@ export interface PageEditorProps {
  * nombre. Si aparece una palabra de riesgo (HU6), se abre de inmediato la ayuda.
  */
 export function PageEditor({ page, notebookPaper, catalog, onChange }: PageEditorProps) {
+  const navigate = useNavigate()
+  const reduced = useReducedMotion()
   const [save, setSave] = useState<SaveState>("saved")
   const [text, setText] = useState(page.text)
+  // HU18: evocar recuerdos a partir de lo escrito.
+  const [evoking, setEvoking] = useState(false)
+  const [evokeStatus, setEvokeStatus] = useState<EvokeStatus | null>(null)
+  const [sparks, setSparks] = useState(0)
+  const [paperNode, setPaperNode] = useState<HTMLElement | null>(null)
   const timer = useRef<number | null>(null)
   const pending = useRef<PageChanges>({})
   const latest = useRef(page)
@@ -85,6 +99,8 @@ export function PageEditor({ page, notebookPaper, catalog, onChange }: PageEdito
       Highlight.configure({ multicolor: true }),
       TextStyle,
       Color,
+      // HU18: las palabras de donde salió cada huella se iluminan; las aceptadas llevan al recuerdo.
+      EvokeHighlights.configure({ onOpenMemory: (id) => navigate(`/recuerdos?recuerdo=${id}`) }),
     ],
     content: page.content,
     editorProps: {
@@ -102,6 +118,29 @@ export function PageEditor({ page, notebookPaper, catalog, onChange }: PageEdito
 
   // Al salir de la página (o de la app) se guarda lo que falte.
   useEffect(() => () => void flush(), [flush])
+
+  // Las frases evocadas se iluminan cada vez que cambia la evocación.
+  const highlights = page.evocation?.highlights
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return
+    editor.view.dispatch(editor.state.tr.setMeta(evokeKey, highlights ?? []))
+  }, [editor, highlights])
+
+  const evoke = async () => {
+    setEvoking(true)
+    setEvokeStatus(null)
+    try {
+      await flush()
+      const result = await diaryApi.evoke(page.id)
+      onChange(result.page)
+      setEvokeStatus(result.status)
+      if (result.status === "ok" && !reduced) setSparks((value) => value + 1)
+    } catch {
+      setEvokeStatus("unavailable")
+    } finally {
+      setEvoking(false)
+    }
+  }
 
   const marks = useEditorState({
     editor,
@@ -185,9 +224,14 @@ export function PageEditor({ page, notebookPaper, catalog, onChange }: PageEdito
         <span role="status" className="ml-auto text-xs text-muted-foreground">
           {save === "saving" ? "Guardando…" : save === "error" ? "No se pudo guardar. Reintentaremos." : "Guardado"}
         </span>
+        <Button type="button" size="sm" className="h-10 rounded-full px-4" onClick={() => void evoke()} disabled={evoking || !text.trim()}>
+          <Sparkles aria-hidden="true" />
+          {evoking ? "Evocando…" : "Evocar"}
+        </Button>
       </div>
 
       <article
+        ref={setPaperNode}
         className="diary-paper overflow-hidden rounded-r-3xl rounded-l-lg px-6 pt-14 pb-10 sm:px-10"
         style={
           {
@@ -270,6 +314,15 @@ export function PageEditor({ page, notebookPaper, catalog, onChange }: PageEdito
           <EditorContent editor={editor} />
         </div>
       </article>
+
+      <EvocationPanel
+        memories={page.evocation?.memories ?? []}
+        status={evokeStatus}
+        catalog={catalog}
+        onAccept={async (index, changes) => onChange((await diaryApi.acceptSuggestion(page.id, index, changes)).page)}
+        onDiscard={async (index) => onChange((await diaryApi.discardSuggestion(page.id, index)).page)}
+      />
+      <EvokeSparks trigger={sparks} root={paperNode} />
 
       <RiskHelp text={text} initialText={page.text} closeLabel="Volver a mi página" />
     </div>

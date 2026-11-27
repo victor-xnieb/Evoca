@@ -53,7 +53,15 @@ export function NotebookPage() {
 
   const pages = state.status === "ready" ? state.pages : []
   const requested = Number(params.get("pagina"))
-  const index = pages.length ? (Number.isInteger(requested) && requested >= 1 && requested <= pages.length ? requested - 1 : pages.length - 1) : -1
+  // HU18: desde un recuerdo se abre la hoja donde nació (?hoja=<id>).
+  const sheet = pages.findIndex((item) => item.id === params.get("hoja"))
+  const index = !pages.length
+    ? -1
+    : sheet >= 0
+      ? sheet
+      : Number.isInteger(requested) && requested >= 1 && requested <= pages.length
+        ? requested - 1
+        : pages.length - 1
   const current = index >= 0 ? pages[index] : null
 
   const goTo = useCallback(

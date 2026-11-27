@@ -1,6 +1,6 @@
-import { Link2, Star, Trash2, X } from "lucide-react"
+import { BookOpen, Link2, Star, Trash2, X } from "lucide-react"
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router"
+import { Link, useNavigate } from "react-router"
 
 import { EmotionChip } from "@/components/evoca/EmotionChip"
 import { EmotionOrb } from "@/components/evoca/EmotionOrb"
@@ -132,6 +132,16 @@ export function MemoryPanel({
       </header>
 
       <p className="text-base text-foreground/80">{memory.explanation || "Huellas que guardas juntas en este recuerdo."}</p>
+
+      {detail.status === "ready" && detail.memory.diary_page && (
+        // HU18: el recuerdo nació de una página del Cuadernillo: se puede volver a ella.
+        <Button asChild variant="outline" className="h-11 self-start rounded-full px-4">
+          <Link to={`/cuadernillo/${detail.memory.diary_page.notebook}?hoja=${detail.memory.diary_page.id}`}>
+            <BookOpen aria-hidden="true" />
+            Abrir la página donde nació
+          </Link>
+        </Button>
+      )}
 
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">

@@ -1,4 +1,4 @@
-import { CalendarHeart, House, Library, Orbit, Plus, Settings, type LucideIcon } from "lucide-react"
+import { BookHeart, CalendarHeart, House, Library, Orbit, Plus, Settings, type LucideIcon } from "lucide-react"
 import { motion } from "motion/react"
 import type { CSSProperties, ReactNode } from "react"
 import { NavLink } from "react-router"
@@ -26,6 +26,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/mis-huellas", label: "Mis huellas", icon: Library },
   { to: "/recuerdos", label: "Recuerdos", icon: Orbit },
   { to: "/animo", label: "Ánimo", icon: CalendarHeart },
+  { to: "/cuadernillo", label: "Cuadernillo", icon: BookHeart },
   { to: "/ajustes", label: "Ajustes", icon: Settings },
 ]
 
@@ -77,7 +78,7 @@ export function AppShell({ children, accentEmotion, background = "animated", cla
         aria-label="Navegación principal"
         className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
       >
-        <ul className="flex w-full max-w-md items-stretch justify-between gap-1 rounded-[1.75rem] border bg-card/90 p-1.5 shadow-lifted backdrop-blur-md">
+        <ul className="flex w-full max-w-lg items-stretch justify-between gap-0.5 rounded-[1.75rem] border bg-card/90 p-1.5 shadow-lifted backdrop-blur-md">
           {NAV_ITEMS.map((item) => (
             <li key={item.to} className="flex-1">
               <NavLink
@@ -85,7 +86,7 @@ export function AppShell({ children, accentEmotion, background = "animated", cla
                 end={item.to === "/"}
                 className={({ isActive }) =>
                   cn(
-                    "relative flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-3xl px-1 text-xs font-semibold",
+                    "relative flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-3xl px-0.5 text-[0.6875rem] font-semibold",
                     "focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring",
                     isActive ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
                     item.primary && !isActive && "text-foreground",

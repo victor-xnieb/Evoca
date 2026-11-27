@@ -15,7 +15,7 @@ trabajo sigue la prioridad del Jira.
 | 2 | HU9 · Recibir recuerdos sugeridos por IA | SCRUM-19 | High | SCRUM-51 | SCRUM-52 | SCRUM-53 | `feature/hu9-recuerdos-sugeridos-ia` | En dev |
 | 3 | HU12 · Buscar recuerdos por significado con IA | SCRUM-22 | Medium | SCRUM-60 | SCRUM-61 | SCRUM-62 | `feature/hu12-busqueda-significado-ia` | En dev |
 | 4 | HU13 · Ver estadísticas de mis sensaciones | SCRUM-23 | Medium | SCRUM-63 | SCRUM-64 | SCRUM-65 | `feature/hu13-estadisticas-sensaciones` | En dev |
-| 5 | HU11 · Marcar mis recuerdos centrales | SCRUM-21 | Low | SCRUM-57 | SCRUM-58 | SCRUM-59 | `feature/hu11-recuerdos-centrales` | Pendiente |
+| 5 | HU11 · Marcar mis recuerdos centrales | SCRUM-21 | Low | SCRUM-57 | SCRUM-58 | SCRUM-59 | `feature/hu11-recuerdos-centrales` | En rama, por aprobar |
 | 6 | HU14 · Ver patrones de mi semana con IA | SCRUM-24 | Low | SCRUM-66 | SCRUM-67 | SCRUM-68 | `feature/hu14-patrones-semana-ia` | Pendiente |
 | 7 | HU15 · Descubrir mis islas | SCRUM-25 | Low | SCRUM-69 | SCRUM-70 | SCRUM-71 | `feature/hu15-islas` | Pendiente |
 | 8 | HU16 · Grabar una nota de voz en la huella | SCRUM-26 | Lowest | SCRUM-72 | SCRUM-73 | SCRUM-74 | `feature/hu16-nota-de-voz` | Pendiente |
@@ -283,6 +283,58 @@ la nota (por ejemplo «café», «salsa», «parque») y se guarde. Las estadís
 13 s en total, una sola vez). En 30 días: 32 huellas, ánimo 4,0; lo que más registra es café (4),
 salsa, lluvia, cobija y parque (3). Valentina (sin elementos aún) ve «Estamos reconociendo los
 elementos de 17 huellas…» y en unos 2 s aparecen sus elementos.
+
+---
+
+## HU11 · Marcar mis recuerdos centrales (SCRUM-21)
+
+**Historia.** Como usuario, quiero marcar los recuerdos que más me definen como centrales, para
+tenerlos a la mano y que la app los destaque en mi mapa.
+
+**Escenarios**
+
+1. Dado que veo un recuerdo, cuando lo marco o lo desmarco como central, entonces el cambio se
+   guarda, hasta un máximo de 5 recuerdos centrales.
+2. Dado que tengo recuerdos centrales, cuando abro el mapa o mi sección de centrales, entonces
+   los veo destacados.
+3. Dado que tengo un recuerdo central, cuando lo borro, entonces deja de aparecer en la sección
+   y se libera su lugar.
+
+**Subtareas:** Backend SCRUM-57 · Interfaz SCRUM-58 · Pruebas SCRUM-59.
+
+**Decisión.** El escenario 3 dice «lo borro», pero hasta ahora un recuerdo del mapa no se podía
+borrar. Se agregó «Borrar recuerdo» (con confirmación): borra el recuerdo, no sus huellas.
+
+### Qué se hizo
+
+- **Backend (SCRUM-57):**
+  - `Memory.is_central` y `Memory.central_at` (migración `traces/0006_memory_central`).
+  - `POST /api/v1/memories/{id}/central/` con `{"central": true|false}`: solo recuerdos del
+    mapa; como mucho 5 por persona (el sexto responde 400 `central_limit`; la cuenta se hace con
+    la persona bloqueada para que dos pedidos a la vez no pasen del máximo). Marcar dos veces
+    conserva la fecha. Un recuerdo sin huellas no ocupa lugar.
+  - `DELETE /api/v1/memories/{id}/`: borra un recuerdo del mapa y sus vínculos, no sus huellas;
+    si era central, libera su lugar. Una sugerencia no se borra (se descarta, HU9).
+  - El mapa (`GET /memories/`) y el detalle traen `central` y `central_at`; el mapa además
+    `central_count` y `max_central`.
+  - `seed_demo`: María tiene 3 recuerdos centrales (le quedan 2 lugares).
+- **Interfaz (SCRUM-58):**
+  - En el panel de un recuerdo: «Marcar como central» / «Quitar de centrales», con «Llevas N de
+    5»; con 5 centrales el botón se desactiva y dice por qué. «Borrar recuerdo» pide
+    confirmación y aclara que las huellas no se borran.
+  - En el mapa, los centrales llevan una estrella y un anillo dorado, siempre muestran su nombre
+    y su nombre accesible termina en «recuerdo central».
+  - «Mis recuerdos centrales», encima del mapa: «N de 5» y un botón por central (del primero
+    que se marcó al último) que lo abre en el mapa. Sin centrales, explica cómo marcarlos.
+  - Historia «Recuerdo central (HU11)» de `MemorySphere` en Storybook.
+
+### Evidencia
+
+| Escenario | Prueba automática | Estado |
+| --- | --- | --- |
+| 1 · Marcar o desmarcar se guarda, hasta 5 | `apps/traces/tests.py` (`CentralMemoryTests`: `test_scenario_1_*`, `test_a_memory_without_traces…`, `test_only_a_memory_of_the_map…`, `test_the_body_must_say…`, `test_i_cannot_mark_or_delete_memories_of_others`, `test_others_central_memories_do_not_count`); `frontend/src/app/hu11.test.tsx` (escenario 1, límite y error) | Cumplido |
+| 2 · Destacados en el mapa y en su sección | `test_scenario_2_*`; `apps/accounts/tests.py` (`test_maria_has_three_central_memories`); `hu11.test.tsx` (escenario 2: sección en orden, estrella y anillo, nombre accesible) | Cumplido |
+| 3 · Al borrarlo deja de aparecer y libera su lugar | `test_scenario_3_*` (sus huellas siguen; una sugerencia no se borra); `hu11.test.tsx` (escenario 3: confirmación, cancelar) | Cumplido |
 
 ---
 

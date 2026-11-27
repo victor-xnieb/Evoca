@@ -203,7 +203,6 @@ describe("HU18 · Escenario 3: del recuerdo a la página donde nació", () => {
     emotion: "calma",
     trace_count: 1,
     sensory_types: ["aroma"],
-    match: true,
     status: "accepted",
     traces: [],
     diary_page: { id: "p-1", notebook: "n-1", day: "2026-11-26" },
@@ -212,7 +211,7 @@ describe("HU18 · Escenario 3: del recuerdo a la página donde nació", () => {
   it("el recuerdo abre su panel desde el enlace y lleva a la página", async () => {
     mockDiary({
       "GET memories/suggestions/": { body: { suggestions: [], trace_count: 1, ungrouped_count: 0, min_traces: 5, can_suggest: false } },
-      "GET memories/": { body: { total: 1, count: 1, nodes: [DETAIL], edges: [], max_links: 4 } },
+      "GET memories/": { body: { total: 1, count: 1, nodes: [{ ...DETAIL, match: true }], edges: [], max_links: 4 } },
       "GET memories/m-1/": { body: DETAIL },
       "GET diary/notebooks/n-1/pages/": { body: [page(ACCEPTED)] },
     })
@@ -220,7 +219,7 @@ describe("HU18 · Escenario 3: del recuerdo a la página donde nació", () => {
     renderApp({ path: "/recuerdos?recuerdo=m-1", user: SAMPLE_USER, locked: false })
 
     const memory = await screen.findByRole("region", { name: "Mi casa" }, { timeout: 8000 })
-    const back = within(memory).getByRole("link", { name: "Abrir la página donde nació" })
+    const back = await within(memory).findByRole("link", { name: "Abrir la página donde nació" }, { timeout: 5000 })
     expect(back).toHaveAttribute("href", "/cuadernillo/n-1?hoja=p-1")
 
     await user.click(back)
@@ -230,12 +229,14 @@ describe("HU18 · Escenario 3: del recuerdo a la página donde nació", () => {
   it("un recuerdo que no nació en el Cuadernillo no muestra el enlace", async () => {
     mockDiary({
       "GET memories/suggestions/": { body: { suggestions: [], trace_count: 1, ungrouped_count: 0, min_traces: 5, can_suggest: false } },
-      "GET memories/": { body: { total: 1, count: 1, nodes: [DETAIL], edges: [], max_links: 4 } },
+      "GET memories/": { body: { total: 1, count: 1, nodes: [{ ...DETAIL, match: true }], edges: [], max_links: 4 } },
       "GET memories/m-1/": { body: { ...DETAIL, diary_page: null } },
     })
     renderApp({ path: "/recuerdos?recuerdo=m-1", user: SAMPLE_USER, locked: false })
 
     const memory = await screen.findByRole("region", { name: "Mi casa" }, { timeout: 8000 })
+    // Se espera a que llegue el detalle del recuerdo.
+    await waitFor(() => expect(within(memory).queryByRole("status", { name: "Cargando las huellas del recuerdo" })).not.toBeInTheDocument())
     expect(within(memory).queryByRole("link", { name: "Abrir la página donde nació" })).not.toBeInTheDocument()
   })
 })

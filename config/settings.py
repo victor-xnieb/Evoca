@@ -199,7 +199,7 @@ EVOCA_AI_ELEMENTS_TIMEOUT = float(os.getenv("EVOCA_AI_ELEMENTS_TIMEOUT", "15.0")
 EVOCA_AI_WEEKLY_TIMEOUT = float(os.getenv("EVOCA_AI_WEEKLY_TIMEOUT", "15.0"))
 # Mis islas (HU15): agrupar hasta cientos de recuerdos en temas.
 EVOCA_AI_ISLANDS_TIMEOUT = float(os.getenv("EVOCA_AI_ISLANDS_TIMEOUT", "20.0"))
-# Notas de voz (HU16): 60 s en Opus ocupan ~200 KB y en AAC (iPhone) ~500 KB; se deja holgura.
+# Notas de voz (HU16): 60 s a 64 kbps ocupan ~480 KB (Opus o AAC de iPhone); se deja holgura.
 EVOCA_VOICE_MAX_BYTES = int(os.getenv("EVOCA_VOICE_MAX_BYTES", str(1_500_000)))
 
 # Mapa de recuerdos (HU10): afinidad mínima (0 a 1) para unir dos recuerdos con una línea y

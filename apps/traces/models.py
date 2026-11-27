@@ -226,7 +226,7 @@ class IslandsCalculation(models.Model):
 class VoiceNote(models.Model):
     """
     Nota de voz de una huella (HU16), de hasta 60 segundos. Se guarda en la base (Render no tiene
-    disco persistente): ~200 KB por minuto en Opus. Solo la escucha su dueño, con su sesión. Se
+    disco persistente): ~480 KB por minuto (Opus a 64 kbps). Solo la escucha su dueño, con su sesión. Se
     borra con la huella.
     """
 

@@ -491,6 +491,9 @@ nota de voz, la **nota escrita es opcional**. La voz no se transcribe (no está 
   - `VoiceRecorderPanel` en Nueva huella: «Grabar nota de voz», contador «Grabando 0:12 de 1:00»
     con barra, «Detener», reproductor para escucharla, «Volver a grabar» y «Quitar la nota de
     voz». Se detiene sola a los 60 s y suelta el micrófono al terminar.
+  - Calidad de la voz (ajuste tras la prueba del equipo, que se oía entrecortada): el micrófono
+    se pide sin supresión de ruido ni cancelación de eco, que cortaban la voz baja, con control de
+    volumen y una sola pista, y se graba a 64 kbps (~480 KB por minuto).
   - Sin permiso: «Para grabar, Evoca necesita permiso para usar tu micrófono: así guarda tu voz
     en esta huella, solo para ti…» con «Escribir la nota» (lleva al campo de la nota) e
     «Intentar de nuevo». Sin micrófono o en un navegador sin grabación, también lo dice.

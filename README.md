@@ -319,7 +319,9 @@ En **Nueva huella**, «Grabar nota de voz» graba hasta 60 segundos con MediaRec
 sola) y deja escucharla antes de guardar; con una nota de voz, la nota escrita es opcional. Si
 no hay permiso para el micrófono, la app explica para qué lo necesita y ofrece escribir la nota.
 El audio se guarda en la misma base (tabla `VoiceNote`, migración `traces/0009_voice_note`),
-porque Render no tiene disco persistente: 60 s en Opus ocupan ~200 KB. El servidor revisa la
+porque Render no tiene disco persistente: se graba en Opus a 64 kbps (60 s ocupan ~480 KB). Se
+pide el micrófono sin supresión de ruido ni cancelación de eco (cortaban la voz baja), con
+control de volumen. El servidor revisa la
 firma del archivo (WebM, Ogg o MP4/AAC de iPhone), la duración y el tamaño
 (`EVOCA_VOICE_MAX_BYTES`, 1,5 MB), y solo lo entrega a su dueño. En el detalle de la huella hay
 un reproductor; en las listas, «Nota de voz · 0:42». La voz no se transcribe: la búsqueda por

@@ -1,4 +1,4 @@
-"""Cuadernillo (HU17): cuadernos y páginas de la persona autenticada, nunca los de otra."""
+"""Cuadernillo (HU17): cuadernos, páginas y cartas (HU19) de la persona autenticada, nunca los de otra."""
 
 from collections import defaultdict
 from datetime import timedelta
@@ -16,8 +16,8 @@ from apps.traces.models import Trace
 from apps.traces.views import dominant_emotion, local_start, with_moment
 
 from . import crypto, evoke
-from .models import Notebook, Page
-from .serializers import NotebookSerializer, PageSerializer
+from .models import Letter, Notebook, Page
+from .serializers import LetterSerializer, NotebookSerializer, PageSerializer
 
 NOT_CONFIGURED = {"detail": "El Cuadernillo no está disponible ahora. Inténtalo más tarde."}
 
@@ -165,3 +165,34 @@ class PageViewSet(DiaryErrors, mixins.RetrieveModelMixin, mixins.UpdateModelMixi
         serializer.save()
         # El día pudo cambiar: la emoción se recalcula.
         serializer.context["emotions"] = day_emotions(self.request.user, [serializer.instance.day])
+
+
+class LetterViewSet(DiaryErrors, mixins.ListModelMixin, mixins.CreateModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    """
+    HU19: mis cartas a mi yo del futuro. Se escriben y quedan selladas: no se editan. La lista y el
+    detalle dicen cuándo se abre cada una, sin su contenido hasta que se abre el sobre.
+    """
+
+    serializer_class = LetterSerializer
+    pagination_class = None
+    http_method_names = ["get", "post"]
+
+    def get_queryset(self):
+        return Letter.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def open(self, request, pk=None):
+        """HU19 · Escenario 2: abre el sobre si ya llegó su fecha y entrega la carta."""
+        letter = self.get_object()
+        if not letter.ready:
+            return Response(
+                {"detail": f"Esta carta sigue sellada hasta el {letter.opens_on.strftime('%d/%m/%Y')}."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not letter.opened_at:
+            letter.opened_at = timezone.now()
+            letter.save(update_fields=["opened_at"])
+        return Response(self.get_serializer(letter).data)

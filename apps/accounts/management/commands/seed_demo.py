@@ -24,7 +24,7 @@ from django.utils import timezone
 
 from apps.accounts.models import AccessPin, ConsentRecord, DailyReminder, User
 from apps.diary.crypto import fernet
-from apps.diary.models import Notebook, Page
+from apps.diary.models import Letter, Notebook, Page
 from apps.traces.models import Memory, MemoryTrace, Trace
 
 DEMO_PASSWORD = "EvocaDemo!2026"
@@ -417,6 +417,22 @@ MARIA_DIARY = [
 ]
 
 
+# Cartas de María a su yo del futuro (HU19): una que llega hoy (para ver el aviso en Inicio y
+# abrir el sobre) y otra sellada por meses. (escrita hace días, se abre en días, letra, tinta, texto)
+MARIA_LETTERS = [
+    (
+        90, 0, "caveat", "vino",
+        "Querida María de noviembre:\n\nHoy es un día de lluvia y estoy tomando café en la ventana. "
+        "Espero que sigas buscando esos ratos tranquilos y que la salsa con tu hermana siga sonando en la cocina.\n\n"
+        "Con cariño, la María de agosto.",
+    ),
+    (
+        2, 180, "kalam", "azul",
+        "Para la María de dentro de seis meses: ojalá recuerdes lo bien que se sentía el parque después de clase.",
+    ),
+]
+
+
 def diary_document(paragraphs):
     return json.dumps(
         {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": text}]} for text in paragraphs]},
@@ -443,6 +459,7 @@ DEMO_USERS = [
         # HU11: tres recuerdos centrales (le quedan dos lugares de cinco).
         "centrals": ["La familia y sus abrazos", "Sabores de la infancia", "Días de calma"],
         "diary": MARIA_DIARY,
+        "letters": MARIA_LETTERS,
         "reminder": {"enabled": True, "frequency": "daily", "time": time(20, 0)},
         "shows": "ánimo variado: lista y filtros, gráfica semanal y mensual, calendario de tres meses, mapa con 40 recuerdos de más de un año; estadísticas con café, lluvia y salsa entre lo más registrado; 3 recuerdos centrales; ya registró hoy",
     },
@@ -592,7 +609,7 @@ class Command(BaseCommand):
                     user=user, name=name, explanation=explanation, status=Memory.Status.SUGGESTED, suggested_at=now
                 )
                 MemoryTrace.objects.bulk_create([MemoryTrace(memory=memory, trace=traces[index]) for index in positions])
-            self.create_diary(user, today, spec.get("diary", []))
+            self.create_diary(user, today, spec.get("diary", []), spec.get("letters", []))
             self.stdout.write(
                 self.style.SUCCESS(
                     f"· {spec['email']}: {len(moments)} huellas, {len(memories)} recuerdos · {spec['shows']}"
@@ -601,9 +618,9 @@ class Command(BaseCommand):
 
         self.stdout.write("La contraseña y el PIN están en apps/accounts/management/commands/seed_demo.py (o en EVOCA_DEMO_*).")
 
-    def create_diary(self, user, today, notebooks):
-        """HU17: cuadernos de ejemplo. Sin la clave del Cuadernillo, se omiten (lo demás sigue)."""
-        if not notebooks:
+    def create_diary(self, user, today, notebooks, letters=()):
+        """HU17 y HU19: cuadernos y cartas de ejemplo. Sin la clave del Cuadernillo, se omiten (lo demás sigue)."""
+        if not notebooks and not letters:
             return
         try:
             fernet()  # Se revisa antes de escribir nada en la base.
@@ -617,3 +634,7 @@ class Command(BaseCommand):
                     notebook=notebook, user=user, day=today - timedelta(days=days_ago), font=font, ink=ink,
                     content=diary_document(paragraphs),
                 )
+        now = timezone.now()
+        for written_ago, opens_in, font, ink, text in letters:
+            letter = Letter.objects.create(user=user, content=text, font=font, ink=ink, opens_on=today + timedelta(days=opens_in))
+            Letter.objects.filter(pk=letter.pk).update(created_at=now - timedelta(days=written_ago))

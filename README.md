@@ -251,6 +251,9 @@ en la orientación de Mateo, que la pausa 7 días).
 | POST | `/api/v1/diary/pages/{id}/evoke/` | HU18: la IA lee la página y propone huellas agrupadas en recuerdos sugeridos. Responde `{status, page}` con `status` `ok`, `too_short`, `risk` o `unavailable`; la página trae `evocation` (`memories`, `highlights`). Máximo 5 por minuto |
 | POST | `/api/v1/diary/pages/{id}/evocation/{n}/accept/` | HU18: acepta el recuerdo sugerido `n` (opcional `name` y `traces`, los índices de las huellas que se quedan); crea las huellas y el recuerdo. Responde `{memory_id, page}` |
 | POST | `/api/v1/diary/pages/{id}/evocation/{n}/discard/` | HU18: descarta la sugerencia `n` (no guarda nada; cuenta para la tasa de aceptación) |
+| GET/POST | `/api/v1/diary/letters/` | HU19: mis cartas a mi yo del futuro (`opens_on`, `ready`, `opened_at`; sin `content` mientras sigan selladas) o una carta nueva (`content`, `opens_on` desde mañana y hasta 10 años, `font`, `ink`). No se editan ni se borran |
+| GET | `/api/v1/diary/letters/{id}/` | HU19: una carta; trae `content` solo si ya se abrió |
+| POST | `/api/v1/diary/letters/{id}/open/` | HU19: abre el sobre si ya llegó su fecha y devuelve la carta; antes responde 403 sin contenido |
 | GET | `/api/v1/weekly-summary/` | HU14: resumen de la semana pasada (lunes a domingo). `status`: `disabled`, `too_few` (menos de 5 huellas; `missing`), `pending` (aún no se prepara), `unavailable` o `ready` con `patterns` (`text`, `trace_count` y `traces` con fecha, tipo, emoción, intensidad, ánimo y nota). No llama a la IA |
 | POST | `/api/v1/weekly-summary/generate/` | HU14: prepara el resumen con la IA si hace falta (una sola vez por semana; 5 pedidos por minuto) y responde lo mismo que el GET |
 | GET/PUT | `/api/v1/weekly-summary/settings/` | HU14: si la persona recibe el resumen semanal (`enabled`, activo por defecto) |
@@ -352,6 +355,23 @@ tiene «Abrir la página donde nació».
 - Páginas con menos de 8 palabras o con palabras de riesgo no se envían; si la IA falla, el
   Cuadernillo sigue igual y lo dice. En los registros no queda texto de la persona.
 - Descartar crea un recuerdo descartado solo para la tasa de aceptación (`suggestion_stats`).
+
+### Cartas a mi yo del futuro (HU19)
+
+En el **Cuadernillo**, «Escribir una carta» abre una hoja con letra manuscrita y tinta a
+elegir, y la fecha en que se abre (desde mañana y hasta 10 años). Al sellarla, la solapa del
+sobre se cierra y cae un sello de cera; desde ahí no se puede leer ni cambiar. El Cuadernillo
+muestra cuántas cartas hay y cuándo se abre cada una, sin su contenido. Cuando llega la
+fecha, Inicio muestra un aviso amable («Llegó una carta de tu yo del pasado») y la carta se
+abre con su sobre.
+
+- **El servidor nunca entrega el contenido antes de la fecha** (ni en la lista, ni en el
+  detalle, ni al intentar abrirla: 403). La fecha es la local del servidor (`TIME_ZONE`).
+- Las cartas se guardan cifradas como las páginas (`EVOCA_DIARY_KEY`), entran **completas**
+  en la exportación de datos, también las selladas (decisión del equipo, Ley 1581), y se borran
+  con la cuenta. Las palabras de riesgo abren la ayuda mientras se escribe.
+- Como el recordatorio de HU5, el aviso aparece al abrir la app, no con la app cerrada.
+- En la demo, a María le llega hoy una carta escrita hace tres meses y tiene otra sellada.
 
 ### Nota de voz (HU16)
 

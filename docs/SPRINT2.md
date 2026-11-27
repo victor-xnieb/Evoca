@@ -21,7 +21,7 @@ trabajo sigue la prioridad del Jira.
 | 8 | HU16 · Grabar una nota de voz en la huella | SCRUM-26 | Lowest | SCRUM-72 | SCRUM-73 | SCRUM-74 | `feature/hu16-nota-de-voz` | En dev |
 | 9 | HU17 · Escribir en mi Cuadernillo | SCRUM-76 | Highest | SCRUM-79 | SCRUM-80 | SCRUM-81 | `feature/hu17-cuadernillo` | En dev |
 | 10 | HU18 · Evocar recuerdos a partir de lo que escribo | SCRUM-77 | High | SCRUM-82 | SCRUM-83 | SCRUM-84 | `feature/hu18-evocar` | En dev |
-| 11 | HU19 · Escribir cartas a mi yo del futuro | SCRUM-78 | Medium | SCRUM-85 | SCRUM-86 | SCRUM-87 | `feature/hu19-cartas-futuro` | Pendiente |
+| 11 | HU19 · Escribir cartas a mi yo del futuro | SCRUM-78 | Medium | SCRUM-85 | SCRUM-86 | SCRUM-87 | `feature/hu19-cartas-futuro` | En rama, por aprobar |
 
 ---
 
@@ -647,6 +647,67 @@ ProseMirror (ya incluido con TipTap); el texto de la página no se modifica.
 en unos 2 s, iluminó 3 frases y propuso «Mañana en casa» y «Salsa con mi hermana». Al aceptar el
 primero con otro nombre, sus palabras pasaron a ser enlaces; «Ver en el mapa» abrió el recuerdo,
 «Abrir la página donde nació» volvió a la hoja y tocar una palabra iluminada llevó al recuerdo.
+
+---
+
+## HU19 · Escribir cartas a mi yo del futuro (SCRUM-78)
+
+**Historia.** Como usuario, quiero escribir una carta que solo pueda abrir en una fecha que yo
+elija, para reencontrarme con lo que sentía.
+
+**Escenarios**
+
+1. Dado que estoy en mi cuadernillo, cuando escribo una carta y elijo una fecha futura de apertura,
+   entonces la carta queda sellada (un sobre con sello de cera) y no puedo leer su contenido antes
+   de esa fecha.
+2. Dado que llegó la fecha de una carta, cuando abro la app, entonces veo un aviso amable en Inicio
+   y puedo abrir el sobre para leerla.
+3. Dado que tengo cartas selladas, cuando veo mi cuadernillo, entonces veo cuántas cartas tengo y
+   cuándo se abre cada una, sin ver su contenido.
+
+**Subtareas:** Backend SCRUM-85 · Interfaz SCRUM-86 · Pruebas SCRUM-87.
+
+**Decisión del equipo.** La exportación de datos incluye las cartas completas, también las
+selladas, porque son datos de la persona (Ley 1581).
+
+**Sin librerías nuevas.** El sobre y el sello son CSS y Motion; las letras manuscritas ya estaban
+(HU17).
+
+### Qué se hizo
+
+- **Backend (SCRUM-85):**
+  - Modelo `Letter` (contenido cifrado con Fernet, letra, tinta, `opens_on` y `opened_at`);
+    migración `diary/0003_letters`.
+  - API `api/v1/diary/letters/`: crear (texto obligatorio de hasta 20.000 caracteres y fecha desde
+    mañana hasta 10 años), listar y ver. Mientras la carta esté sellada o sin abrir, el contenido
+    no sale del servidor; `open/` la abre solo si llegó su fecha (si no, 403 sin contenido) y
+    guarda cuándo se abrió. Las cartas no se editan ni se borran (quedan selladas).
+  - Cada persona ve solo sus cartas; sin la clave del Cuadernillo responde 503 sin datos.
+  - Exportación completa y borrado con la cuenta; `seed_demo` le da a María una carta que llega hoy
+    y otra sellada por seis meses.
+- **Interfaz (SCRUM-86):**
+  - En el Cuadernillo, la sección «Cartas a mi yo del futuro»: cuántas hay (selladas y listas para
+    abrir), un sobre por carta con su fecha en texto y «Escribir una carta».
+  - Hoja de carta con letra manuscrita, tinta y fecha de apertura; aviso de que al sellarla no se
+    podrá leer ni cambiar; las palabras de riesgo abren la ayuda («Volver a mi carta»).
+  - Al sellar, la solapa se cierra y cae el sello de cera; al abrir, el sello se rompe, la solapa
+    sube y la carta sale del sobre. Con «reducir movimiento», solo cambios suaves.
+  - Aviso en Inicio cuando llega la fecha («Llegó una carta de tu yo del pasado», con «Abrir el
+    sobre» y «Ahora no»). Si el Cuadernillo no responde, no se muestra.
+  - Historia `Envelope` en Storybook.
+
+### Evidencia
+
+| Escenario | Prueba automática | Estado |
+| --- | --- | --- |
+| 1 · La carta queda sellada y no se lee antes de la fecha | `apps/diary/test_letters.py` (`test_scenario_1_*`: sellada, ni por la API antes de tiempo, no se edita ni se borra, validaciones), `test_the_letter_is_stored_encrypted`; `frontend/src/app/hu19.test.tsx` (escenario 1: sellar, validar, aviso del servidor, palabra de riesgo, carta sellada) | Cumplido |
+| 2 · Aviso en Inicio y abrir el sobre el día indicado | `test_scenario_2_*`; `hu19.test.tsx` (escenario 2: aviso y «Ahora no», sin aviso si no llegó ninguna o el Cuadernillo falla, abrir el sobre, volver a leerla) | Cumplido |
+| 3 · Cuántas cartas y cuándo se abre cada una, sin contenido | `test_scenario_3_*`; `hu19.test.tsx` (escenario 3: lista con fechas, sin cartas) | Cumplido |
+| Antes de tiempo, día indicado, riesgo y aislamiento (subtarea de pruebas) | Las anteriores, más `test_only_my_letters`, `test_the_export_includes_my_letters_even_sealed…`, `test_without_the_key_in_production…`; `apps/accounts/tests.py` (`test_maria_has_a_letter_that_arrives_today…`) | Cumplido |
+
+**Prueba de punta a punta en Chrome:** María ve el aviso en Inicio, abre el sobre y lee la carta
+de agosto; en el Cuadernillo ve sus 2 cartas con su fecha; escribe y sella una nueva para el
+próximo año; abrir antes de tiempo una carta sellada por la API responde 403 sin contenido.
 
 ---
 

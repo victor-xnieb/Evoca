@@ -1,3 +1,4 @@
+import { Mic } from "lucide-react"
 import { motion } from "motion/react"
 import { createElement } from "react"
 
@@ -8,6 +9,7 @@ import { spring } from "@/lib/motion"
 import { getSensoryIcon } from "@/lib/sensory"
 import type { Trace } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { formatSeconds } from "@/lib/voice"
 
 import { EmotionChip } from "./EmotionChip"
 
@@ -50,9 +52,17 @@ export function TraceCard({ trace, sensoryLabel, emotionLabel, onOpen, now, clas
           {formatRelative(when, now)}
         </time>
       </div>
-      <p className="line-clamp-3 text-left font-display text-lg leading-snug text-card-foreground">
-        {trace.note}
-      </p>
+      {trace.note ? (
+        <p className="line-clamp-3 text-left font-display text-lg leading-snug text-card-foreground">{trace.note}</p>
+      ) : (
+        <p className="text-left font-display text-lg leading-snug text-muted-foreground italic">Nota de voz</p>
+      )}
+      {trace.voice_duration ? (
+        <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold text-secondary-foreground">
+          <Mic aria-hidden="true" className="size-3.5" />
+          Nota de voz · {formatSeconds(trace.voice_duration)}
+        </span>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <EmotionChip emotion={trace.emotion} label={emotionLabel} size="sm" />
         <span
@@ -96,7 +106,7 @@ export function TraceCard({ trace, sensoryLabel, emotionLabel, onOpen, now, clas
     <motion.button
       type="button"
       onClick={() => onOpen?.(trace)}
-      aria-label={`${sensoryLabel}, ${emotionLabel}: ${trace.note}`}
+      aria-label={`${sensoryLabel}, ${emotionLabel}: ${trace.note || "nota de voz"}`}
       whileHover={reduced ? undefined : { y: -2 }}
       whileTap={reduced ? undefined : { scale: 0.98 }}
       transition={spring}

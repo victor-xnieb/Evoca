@@ -11,13 +11,16 @@ import { LottieIllustration } from "@/components/evoca/LottieIllustration"
 import { PageTransition } from "@/components/evoca/PageTransition"
 import { SensoryTypePicker } from "@/components/evoca/SensoryTypePicker"
 import { SuggestionCard } from "@/components/evoca/SuggestionCard"
+import { VoiceRecorderPanel } from "@/components/evoca/VoiceRecorderPanel"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/use-auth"
 import { useCatalog } from "@/hooks/use-catalog"
 import { useEmotionSuggestion } from "@/hooks/use-emotion-suggestion"
+import { useVoiceRecorder } from "@/hooks/use-voice-recorder"
 import { ApiError } from "@/lib/api"
-import { MISSING_TRACE_FIELDS } from "@/lib/messages"
+import { MISSING_NOTE_OR_VOICE, MISSING_TRACE_FIELDS } from "@/lib/messages"
 import { labelOf, tracesApi } from "@/lib/traces"
+import { voiceApi, type VoiceRecording } from "@/lib/voice"
 
 import { NoteField } from "./traces/NoteField"
 import { RiskHelp } from "./traces/RiskHelp"
@@ -37,6 +40,7 @@ function exampleSeen(userId: string) {
 /**
  * HU2: registrar una huella en segundos. Tipo, nota, emoción e intensidad en una sola
  * pantalla; la primera vez se muestra antes un ejemplo guiado que se puede omitir.
+ * HU16: en lugar de escribir, se puede grabar una nota de voz (hasta 60 s) y escucharla antes.
  */
 export function NewTracePage() {
   const { user } = useAuth()
@@ -55,6 +59,11 @@ export function NewTracePage() {
   const [saving, setSaving] = useState(false)
   // HU8: la IA propone emoción e intensidad; solo se aplican si la persona toca «Aceptar sugerencia».
   const { loading: suggesting, suggestion } = useEmotionSuggestion(form.note)
+  const [voice, setVoice] = useState<VoiceRecording | null>(null)
+  const recorder = useVoiceRecorder((recording) => {
+    setVoice(recording)
+    if (recording) setErrors((current) => ({ ...current, note: undefined, form: undefined }))
+  })
 
   // Primera vez = todavía no tiene huellas y no ha visto el ejemplo en este dispositivo.
   useEffect(() => {
@@ -93,7 +102,8 @@ export function NewTracePage() {
     event.preventDefault()
     const missing: Partial<Record<Field, string>> = {}
     if (!form.sensory_type) missing.sensory_type = MISSING_TRACE_FIELDS.sensory_type
-    if (!form.note.trim()) missing.note = MISSING_TRACE_FIELDS.note
+    // HU16: con nota de voz, la nota escrita es opcional.
+    if (!form.note.trim() && !voice) missing.note = MISSING_NOTE_OR_VOICE
     if (!form.emotion) missing.emotion = MISSING_TRACE_FIELDS.emotion
     if (!form.mood_intensity) missing.mood_intensity = MISSING_TRACE_FIELDS.mood_intensity
     if (Object.keys(missing).length) {
@@ -104,12 +114,13 @@ export function NewTracePage() {
 
     setSaving(true)
     try {
-      const trace = await tracesApi.create({
+      const fields = {
         sensory_type: form.sensory_type!,
         note: form.note.trim(),
         emotion: form.emotion!,
         mood_intensity: form.mood_intensity!,
-      })
+      }
+      const trace = voice ? await voiceApi.createWithVoice(fields, voice) : await tracesApi.create(fields)
       navigate("/", { state: { savedTraceId: trace.id } })
     } catch (error) {
       setSaving(false)
@@ -211,6 +222,13 @@ export function NewTracePage() {
             inputRef={noteInput}
           />
           <RiskHelp text={form.note} />
+          <VoiceRecorderPanel
+            state={recorder.state}
+            onStart={() => void recorder.start()}
+            onStop={recorder.stop}
+            onDiscard={recorder.discard}
+            onWriteInstead={() => noteInput.current?.focus()}
+          />
           <SuggestionCard
             loading={suggesting}
             suggestion={

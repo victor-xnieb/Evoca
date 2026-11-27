@@ -1,23 +1,27 @@
+import json
 import re
 from array import array
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 
 from django.conf import settings
+from django.db.models import F
 from django.db.models.functions import Coalesce
+from django.http import HttpResponse
 from django.utils import timezone
 from django.db import transaction
 from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
 from apps.support.risk import find_risk_terms
 
-from . import ai, memory_ai, memory_map, search, stats
+from . import ai, memory_ai, memory_map, search, stats, voice
 
-from .models import Memory, MemoryTrace, Trace
+from .models import Memory, MemoryTrace, Trace, VoiceNote
 from .mood import mood_score
 from .serializers import TraceSerializer, choice_list
 
@@ -100,7 +104,8 @@ class TraceViewSet(viewsets.ModelViewSet):
     serializer_class = TraceSerializer
 
     def get_queryset(self):
-        queryset = Trace.objects.filter(user=self.request.user)
+        # HU16: la duración de la nota de voz viaja con cada huella, sin cargar el audio.
+        queryset = Trace.objects.filter(user=self.request.user).annotate(voice_seconds=F("voice_note__duration"))
         if self.action != "list":
             return queryset
         for name, (choices, message) in FILTERS.items():
@@ -121,6 +126,40 @@ class TraceViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=["post"], url_path="with-voice", parser_classes=[MultiPartParser])
+    def with_voice(self, request):
+        """
+        HU16 · Escenario 2: guarda una huella con su nota de voz en un solo paso. Llega como
+        formulario: `data` (los campos de la huella en JSON; la nota escrita es opcional),
+        `audio` (la grabación) y `duration` (segundos, hasta 60).
+        """
+        try:
+            fields = json.loads(request.data.get("data") or "{}")
+        except ValueError:
+            raise ValidationError({"data": "Los datos de la huella no son válidos."}) from None
+        if not isinstance(fields, dict):
+            raise ValidationError({"data": "Los datos de la huella no son válidos."})
+        serializer = self.get_serializer(data=fields, context={**self.get_serializer_context(), "with_voice": True})
+        serializer.is_valid(raise_exception=True)
+        audio, content_type, duration = voice.clean_audio(request.FILES.get("audio"), request.data.get("duration"))
+        with transaction.atomic():
+            trace = serializer.save(user=request.user)
+            VoiceNote.objects.create(trace=trace, audio=audio, content_type=content_type, duration=duration, size=len(audio))
+        trace.voice_seconds = duration
+        return Response(self.get_serializer(trace).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["get"], url_path="voice")
+    def voice(self, request, pk=None):
+        """HU16: el audio de la nota de voz de una huella propia (nunca el de otra persona)."""
+        trace = self.get_object()
+        note = VoiceNote.objects.filter(trace=trace).first()
+        if note is None:
+            return Response({"detail": "Esta huella no tiene nota de voz."}, status=status.HTTP_404_NOT_FOUND)
+        response = HttpResponse(bytes(note.audio), content_type=note.content_type)
+        response["Cache-Control"] = "private, max-age=3600"
+        response["Content-Length"] = str(note.size)
+        return response
 
     @action(detail=False, methods=["post"], throttle_classes=[ScopedRateThrottle])
     def suggest(self, request):

@@ -14,6 +14,9 @@ export const MISSING_TRACE_FIELDS = {
   mood_intensity: "Elige qué tan intenso fue, de 1 a 5.",
 } as const
 
+/** HU16: en «Nueva huella» la nota puede ser escrita o de voz. */
+export const MISSING_NOTE_OR_VOICE = "Escribe una nota corta sobre el recuerdo o graba una nota de voz."
+
 export const NOTE_MAX_LENGTH = 500
 
 /** Nombre de cada nivel de intensidad, de 1 a 5. */

@@ -8,6 +8,7 @@ import { EvocaLoader } from "@/components/evoca/EvocaLoader"
 import { GlassCard } from "@/components/evoca/GlassCard"
 import { IntensityPicker } from "@/components/evoca/IntensityPicker"
 import { PageTransition } from "@/components/evoca/PageTransition"
+import { VoicePlayer } from "@/components/evoca/VoicePlayer"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -105,7 +106,8 @@ export function TraceDetailPage() {
 
   const save = async (event: FormEvent) => {
     event.preventDefault()
-    if (!form.note.trim()) return setErrors({ note: MISSING_TRACE_FIELDS.note })
+    // HU16: una huella con nota de voz puede quedar sin nota escrita.
+    if (!form.note.trim() && !trace.voice_duration) return setErrors({ note: MISSING_TRACE_FIELDS.note })
     setSaving(true)
     try {
       await tracesApi.update(trace.id, {
@@ -171,6 +173,7 @@ export function TraceDetailPage() {
         )}
 
         <form noValidate onSubmit={save} className="flex flex-col gap-7">
+          {trace.voice_duration ? <VoicePlayer traceId={trace.id} duration={trace.voice_duration} /> : null}
           <NoteField
             label="Nota"
             value={form.note}

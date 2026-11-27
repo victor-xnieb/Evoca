@@ -162,6 +162,9 @@ def element_state(trace, terms):
     """
     if find_risk_terms(trace.note, terms):
         return "risk"
+    # HU16: una huella con solo nota de voz no tiene texto del que sacar el elemento.
+    if not trace.note.strip():
+        return "empty"
     element = getattr(trace, "element", None)
     return "ready" if element is not None and element.text_hash == text_hash(trace) else "pending"
 

@@ -228,6 +228,8 @@ en la orientación de Mateo, que la pausa 7 días).
 | POST | `/api/v1/traces/suggest/` | Propone emoción e intensidad desde la nota (10 palabras o más) con IA; no guarda nada |
 | POST | `/api/v1/traces/search/` | HU12: huellas parecidas por significado a `query` (3 a 200 caracteres, en el cuerpo), de la más a la menos parecida, con `similarity` y `level` (`high`, `medium`, `low`). `mode`: `meaning` (IA) o `words` (respaldo por palabras); `pending`: huellas que la IA aún no ha preparado; `risk`: la frase tiene palabras de riesgo y no se buscó. 30 búsquedas por minuto |
 | GET/POST | `/api/v1/traces/` | Lista (la más reciente primero; filtros `?sensory_type=`, `?emotion=` y `?date=AAAA-MM-DD`) o crea huellas del usuario |
+| POST | `/api/v1/traces/with-voice/` | HU16: crea una huella con su nota de voz (formulario: `data` con los campos en JSON, la nota escrita opcional; `audio` WebM/Ogg/MP4 de hasta 60 s y 1,5 MB; `duration` en segundos) |
+| GET | `/api/v1/traces/{id}/voice/` | HU16: el audio de la nota de voz de una huella propia (404 si es de otra persona o no tiene). Cada huella trae `voice_duration` |
 | GET | `/api/v1/traces/catalog/` | Tipos sensoriales y emociones válidos, con su etiqueta |
 | GET | `/api/v1/traces/stats/?period=month|all` | HU13: huellas por tipo con su ánimo promedio, y los 5 elementos más frecuentes (`top_elements`) de los últimos 30 días o en total. Con menos de 10 huellas, `ready: false` y `missing` (cuántas faltan). No llama a la IA; `pending`: huellas cuyo elemento aún no se reconoce |
 | POST | `/api/v1/traces/stats/elements/` | HU13: la IA reconoce el elemento de las huellas que aún no lo tienen (80 por vez). `status`: `ok` o `unavailable`; `pending`: cuántas faltan. 10 pedidos por minuto |
@@ -310,6 +312,20 @@ La intensidad dice qué tan fuerte fue una emoción, no qué tan bien estaba la 
 Lo usan la orientación de HU6 (un día es bajo si el promedio del ánimo de sus huellas es 2 o
 menos) y la gráfica de HU4. El calendario de HU7 sigue mostrando la intensidad promedio, que sí
 es intensidad.
+
+### Nota de voz (HU16)
+
+En **Nueva huella**, «Grabar nota de voz» graba hasta 60 segundos con MediaRecorder (se detiene
+sola) y deja escucharla antes de guardar; con una nota de voz, la nota escrita es opcional. Si
+no hay permiso para el micrófono, la app explica para qué lo necesita y ofrece escribir la nota.
+El audio se guarda en la misma base (tabla `VoiceNote`, migración `traces/0009_voice_note`),
+porque Render no tiene disco persistente: se graba en Opus a 64 kbps (60 s ocupan ~480 KB). Se
+pide el micrófono sin supresión de ruido ni cancelación de eco (cortaban la voz baja), con
+control de volumen. El servidor revisa la
+firma del archivo (WebM, Ogg o MP4/AAC de iPhone), la duración y el tamaño
+(`EVOCA_VOICE_MAX_BYTES`, 1,5 MB), y solo lo entrega a su dueño. En el detalle de la huella hay
+un reproductor; en las listas, «Nota de voz · 0:42». La voz no se transcribe: la búsqueda por
+significado, las estadísticas y las palabras de riesgo solo ven la nota escrita.
 
 ### Mis islas y significado en el mapa (HU15)
 

@@ -100,6 +100,8 @@ export function parseErrorBody(status: number, body: unknown): ApiError {
 export interface RequestOptions {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE"
   body?: unknown
+  /** Formulario con archivos (HU16): se envía tal cual, sin JSON. */
+  form?: FormData
   /** Por defecto las peticiones llevan el token; las rutas públicas usan auth: false. */
   auth?: boolean
   signal?: AbortSignal
@@ -115,9 +117,9 @@ function buildUrl(path: string, query?: RequestOptions["query"]) {
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, auth = true, signal, query } = options
+  const { method = "GET", body, form, auth = true, signal, query } = options
   const headers: Record<string, string> = { Accept: "application/json" }
-  if (body !== undefined) headers["Content-Type"] = "application/json"
+  if (body !== undefined && !form) headers["Content-Type"] = "application/json"
 
   const token = auth ? tokenStore.get() : null
   if (token) headers.Authorization = `Token ${token}`
@@ -127,7 +129,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     response = await fetch(buildUrl(path, query), {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: form ?? (body === undefined ? undefined : JSON.stringify(body)),
       signal,
     })
   } catch (error) {
@@ -147,6 +149,20 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   if (!response.ok) throw parseErrorBody(response.status, data)
   return data as T
+}
+
+/** Un archivo protegido (por ejemplo, una nota de voz), con la sesión de la persona. */
+export async function apiBlob(path: string, signal?: AbortSignal): Promise<Blob> {
+  const token = tokenStore.get()
+  let response: Response
+  try {
+    response = await fetch(buildUrl(path), { headers: token ? { Authorization: `Token ${token}` } : {}, signal })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw error
+    throw new ApiError(0, NETWORK_MESSAGE)
+  }
+  if (!response.ok) throw parseErrorBody(response.status, await response.json().catch(() => null))
+  return response.blob()
 }
 
 export const api = {

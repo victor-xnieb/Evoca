@@ -221,3 +221,23 @@ class IslandsCalculation(models.Model):
     )
     calculated_at = models.DateTimeField()
     signature = models.CharField(max_length=64)
+
+
+class VoiceNote(models.Model):
+    """
+    Nota de voz de una huella (HU16), de hasta 60 segundos. Se guarda en la base (Render no tiene
+    disco persistente): ~480 KB por minuto (Opus a 64 kbps). Solo la escucha su dueño, con su sesión. Se
+    borra con la huella.
+    """
+
+    MAX_SECONDS = 60
+
+    trace = models.OneToOneField(Trace, on_delete=models.CASCADE, primary_key=True, related_name="voice_note")
+    audio = models.BinaryField()
+    content_type = models.CharField(max_length=40)
+    duration = models.FloatField()
+    size = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.trace_id} ({self.duration:.0f} s)"

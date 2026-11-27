@@ -115,7 +115,7 @@ def describe(traces, terms):
     lines = []
     for number, trace in enumerate(traces, start=1):
         moment = timezone.localtime(trace.at)
-        note = "(nota no incluida)" if find_risk_terms(trace.note, terms) else " ".join(trace.note.split())
+        note = "(nota no incluida)" if find_risk_terms(trace.note, terms) else " ".join(trace.note.split()) or "(nota de voz, sin texto)"
         tags = ", ".join(trace.tags) if trace.tags else "ninguna"
         lines.append(
             f"{number}. {DAYS[moment.weekday()]} {moment:%H:%M} · {trace.get_sensory_type_display()} · "

@@ -18,7 +18,7 @@ trabajo sigue la prioridad del Jira.
 | 5 | HU11 · Marcar mis recuerdos centrales | SCRUM-21 | Low | SCRUM-57 | SCRUM-58 | SCRUM-59 | `feature/hu11-recuerdos-centrales` | En dev |
 | 6 | HU14 · Ver patrones de mi semana con IA | SCRUM-24 | Low | SCRUM-66 | SCRUM-67 | SCRUM-68 | `feature/hu14-patrones-semana-ia` | En dev |
 | 7 | HU15 · Descubrir mis islas | SCRUM-25 | Low | SCRUM-69 | SCRUM-70 | SCRUM-71 | `feature/hu15-islas` | En dev |
-| 8 | HU16 · Grabar una nota de voz en la huella | SCRUM-26 | Lowest | SCRUM-72 | SCRUM-73 | SCRUM-74 | `feature/hu16-nota-de-voz` | Pendiente |
+| 8 | HU16 · Grabar una nota de voz en la huella | SCRUM-26 | Lowest | SCRUM-72 | SCRUM-73 | SCRUM-74 | `feature/hu16-nota-de-voz` | En rama, por aprobar |
 
 ---
 
@@ -452,6 +452,62 @@ cumplió lo acordado en HU10: el significado parecido (HU12) suma a la afinidad 
 celebraciones 25 %, La familia y el hogar 23 %, Retos y nervios 14 %, Despedidas y nostalgia
 12 % (3 recuerdos quedan sin isla). En el mapa, 36 de 71 conexiones dicen «hablan de cosas
 parecidas», por ejemplo «Tardes de lluvia en Bogotá» con «Días de calma».
+
+---
+
+## HU16 · Grabar una nota de voz en la huella (SCRUM-26)
+
+**Historia.** Como usuario, quiero grabar una nota de voz en lugar de escribir, para registrar una
+huella cuando no puedo teclear.
+
+**Escenarios**
+
+1. Dado que estoy en «Nueva huella», cuando grabo una nota de voz de hasta 60 segundos, entonces
+   puedo escucharla antes de guardar.
+2. Dado que grabé una nota de voz, cuando guardo, entonces se guarda como una huella con su tipo,
+   emoción e intensidad.
+3. Dado que no he dado permiso al micrófono, cuando intento grabar, entonces la app me explica
+   por qué lo necesita y me deja escribir la nota.
+
+**Subtareas:** Backend SCRUM-72 · Interfaz SCRUM-73 · Pruebas SCRUM-74.
+
+**Decisiones del equipo.** El audio se guarda en la **misma base de Neon** (tabla nueva, sin
+crear nada nuevo en Neon ni agregar librerías), porque Render no tiene disco persistente. Con una
+nota de voz, la **nota escrita es opcional**. La voz no se transcribe (no está en la HU).
+
+### Qué se hizo
+
+- **Backend (SCRUM-72):**
+  - `VoiceNote` (audio, tipo, duración y tamaño; se borra con la huella); migración
+    `traces/0009_voice_note`.
+  - `POST /api/v1/traces/with-voice/`: crea la huella y su nota de voz en una sola transacción.
+    Se valida la huella como siempre, la firma del archivo (WebM, Ogg u MP4/AAC), la duración
+    (hasta 60 s) y el tamaño (1,5 MB).
+  - `GET /api/v1/traces/{id}/voice/`: el audio, solo para su dueño y con caché privada.
+  - Cada huella trae `voice_duration` (las listas la anotan sin cargar el audio). Sin voz, la
+    nota escrita sigue siendo obligatoria. Las huellas con solo voz cuentan en las estadísticas
+    (HU13) y en el resumen semanal (HU14), pero sin texto que mandar a la IA.
+- **Interfaz (SCRUM-73):**
+  - `VoiceRecorderPanel` en Nueva huella: «Grabar nota de voz», contador «Grabando 0:12 de 1:00»
+    con barra, «Detener», reproductor para escucharla, «Volver a grabar» y «Quitar la nota de
+    voz». Se detiene sola a los 60 s y suelta el micrófono al terminar.
+  - Calidad de la voz (ajuste tras la prueba del equipo, que se oía entrecortada): el micrófono
+    se pide sin supresión de ruido ni cancelación de eco, que cortaban la voz baja, con control de
+    volumen y una sola pista, y se graba a 64 kbps (~480 KB por minuto).
+  - Sin permiso: «Para grabar, Evoca necesita permiso para usar tu micrófono: así guarda tu voz
+    en esta huella, solo para ti…» con «Escribir la nota» (lleva al campo de la nota) e
+    «Intentar de nuevo». Sin micrófono o en un navegador sin grabación, también lo dice.
+  - `VoicePlayer` en el detalle de la huella (pide el audio con la sesión) y «Nota de voz · 0:42»
+    en las tarjetas. Historias de la grabadora en Storybook.
+
+### Evidencia
+
+| Escenario | Prueba automática | Estado |
+| --- | --- | --- |
+| 1 · Grabar hasta 60 s y escucharla antes de guardar | `frontend/src/app/hu16.test.tsx` (escenario 1: graba, se detiene, reproductor, suelta el micrófono; se detiene sola a los 60 s); `apps/traces/tests.py` (`VoiceNoteTests`: `test_only_real_audio_of_up_to_60_seconds`, `test_scenario_1_only_the_owner_can_listen_to_it`) | Cumplido |
+| 2 · Se guarda como huella con tipo, emoción e intensidad | `test_scenario_2_*`, `test_iphone_recordings_are_accepted_too`, `test_the_list_brings_the_duration…`, `test_deleting_the_trace_deletes_its_voice`; `hu16.test.tsx` (escenario 2: guarda sin nota escrita y se escucha en el detalle) | Cumplido |
+| 3 · Sin permiso del micrófono explica por qué y deja escribir | `hu16.test.tsx` (escenario 3: permiso negado, sin micrófono, navegador sin grabación); `test_scenario_3_without_voice_the_written_note_is_required` | Cumplido |
+| Permisos, duración máxima y reproducción (subtarea de pruebas) | Las anteriores, más la prueba de punta a punta en Chrome con un micrófono simulado: graba 3,5 s, se escucha, se guarda (201) sin nota escrita, se reproduce en el detalle y otra cuenta recibe 404 | Cumplido |
 
 ---
 

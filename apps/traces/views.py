@@ -1,4 +1,5 @@
 import re
+from array import array
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 
@@ -346,14 +347,36 @@ def central_count(user, exclude=None):
     return centrals.distinct().count()
 
 
-def graph_node(sphere, entries):
+def graph_node(sphere, entries, meaning=None):
     """Lo que el cálculo de afinidad necesita de un recuerdo."""
     return memory_map.Node(
         id=sphere["id"],
         emotion=sphere["emotion"],
         sensations=frozenset(sphere["sensory_types"]),
         tags=frozenset(tag for entry in entries for tag in entry[4]),
+        meaning=meaning,
     )
+
+
+def memory_vectors(memory_ids):
+    """
+    HU15: el vector de significado de cada recuerdo, promedio de los de sus huellas (HU12). Solo
+    lee vectores ya guardados: no llama a la IA. Un recuerdo sin vectores queda sin significado.
+    """
+    rows = (
+        MemoryTrace.objects.filter(
+            memory_id__in=memory_ids,
+            trace__embedding__model=settings.EVOCA_AI_EMBEDDING_MODEL,
+        )
+        .values_list("memory_id", "trace__embedding__vector")
+    )
+    dimensions = settings.EVOCA_AI_EMBEDDING_DIMENSIONS
+    by_memory = defaultdict(list)
+    for memory_id, raw in rows:
+        values = array("f", bytes(raw))
+        if len(values) == dimensions:
+            by_memory[memory_id].append(values)
+    return {memory_id: memory_map.memory_vector(vectors) for memory_id, vectors in by_memory.items()}
 
 
 def suggestion_payload(memory):
@@ -547,6 +570,7 @@ class MemoryViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.G
             .only("id", "name", "explanation", "is_central", "central_at")
         )
         entries = memory_entries([memory.id for memory in memories])
+        vectors = memory_vectors([memory.id for memory in memories])
         # Un recuerdo cuyas huellas se borraron todas no tiene color ni tamaño: no se dibuja.
         drawn = [memory for memory in memories if entries[memory.id]]
         nodes, graph = [], []
@@ -557,7 +581,7 @@ class MemoryViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.G
             )
             nodes.append(sphere)
             if sphere["match"]:
-                graph.append(graph_node(sphere, entries[memory.id]))
+                graph.append(graph_node(sphere, entries[memory.id], vectors.get(memory.id)))
         return Response(
             {
                 "total": len(nodes),

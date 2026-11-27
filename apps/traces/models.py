@@ -183,3 +183,41 @@ class WeeklySummary(models.Model):
 
     def __str__(self):
         return f"{self.user_id} · semana del {self.week_start}"
+
+
+class Island(models.Model):
+    """
+    Isla (HU15): un gran tema que agrupa recuerdos, propuesto por la IA con un nombre y una
+    explicación de por qué van juntos. La persona puede renombrarla (custom_name) u ocultarla;
+    al recalcular, esos cambios se conservan en la isla que sigue siendo la misma.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="islands")
+    name = models.CharField(max_length=60)
+    custom_name = models.CharField(max_length=60, blank=True)
+    explanation = models.CharField(max_length=255, blank=True)
+    hidden = models.BooleanField(default=False)
+    memories = models.ManyToManyField(Memory, related_name="islands", blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    @property
+    def display_name(self):
+        return self.custom_name or self.name
+
+    def __str__(self):
+        return self.display_name
+
+
+class IslandsCalculation(models.Model):
+    """Cuándo se calcularon las islas de la persona y con qué recuerdos (para avisar si cambiaron)."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, primary_key=True, related_name="islands_calculation"
+    )
+    calculated_at = models.DateTimeField()
+    signature = models.CharField(max_length=64)

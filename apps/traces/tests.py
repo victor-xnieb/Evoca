@@ -20,9 +20,9 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
 
-from . import ai, memory_ai, memory_map, search, stats, weekly
+from . import ai, islands, memory_ai, memory_map, search, stats, weekly
 from .management.commands.suggestion_stats import acceptance_stats
-from .models import Memory, MemoryTrace, Trace, TraceElement, TraceEmbedding, WeeklySummary
+from .models import Island, Memory, MemoryTrace, Trace, TraceElement, TraceEmbedding, WeeklySummary
 from .mood import mood_score
 
 
@@ -727,7 +727,7 @@ class MemoryAffinityTests(SimpleTestCase):
         self.assertEqual(reason, "")
 
     def test_sensations_weigh_more_than_emotion_and_emotion_more_than_tags(self):
-        # Con etiquetas (distintas) en los dos, cuentan los tres pesos: 0,5 + 0,3 + 0,2.
+        # Con etiquetas en los dos y sin vectores de significado: 0,4 + 0,25 + 0,1 sobre 0,75.
         sensations = memory_map.affinity(
             self.node("a", "alegria", ("aroma",), ("x",)), self.node("b", "miedo", ("aroma",), ("y",))
         )[0]
@@ -738,32 +738,32 @@ class MemoryAffinityTests(SimpleTestCase):
             self.node("a", "alegria", ("aroma",), ("lluvia",)), self.node("b", "miedo", ("place",), ("lluvia",))
         )[0]
 
-        self.assertEqual((sensations, emotion, tags), (0.5, 0.3, 0.2))
+        self.assertEqual((sensations, emotion, tags), (0.53, 0.33, 0.13))
 
     def test_without_tags_the_score_is_normalized_over_the_other_parts(self):
         same = memory_map.affinity(self.node("a", "calma", ("aroma",)), self.node("b", "calma", ("aroma",)))[0]
         emotion_only = memory_map.affinity(self.node("a", "calma", ("aroma",)), self.node("b", "calma", ("place",)))[0]
 
         self.assertEqual(same, 1.0)
-        self.assertEqual(emotion_only, 0.37)  # 0,3 / 0,8: no llega al umbral de 0,4
+        self.assertEqual(emotion_only, 0.38)  # 0,25 / 0,65: no llega al umbral de 0,4
 
     def test_an_emotion_of_the_same_tone_counts_half(self):
         score, reason = memory_map.affinity(self.node("a", "tristeza", ("song",)), self.node("b", "nostalgia", ("color",)))
 
-        self.assertEqual(score, 0.19)  # 0,15 / 0,8
+        self.assertEqual(score, 0.19)  # 0,125 / 0,65
         self.assertEqual(reason, "Comparten un tono melancólico")
 
     def test_shared_sensations_count_by_overlap(self):
-        """Comparten 1 de 3 sensaciones distintas y la emoción: (0,5 × 1/3 + 0,3) / 0,8."""
+        """Comparten 1 de 3 sensaciones distintas y la emoción: (0,4 × 1/3 + 0,25) / 0,65."""
         score, reason = memory_map.affinity(
             self.node("a", "calma", ("aroma", "color")), self.node("b", "calma", ("aroma", "song"))
         )
 
-        self.assertEqual(score, 0.58)
+        self.assertEqual(score, 0.59)
         self.assertEqual(reason, "Comparten aromas y calma")
 
     def test_pairs_under_the_threshold_are_discarded(self):
-        nodes = [self.node("a", "calma", ("aroma",)), self.node("b", "calma", ("place",))]  # 0,375
+        nodes = [self.node("a", "calma", ("aroma",)), self.node("b", "calma", ("place",))]  # 0,385
 
         self.assertEqual(memory_map.build_edges(nodes, min_affinity=0.4, max_links=4), [])
         self.assertEqual(len(memory_map.build_edges(nodes, min_affinity=0.37, max_links=4)), 1)
@@ -1012,7 +1012,7 @@ class MemoryMapTests(APITestCase):
 
         started = clock.perf_counter()
         # Dos consultas sin importar cuántos recuerdos haya: los recuerdos y sus huellas.
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(3):
             response = self.client.get(self.url)
         elapsed = clock.perf_counter() - started
 
@@ -2401,3 +2401,314 @@ class LastWeekTests(SimpleTestCase):
             with self.subTest(today=today):
                 self.assertEqual(weekly.last_week(today), (date(2026, 11, 16), date(2026, 11, 22)))
         self.assertEqual(weekly.last_week(date(2026, 11, 30)), (date(2026, 11, 23), date(2026, 11, 29)))
+
+
+@override_settings(EVOCA_MAP_MEANING_LOW=0.78, EVOCA_MAP_MEANING_HIGH=0.90, EVOCA_AI_EMBEDDING_DIMENSIONS=4)
+class MemoryMeaningAffinityTests(APITestCase):
+    """HU15 (acordado en HU10): el significado parecido de las huellas suma a la afinidad del mapa."""
+
+    def node(self, name, emotion, sensations, meaning=None):
+        return memory_map.Node(id=name, emotion=emotion, sensations=frozenset(sensations), meaning=meaning)
+
+    def test_the_four_weights(self):
+        same = (1.0, 0.0, 0.0, 0.0)
+        far = (0.0, 1.0, 0.0, 0.0)
+        # Nada en común salvo el significado: 0,25 / 0,9.
+        score, reason = memory_map.affinity(self.node("a", "alegria", ("aroma",), same), self.node("b", "miedo", ("place",), same))
+        self.assertEqual((score, reason), (0.28, "Hablan de cosas parecidas"))
+        # Iguales en todo: 1.
+        self.assertEqual(memory_map.affinity(self.node("a", "calma", ("aroma",), same), self.node("b", "calma", ("aroma",), same))[0], 1.0)
+        # Significado lejano: suma 0 pero sí cuenta en el total (0,4 / 0,9).
+        score, reason = memory_map.affinity(self.node("a", "alegria", ("aroma",), same), self.node("b", "miedo", ("aroma",), far))
+        self.assertEqual((score, reason), (0.44, "Comparten aromas"))
+
+    def test_the_similarity_is_scaled_between_low_and_high(self):
+        def vector(cosine):
+            return (cosine, (1 - cosine**2) ** 0.5, 0.0, 0.0)
+
+        base = self.node("a", "calma", ("aroma",), (1.0, 0.0, 0.0, 0.0))
+        for cosine, part in [(0.7, 0.0), (0.78, 0.0), (0.84, 0.5), (0.9, 1.0), (0.95, 1.0)]:
+            with self.subTest(cosine=cosine):
+                self.assertAlmostEqual(memory_map.meaning_part(base, self.node("b", "calma", ("aroma",), vector(cosine))), part, places=2)
+
+    def test_the_reason_mentions_meaning_only_when_it_is_close(self):
+        same = (1.0, 0.0, 0.0, 0.0)
+        near = (0.85, (1 - 0.85**2) ** 0.5, 0.0, 0.0)
+        middle = (0.82, (1 - 0.82**2) ** 0.5, 0.0, 0.0)
+        self.assertEqual(memory_map.affinity(self.node("a", "calma", ("aroma",), same), self.node("b", "calma", ("aroma",), near))[1],
+                         "Comparten aromas y calma y hablan de cosas parecidas")
+        self.assertEqual(memory_map.affinity(self.node("a", "calma", ("aroma",), same), self.node("b", "calma", ("aroma",), middle))[1],
+                         "Comparten aromas y calma")
+
+    def test_without_vectors_the_meaning_does_not_count(self):
+        same = (1.0, 0.0, 0.0, 0.0)
+        with_one = memory_map.affinity(self.node("a", "calma", ("aroma",), same), self.node("b", "calma", ("place",)))[0]
+        without = memory_map.affinity(self.node("a", "calma", ("aroma",)), self.node("b", "calma", ("place",)))[0]
+        self.assertEqual(with_one, without)
+
+    def test_a_memory_vector_is_the_normalized_average_of_its_traces(self):
+        vector = memory_map.memory_vector([(1.0, 0.0, 0.0, 0.0), (0.0, 1.0, 0.0, 0.0)])
+        self.assertAlmostEqual(vector[0], 0.7071, places=3)
+        self.assertAlmostEqual(vector[1], 0.7071, places=3)
+        self.assertIsNone(memory_map.memory_vector([]))
+
+    def test_the_map_uses_the_stored_vectors_and_never_calls_the_ai(self):
+        user = User.objects.create_user(email="mapa@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        self.client.force_authenticate(user)
+
+        def memory(name, sensory_type, emotion, vector):
+            trace = Trace.objects.create(user=user, sensory_type=sensory_type, note=name, emotion=emotion, mood_intensity=3)
+            TraceEmbedding.objects.create(
+                trace=trace, model=settings.EVOCA_AI_EMBEDDING_MODEL, text_hash="x", vector=array("f", vector).tobytes()
+            )
+            item = Memory.objects.create(user=user, name=name, status=Memory.Status.ACCEPTED)
+            MemoryTrace.objects.create(memory=item, trace=trace)
+            return item
+
+        rain = memory("Olor a lluvia sobre el pasto", "aroma", "alegria", [1.0, 0.0, 0.0, 0.0])
+        storm = memory("La tormenta de anoche", "place", "miedo", [1.0, 0.0, 0.0, 0.0])
+        memory("Un examen difícil", "texture", "enojo", [0.0, 1.0, 0.0, 0.0])
+
+        def fail(*args, **kwargs):
+            raise AssertionError("El mapa no debe llamar a la IA")
+
+        with mock.patch.dict(search.PROVIDERS, {"gemini": fail}), override_settings(EVOCA_MAP_MIN_AFFINITY=0.25):
+            graph = self.client.get("/api/v1/memories/").data
+
+        self.assertEqual(
+            [(edge["source"], edge["target"], edge["reason"]) for edge in graph["edges"]],
+            [tuple(sorted((str(rain.pk), str(storm.pk)))) + ("Hablan de cosas parecidas",)],
+        )
+
+
+def islands_answer(*groups):
+    return json.dumps({"islands": [{"name": name, "explanation": f"Por qué: {name}.", "memories": numbers} for name, numbers in groups]})
+
+
+@override_settings(EVOCA_AI_API_KEY="test-key", EVOCA_AI_PROVIDER="gemini")
+class IslandsTests(APITestCase):
+    """HU15: mis islas (grandes temas de mis recuerdos, con su peso)."""
+
+    url = "/api/v1/islands/"
+    calculate_url = "/api/v1/islands/calculate/"
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(email="islas@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        self.client.force_authenticate(self.user)
+        self.calls = []
+        self.answer = islands_answer(("Familia", [1, 2, 3, 4, 5]), ("Amigos", [6, 7, 8, 9, 10]), ("Calma", [11, 12, 13, 14, 15]))
+
+    def provider(self, answer=None, error=None):
+        def ask(text):
+            self.calls.append(text)
+            if error:
+                raise error
+            return answer if answer is not None else self.answer
+
+        return mock.patch.dict(islands.PROVIDERS, {"gemini": ask})
+
+    def memory(self, name, traces=1, user=None, status_value=Memory.Status.ACCEPTED, note="Una nota"):
+        owner = user or self.user
+        memory = Memory.objects.create(user=owner, name=name, status=status_value)
+        for index in range(traces):
+            trace = Trace.objects.create(user=owner, sensory_type="aroma", note=f"{note} {index}", emotion="calma", mood_intensity=4)
+            MemoryTrace.objects.create(memory=memory, trace=trace)
+        return memory
+
+    def fifteen(self, traces=(1,) * 15):
+        return [self.memory(f"Recuerdo {index + 1:02d}", count) for index, count in enumerate(traces)]
+
+    def calculate(self, **provider):
+        with self.provider(**provider):
+            return self.client.post(self.calculate_url)
+
+    def island(self, data, name):
+        return next(item for item in data["islands"] + data["hidden"] if item["ai_name"] == name)
+
+    # Escenario 1
+    def test_scenario_1_with_15_memories_the_ai_proposes_islands_with_name_and_weight(self):
+        self.fifteen(traces=[2] * 5 + [1] * 10)
+
+        pending = self.client.get(self.url).data
+        self.assertEqual((pending["status"], pending["memory_count"]), ("pending", 15))
+        self.assertEqual(self.calls, [])
+
+        data = self.calculate().data
+
+        self.assertEqual(data["status"], "ready")
+        # Peso por huellas: Familia 10 de 20, Amigos 5, Calma 5.
+        self.assertEqual([(item["name"], item["weight"]) for item in data["islands"]], [("Familia", 50), ("Amigos", 25), ("Calma", 25)])
+        self.assertEqual(sum(item["weight"] for item in data["islands"]), 100)
+        self.assertFalse(data["outdated"])
+
+    def test_scenario_1_islands_are_kept_and_not_recalculated_when_opened(self):
+        self.fifteen()
+        self.calculate()
+        self.calls.clear()
+        self.assertEqual(self.client.get(self.url).data["status"], "ready")
+        self.assertEqual(self.calls, [])
+
+    def test_with_fewer_than_15_memories_it_says_how_many_are_missing(self):
+        for index in range(14):
+            self.memory(f"Recuerdo {index}")
+        self.memory("Sugerido", status_value=Memory.Status.SUGGESTED)
+        self.memory("Sin huellas", traces=0)
+
+        data = self.calculate().data
+
+        self.assertEqual((data["status"], data["memory_count"], data["missing"], data["required"]), ("too_few", 14, 1, 15))
+        self.assertEqual(self.calls, [])
+
+    def test_scenario_1_between_2_and_6_valid_islands(self):
+        self.fifteen()
+        many = islands_answer(*[(f"Isla {index}", [2 * index + 1, 2 * index + 2]) for index in range(7)])
+        self.assertEqual(len(self.calculate(answer=many).data["islands"]), 6)
+
+    def test_invalid_islands_are_dropped_and_with_fewer_than_2_nothing_is_saved(self):
+        self.fifteen()
+        answer = islands_answer(("Una sola", [1]), ("Inventada", [40, 41]), ("Buena", [2, 3]), ("Repite", [2, 3]))
+        self.assertEqual(self.calculate(answer=answer).data["status"], "unavailable")
+        self.assertFalse(Island.objects.exists())
+        answer = islands_answer(("Buena", [2, 3, 4]), ("Comparte uno", [4, 5, 6]))
+        data = self.calculate(answer=answer).data
+        self.assertEqual([len(item["memories"]) for item in data["islands"]], [3, 2])
+
+    def test_the_ai_reads_memories_but_not_notes(self):
+        self.memory("Tardes en la finca", 2, note="Una nota secreta")
+        for index in range(14):
+            self.memory(f"Recuerdo {index}")
+        self.calculate()
+        sent = self.calls[0]
+        self.assertIn("1. Tardes en la finca · Calma · Aroma · etiquetas: ninguna · 2 huellas", sent)
+        self.assertNotIn("secreta", sent)
+        self.assertNotIn("islas@example.com", sent)
+
+    def test_only_my_memories(self):
+        other = User.objects.create_user(email="otra@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        for index in range(15):
+            self.memory(f"Ajeno {index}", user=other)
+        self.assertEqual(self.client.get(self.url).data["status"], "too_few")
+
+    # Escenario 2
+    def test_scenario_2_an_island_shows_its_memories_and_why(self):
+        memories = self.fifteen(traces=[3, 1] + [1] * 13)
+        family = self.island(self.calculate().data, "Familia")
+        self.assertEqual(family["explanation"], "Por qué: Familia.")
+        self.assertEqual([item["name"] for item in family["memories"]][:2], ["Recuerdo 01", "Recuerdo 02"])
+        self.assertEqual(family["memories"][0], {"id": str(memories[0].pk), "name": "Recuerdo 01", "emotion": "calma", "trace_count": 3})
+
+    # Escenario 3
+    def test_scenario_3_a_renamed_island_keeps_its_name_when_recalculated(self):
+        self.fifteen()
+        family = self.island(self.calculate().data, "Familia")
+        renamed = self.client.patch(f"{self.url}{family['id']}/", {"name": "Mi gente"}, format="json").data
+        self.assertEqual((self.island(renamed, "Familia")["name"], self.island(renamed, "Familia")["renamed"]), ("Mi gente", True))
+
+        # La IA recalcula con otro nombre y un recuerdo menos: sigue siendo la misma isla.
+        answer = islands_answer(("Los míos", [1, 2, 3, 4]), ("Amigos", [6, 7, 8, 9, 10]), ("Calma", [11, 12, 13, 14, 15]))
+        data = self.calculate(answer=answer).data
+
+        island = self.island(data, "Los míos")
+        self.assertEqual((island["id"], island["name"], island["renamed"]), (family["id"], "Mi gente", True))
+        self.assertIn("«Mi gente»: #1, #2, #3, #4, #5", self.calls[-1])
+
+    def test_scenario_3_a_hidden_island_stays_hidden_when_recalculated(self):
+        self.fifteen(traces=[2] * 5 + [1] * 10)
+        calm = self.island(self.calculate().data, "Calma")
+
+        data = self.client.patch(f"{self.url}{calm['id']}/", {"hidden": True}, format="json").data
+
+        self.assertEqual([item["name"] for item in data["hidden"]], ["Calma"])
+        self.assertIsNone(data["hidden"][0]["weight"])
+        # El peso se reparte entre las visibles: 10 y 5 de 15 huellas.
+        self.assertEqual([item["weight"] for item in data["islands"]], [67, 33])
+        data = self.calculate().data
+        self.assertEqual([item["id"] for item in data["hidden"]], [calm["id"]])
+
+        shown = self.client.patch(f"{self.url}{calm['id']}/", {"hidden": False}, format="json").data
+        self.assertEqual(shown["hidden"], [])
+
+    def test_an_island_that_changes_a_lot_is_a_new_one(self):
+        self.fifteen()
+        family = self.island(self.calculate().data, "Familia")
+        self.client.patch(f"{self.url}{family['id']}/", {"name": "Mi gente"}, format="json")
+        answer = islands_answer(("Otra cosa", [1, 6, 11]), ("Amigos", [7, 8, 9, 10]), ("Calma", [12, 13, 14, 15]))
+        data = self.calculate(answer=answer).data
+        self.assertNotIn(family["id"], [item["id"] for item in data["islands"]])
+        self.assertFalse(Island.objects.filter(pk=family["id"]).exists())
+
+    def test_an_empty_name_goes_back_to_the_ai_name(self):
+        self.fifteen()
+        family = self.island(self.calculate().data, "Familia")
+        self.client.patch(f"{self.url}{family['id']}/", {"name": "Mi gente"}, format="json")
+        data = self.client.patch(f"{self.url}{family['id']}/", {"name": ""}, format="json").data
+        self.assertEqual((self.island(data, "Familia")["name"], self.island(data, "Familia")["renamed"]), ("Familia", False))
+
+    def test_the_change_must_say_something_and_be_mine(self):
+        other = User.objects.create_user(email="otra@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        theirs = Island.objects.create(user=other, name="Ajena")
+        self.assertEqual(self.client.patch(f"{self.url}{theirs.pk}/", {"hidden": True}, format="json").status_code, status.HTTP_404_NOT_FOUND)
+        self.fifteen()
+        family = self.island(self.calculate().data, "Familia")
+        self.assertEqual(self.client.patch(f"{self.url}{family['id']}/", {}, format="json").status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.client.patch(f"{self.url}{family['id']}/", {"name": "x" * 61}, format="json").status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_it_warns_when_memories_changed_since_the_calculation(self):
+        memories = self.fifteen()
+        self.calculate()
+        self.memory("Uno nuevo")
+        self.assertTrue(self.client.get(self.url).data["outdated"])
+        self.calculate()
+        self.assertFalse(self.client.get(self.url).data["outdated"])
+        memories[0].delete()
+        data = self.client.get(self.url).data
+        self.assertTrue(data["outdated"])
+        # El recuerdo borrado ya no aparece en su isla.
+        self.assertNotIn("Recuerdo 01", [item["name"] for island in data["islands"] for item in island["memories"]])
+
+    # Fallos de la IA
+    def test_when_the_ai_fails_it_says_so_and_keeps_the_previous_islands(self):
+        self.fifteen()
+        failures = [
+            urllib.error.URLError("sin red"),
+            TimeoutError(),
+            urllib.error.HTTPError("https://ai.example", 429, "Too Many Requests", {}, None),
+            ai.SuggestionUnavailable("respuesta sin contenido"),
+        ]
+        for error in failures:
+            with self.subTest(error=type(error).__name__), self.assertLogs("apps.traces.islands", "WARNING") as logs:
+                self.assertEqual(self.calculate(error=error).data["status"], "unavailable")
+                self.assertNotIn("Recuerdo", " ".join(logs.output))
+        self.assertFalse(Island.objects.exists())
+        self.calculate()
+        cache.clear()  # Cinco cálculos por minuto: se reinicia el límite para el último.
+        with self.assertLogs("apps.traces.islands", "WARNING"):
+            data = self.calculate(error=TimeoutError()).data
+        self.assertEqual(data["status"], "unavailable")
+        self.assertEqual(Island.objects.filter(user=self.user).count(), 3)
+
+    @override_settings(EVOCA_AI_API_KEY="")
+    def test_without_a_key_it_is_unavailable(self):
+        self.fifteen()
+        self.assertEqual(self.calculate().data["status"], "unavailable")
+        self.assertEqual(self.calls, [])
+
+    def test_needs_a_session(self):
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.get(self.url).status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(self.client.post(self.calculate_url).status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_limits_calculations_per_person(self):
+        with self.provider():
+            codes = [self.client.post(self.calculate_url).status_code for _ in range(6)]
+        self.assertEqual(codes[:5], [status.HTTP_200_OK] * 5)
+        self.assertEqual(codes[5], status.HTTP_429_TOO_MANY_REQUESTS)
+
+
+class IslandWeightTests(SimpleTestCase):
+    def test_weights_are_whole_percentages_that_add_up_to_100(self):
+        self.assertEqual(islands.weights([1, 1, 1]), [34, 33, 33])
+        self.assertEqual(islands.weights([10, 5, 5]), [50, 25, 25])
+        self.assertEqual(sum(islands.weights([7, 3, 2, 9, 11])), 100)
+        self.assertEqual(islands.weights([0, 0]), [0, 0])

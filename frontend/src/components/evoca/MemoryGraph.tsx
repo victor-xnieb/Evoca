@@ -369,7 +369,8 @@ export function MemoryGraph({ nodes, edges, emotionLabel, selectedId, onSelect, 
                 selected={selected}
                 emphasized={neighbor}
                 muted={selectedId !== null && !selected && !neighbor}
-                showLabel={showLabels || selected || neighbor}
+                // HU11: los recuerdos centrales siempre muestran su nombre y su estrella.
+                showLabel={showLabels || selected || neighbor || Boolean(node.central)}
                 animated={floating.has(node.id)}
                 lite={nodes.length >= LITE_FROM}
                 onKeyboardSelect={onSelect}

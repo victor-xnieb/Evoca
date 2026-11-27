@@ -38,3 +38,8 @@ export const NombreLargo: Story = {
   name: "Nombre largo",
   args: { memory: { ...calm, name: "Las tardes de lluvia en la finca de los abuelos" } },
 }
+
+export const Central: Story = {
+  name: "Recuerdo central (HU11)",
+  args: { memory: { ...calm, central: true, central_at: "2026-11-01T10:00:00Z" } },
+}

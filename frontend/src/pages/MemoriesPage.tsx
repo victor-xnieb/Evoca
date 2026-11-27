@@ -14,6 +14,7 @@ import { useMemorySuggestions } from "@/hooks/use-memory-suggestions"
 import { memoriesApi, type MemoryGraph as GraphData } from "@/lib/memories"
 import { labelOf } from "@/lib/traces"
 
+import { CentralsSection } from "./memories/CentralsSection"
 import { MemoryPanel } from "./memories/MemoryPanel"
 import { SuggestionsSection } from "./memories/SuggestionsSection"
 import { SensationEmotionFilters } from "./traces/SensationEmotionFilters"
@@ -29,6 +30,7 @@ const plural = (count: number, one: string, many: string) => `${count} ${count =
  * tamaño de sus huellas; las líneas unen los recuerdos afines. Los filtros atenúan lo que no
  * coincide y, al tocar una esfera, se resaltan sus conexiones y se ven sus huellas.
  * HU9: encima del mapa, las sugerencias de la IA; al aceptar una, aparece en el mapa.
+ * HU11: los recuerdos centrales se destacan en el mapa y en su sección, encima de él.
  */
 export function MemoriesPage() {
   const [params, setParams] = useSearchParams()
@@ -174,6 +176,10 @@ export function MemoriesPage() {
       )}
 
       {graph.status === "ready" && graph.total > 0 && (
+        <CentralsSection nodes={graph.nodes} maxCentral={graph.max_central} selectedId={selectedId} onSelect={setSelectedId} />
+      )}
+
+      {graph.status === "ready" && graph.total > 0 && (
         <section aria-labelledby="esferas" className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3 rounded-2xl bg-background/75 px-3 py-1 backdrop-blur-md">
             <h2 id="esferas" className="text-base font-semibold">
@@ -214,7 +220,21 @@ export function MemoriesPage() {
 
       {graph.status === "ready" && selected && (
         <div ref={panel} className="scroll-mt-4">
-          <MemoryPanel memory={selected} nodes={graph.nodes} edges={graph.edges} catalog={catalog} onSelect={setSelectedId} />
+          <MemoryPanel
+            memory={selected}
+            nodes={graph.nodes}
+            edges={graph.edges}
+            catalog={catalog}
+            onSelect={setSelectedId}
+            centralCount={graph.central_count}
+            maxCentral={graph.max_central}
+            // Marcar, desmarcar o borrar cambia el mapa: se vuelve a pedir (sin parpadear).
+            onChanged={() => setAttempt((value) => value + 1)}
+            onDeleted={() => {
+              setSelectedId(null)
+              setAttempt((value) => value + 1)
+            }}
+          />
         </div>
       )}
     </PageTransition>

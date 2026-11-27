@@ -17,7 +17,7 @@ trabajo sigue la prioridad del Jira.
 | 4 | HU13 · Ver estadísticas de mis sensaciones | SCRUM-23 | Medium | SCRUM-63 | SCRUM-64 | SCRUM-65 | `feature/hu13-estadisticas-sensaciones` | En dev |
 | 5 | HU11 · Marcar mis recuerdos centrales | SCRUM-21 | Low | SCRUM-57 | SCRUM-58 | SCRUM-59 | `feature/hu11-recuerdos-centrales` | En dev |
 | 6 | HU14 · Ver patrones de mi semana con IA | SCRUM-24 | Low | SCRUM-66 | SCRUM-67 | SCRUM-68 | `feature/hu14-patrones-semana-ia` | En dev |
-| 7 | HU15 · Descubrir mis islas | SCRUM-25 | Low | SCRUM-69 | SCRUM-70 | SCRUM-71 | `feature/hu15-islas` | Pendiente |
+| 7 | HU15 · Descubrir mis islas | SCRUM-25 | Low | SCRUM-69 | SCRUM-70 | SCRUM-71 | `feature/hu15-islas` | En rama, por aprobar |
 | 8 | HU16 · Grabar una nota de voz en la huella | SCRUM-26 | Lowest | SCRUM-72 | SCRUM-73 | SCRUM-74 | `feature/hu16-nota-de-voz` | Pendiente |
 
 ---
@@ -389,6 +389,69 @@ desde el lunes se ve el mismo resumen toda la semana, preparado una sola vez.
 **Prueba con Gemini real** (semana del 16 al 22 de noviembre): María (9 huellas) recibe 2 patrones
 en 1,1 s; Mateo (7) recibe «Las noches en que registraste texturas o colores asociados a la
 tristeza tu ánimo fue muy bajo», calculado con 3 registros; una cuenta con 4 huellas ve que faltó 1.
+
+---
+
+## HU15 · Descubrir mis islas (SCRUM-25)
+
+**Historia.** Como usuario, quiero que la IA agrupe mis recuerdos en grandes temas y me muestre
+cuáles pesan más, para entender qué es lo que más me define.
+
+**Escenarios**
+
+1. Dado que tengo 15 o más recuerdos, cuando abro «Mis islas», entonces la IA propone entre 2 y 6
+   islas, y cada una tiene nombre y porcentaje de peso.
+2. Dado que veo una isla, cuando la toco, entonces veo los recuerdos que la forman y por qué se
+   agruparon.
+3. Dado que renombré u oculté una isla, cuando la IA vuelve a calcular mis islas, entonces mi
+   cambio se conserva.
+
+**Subtareas:** Backend SCRUM-69 · Interfaz SCRUM-70 · Pruebas SCRUM-71.
+
+**Decisiones del equipo.** El peso de una isla es la parte de **huellas** que reúnen sus recuerdos
+(entre las islas visibles). Las islas se calculan la primera vez y después **a pedido**: si los
+recuerdos cambian, la vista lo avisa. «Mis islas» es una **pestaña en Recuerdos**. Además se
+cumplió lo acordado en HU10: el significado parecido (HU12) suma a la afinidad del mapa.
+
+### Qué se hizo
+
+- **Backend (SCRUM-69):**
+  - Afinidad del mapa con cuatro partes (sensaciones 0,4 · emoción 0,25 · etiquetas 0,1 ·
+    significado 0,25). El vector de cada recuerdo es el promedio de los de sus huellas (HU12),
+    leído de la base: abrir el mapa no llama a la IA. Motivo «hablan de cosas parecidas».
+  - `Island` (nombre de la IA, nombre propio, explicación, oculta, recuerdos) e
+    `IslandsCalculation` (cuándo y con qué recuerdos se calcularon); migración `traces/0008_islands`.
+  - `apps/traces/islands.py`: la IA recibe los recuerdos numerados (nombre, emoción, sensaciones,
+    etiquetas, huellas, explicación y afines) y las islas actuales, y responde de 2 a 6 islas.
+    Se valida todo (cada isla con 2 recuerdos o más, sin repetidos, nombres de hasta 60
+    caracteres); si quedan menos de 2, no se guarda nada y se conservan las anteriores.
+  - Emparejamiento al recalcular: cada isla nueva actualiza la anterior con al menos la mitad de
+    recuerdos en común, conservando su nombre propio y si está oculta.
+  - `GET /api/v1/islands/`, `POST /api/v1/islands/calculate/` (5 por minuto) y
+    `PATCH /api/v1/islands/{id}/`.
+- **Interfaz (SCRUM-70):**
+  - Pestañas «Mapa» y «Mis islas» en Recuerdos (`?vista=islas`).
+  - Cada isla: nombre, porcentaje grande con barra, esferas de sus recuerdos y cuántas huellas.
+    Al tocarla: «Por qué se agruparon», sus recuerdos (cada uno se abre en el mapa) y los botones
+    Renombrar, Volver al nombre de la IA y Ocultar / Mostrar. Las ocultas quedan en «Islas
+    ocultas (N)».
+  - Estados: la IA buscando las islas, menos de 15 recuerdos («Te faltan N recuerdos»), aviso de
+    recuerdos cambiados con «Volver a calcular», IA no disponible (se siguen viendo las de antes).
+
+### Evidencia
+
+| Escenario | Prueba automática | Estado |
+| --- | --- | --- |
+| 1 · Con 15 recuerdos, de 2 a 6 islas con nombre y peso | `apps/traces/tests.py` (`IslandsTests`: `test_scenario_1_*`, `test_with_fewer_than_15_memories…`, `test_invalid_islands_are_dropped…`, `test_the_ai_reads_memories_but_not_notes`, `test_only_my_memories`; `IslandWeightTests`); `frontend/src/app/hu15.test.tsx` (escenario 1) | Cumplido |
+| 2 · Al tocarla, sus recuerdos y por qué se agruparon | `test_scenario_2_*`; `hu15.test.tsx` (escenario 2: abre el recuerdo en el mapa) | Cumplido |
+| 3 · Nombre cambiado o isla oculta se conservan al recalcular | `test_scenario_3_*`, `test_an_island_that_changes_a_lot…`, `test_an_empty_name…`, `test_it_warns_when_memories_changed…`; `hu15.test.tsx` (escenario 3) | Cumplido |
+| Significado en el mapa (acordado) | `MemoryMeaningAffinityTests` (pesos, escala, motivo, sin vectores, el mapa no llama a la IA) y los pesos nuevos en `MemoryAffinityTests` | Cumplido |
+| Pocos recuerdos y fallos de la IA (subtarea de pruebas) | `test_with_fewer_than_15_memories…`, `test_when_the_ai_fails…` (sin red, tiempo agotado, 429), `test_without_a_key…`, `test_limits_calculations_per_person`; `hu15.test.tsx` | Cumplido |
+
+**Prueba con Gemini real** (María, 40 recuerdos, 8,4 s): Momentos de calma 26 %, Amigos y
+celebraciones 25 %, La familia y el hogar 23 %, Retos y nervios 14 %, Despedidas y nostalgia
+12 % (3 recuerdos quedan sin isla). En el mapa, 36 de 71 conexiones dicen «hablan de cosas
+parecidas», por ejemplo «Tardes de lluvia en Bogotá» con «Días de calma».
 
 ---
 

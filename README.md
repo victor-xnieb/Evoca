@@ -246,6 +246,9 @@ en la orientación de Mateo, que la pausa 7 días).
 | GET | `/api/v1/weekly-summary/` | HU14: resumen de la semana pasada (lunes a domingo). `status`: `disabled`, `too_few` (menos de 5 huellas; `missing`), `pending` (aún no se prepara), `unavailable` o `ready` con `patterns` (`text`, `trace_count` y `traces` con fecha, tipo, emoción, intensidad, ánimo y nota). No llama a la IA |
 | POST | `/api/v1/weekly-summary/generate/` | HU14: prepara el resumen con la IA si hace falta (una sola vez por semana; 5 pedidos por minuto) y responde lo mismo que el GET |
 | GET/PUT | `/api/v1/weekly-summary/settings/` | HU14: si la persona recibe el resumen semanal (`enabled`, activo por defecto) |
+| GET | `/api/v1/islands/` | HU15: mis islas. `status`: `too_few` (menos de 15 recuerdos; `missing`), `pending` (aún no se calculan), `unavailable` o `ready`, con `islands` visibles (nombre, `ai_name`, `renamed`, `explanation`, `weight` en %, `trace_count` y `memories`) y `hidden`. `outdated`: los recuerdos cambiaron desde el último cálculo. No llama a la IA |
+| POST | `/api/v1/islands/calculate/` | HU15: la IA calcula o vuelve a calcular las islas (5 por minuto). Los nombres cambiados y las islas ocultas se conservan |
+| PATCH | `/api/v1/islands/{id}/` | HU15: renombrar (`name`; vacío vuelve al de la IA) u ocultar / mostrar (`hidden`) una isla |
 | DELETE | `/api/v1/memories/{id}/` | HU11: borra un recuerdo del mapa (sus huellas no se borran); si era central, libera su lugar. Una sugerencia no se borra: se descarta |
 
 ### Búsqueda por significado (HU12)
@@ -307,6 +310,24 @@ La intensidad dice qué tan fuerte fue una emoción, no qué tan bien estaba la 
 Lo usan la orientación de HU6 (un día es bajo si el promedio del ánimo de sus huellas es 2 o
 menos) y la gráfica de HU4. El calendario de HU7 sigue mostrando la intensidad promedio, que sí
 es intensidad.
+
+### Mis islas y significado en el mapa (HU15)
+
+- **Significado en el mapa:** la afinidad de HU10 suma una cuarta parte, *significado parecido*,
+  con los vectores de HU12 ya guardados (el promedio de los de las huellas de cada recuerdo).
+  Pesos: sensaciones 0,4 · emoción 0,25 · etiquetas 0,1 · significado 0,25. La similitud se
+  escala entre `EVOCA_MAP_MEANING_LOW` (0,78) y `EVOCA_MAP_MEANING_HIGH` (0,90), calibrado con
+  los recuerdos de María; desde la mitad el motivo dice «hablan de cosas parecidas». Abrir el
+  mapa no llama a la IA (María: 174 ms con 40 recuerdos). Si a un recuerdo le faltan vectores,
+  esa parte no cuenta.
+- **Mis islas** (pestaña en **Recuerdos**, `apps/traces/islands.py`): con 15 recuerdos o más, la
+  IA los agrupa en 2 a 6 grandes temas con nombre y explicación. El peso de cada isla es la parte
+  de huellas que reúnen sus recuerdos entre las islas visibles (suman 100 %). La IA recibe el
+  nombre, la emoción, las sensaciones, las etiquetas, las huellas, la explicación y los recuerdos
+  afines de cada uno, nunca las notas. Se calculan la primera vez que se abre la pestaña y
+  quedan guardadas; si los recuerdos cambian, la vista lo avisa y ofrece «Volver a calcular».
+  Al recalcular, cada isla nueva se empareja con la anterior que comparte al menos la mitad de
+  sus recuerdos: así se conservan los nombres cambiados y las islas ocultas.
 
 ### Patrones de mi semana (HU14)
 

@@ -89,6 +89,9 @@ class TraceElement(models.Model):
 
 
 class Memory(models.Model):
+    # HU11 · Escenario 1: como mucho 5 recuerdos centrales por persona.
+    MAX_CENTRAL = 5
+
     class Status(models.TextChoices):
         SUGGESTED = "suggested", "Sugerido"
         ACCEPTED = "accepted", "Aceptado"
@@ -107,6 +110,9 @@ class Memory(models.Model):
     # HU9: cuándo lo propuso la IA (vacío si lo creó la persona) y cuándo se aceptó o descartó.
     suggested_at = models.DateTimeField(null=True, blank=True)
     decided_at = models.DateTimeField(null=True, blank=True)
+    # HU11: recuerdo central (los que más definen a la persona, hasta MAX_CENTRAL) y desde cuándo.
+    is_central = models.BooleanField(default=False)
+    central_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -73,6 +73,12 @@ class SearchRequestSerializer(serializers.Serializer):
     )
 
 
+class CentralSerializer(serializers.Serializer):
+    """HU11: marcar (true) o desmarcar (false) un recuerdo como central."""
+
+    central = serializers.BooleanField()
+
+
 class MemoryNameSerializer(serializers.Serializer):
     """Nombre de un recuerdo (al renombrarlo o al aceptarlo con otro nombre)."""
 
@@ -321,7 +327,23 @@ def memory_sphere(memory, entries):
         "emotion": dominant_emotion(entry[:3] for entry in entries) if entries else None,
         "trace_count": len(entries),
         "sensory_types": [value for value in Trace.SensoryType.values if value in present],
+        # HU11: los recuerdos centrales se destacan en el mapa y en su sección.
+        "central": memory.is_central,
+        "central_at": memory.central_at,
     }
+
+
+def central_count(user, exclude=None):
+    """
+    Cuántos recuerdos centrales tiene la persona (HU11). Solo cuentan los que se ven en el mapa
+    (aceptados y con huellas): un recuerdo que se quedó sin huellas no ocupa un lugar.
+    """
+    centrals = Memory.objects.filter(
+        user=user, status=Memory.Status.ACCEPTED, is_central=True, traces__isnull=False
+    )
+    if exclude is not None:
+        centrals = centrals.exclude(pk=exclude)
+    return centrals.distinct().count()
 
 
 def graph_node(sphere, entries):
@@ -347,8 +369,9 @@ def suggestion_payload(memory):
 
 class MemoryViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """
-    Recuerdos de la persona autenticada (nunca los de otras): el mapa (HU10) y las
-    sugerencias de la IA, que se aceptan, renombran o separan (HU9).
+    Recuerdos de la persona autenticada (nunca los de otras): el mapa (HU10), las
+    sugerencias de la IA, que se aceptan, renombran o separan (HU9), y los recuerdos
+    centrales, que se marcan, se desmarcan o se borran (HU11).
     """
 
     def get_queryset(self):
@@ -455,6 +478,53 @@ class MemoryViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.G
         link.delete()
         return Response(suggestion_payload(memory))
 
+    @action(detail=True, methods=["post"])
+    def central(self, request, pk=None):
+        """
+        HU11 · Escenario 1: marcar ({"central": true}) o desmarcar ({"central": false}) un
+        recuerdo del mapa como central. Como mucho Memory.MAX_CENTRAL por persona.
+        """
+        serializer = CentralSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        wanted = serializer.validated_data["central"]
+        with transaction.atomic():
+            memory = self.get_object()
+            if memory.status != Memory.Status.ACCEPTED:
+                raise ValidationError({"detail": "Solo un recuerdo de tu mapa puede ser central."})
+            # Bloquea a la persona mientras cuenta: dos pedidos a la vez no pasan del máximo.
+            type(request.user).objects.select_for_update().filter(pk=request.user.pk).first()
+            if wanted and not memory.is_central and central_count(request.user, exclude=memory.pk) >= Memory.MAX_CENTRAL:
+                raise ValidationError(
+                    {
+                        "central": f"Ya tienes {Memory.MAX_CENTRAL} recuerdos centrales. Quita uno para elegir este.",
+                        "code": "central_limit",
+                    }
+                )
+            if memory.is_central != wanted:
+                memory.is_central = wanted
+                memory.central_at = timezone.now() if wanted else None
+                memory.save(update_fields=["is_central", "central_at", "updated_at"])
+        return Response(
+            {
+                "id": str(memory.id),
+                "central": memory.is_central,
+                "central_at": memory.central_at,
+                "central_count": central_count(request.user),
+                "max_central": Memory.MAX_CENTRAL,
+            }
+        )
+
+    def destroy(self, request, pk=None):
+        """
+        HU11 · Escenario 3: borrar un recuerdo del mapa. Sus huellas no se borran (siguen en
+        «Mis huellas» y pueden ir a otro recuerdo); si era central, libera su lugar.
+        """
+        memory = self.get_object()
+        if memory.status != Memory.Status.ACCEPTED:
+            raise ValidationError({"detail": "Una sugerencia no se borra: se descarta."})
+        memory.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     def list(self, request, *args, **kwargs):
         """
         El grafo del mapa: todos los recuerdos aceptados como nodos (sin paginar ni orden
@@ -472,7 +542,9 @@ class MemoryViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.G
                 raise ValidationError({name: message})
             wanted[name] = value
         memories = list(
-            self.get_queryset().filter(status=Memory.Status.ACCEPTED).only("id", "name", "explanation")
+            self.get_queryset()
+            .filter(status=Memory.Status.ACCEPTED)
+            .only("id", "name", "explanation", "is_central", "central_at")
         )
         entries = memory_entries([memory.id for memory in memories])
         # Un recuerdo cuyas huellas se borraron todas no tiene color ni tamaño: no se dibuja.
@@ -493,6 +565,9 @@ class MemoryViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.G
                 "nodes": nodes,
                 "edges": memory_map.build_edges(graph),
                 "max_links": settings.EVOCA_MAP_MAX_LINKS,
+                # HU11: los centrales que se ven en el mapa y el máximo permitido.
+                "central_count": sum(node["central"] for node in nodes),
+                "max_central": Memory.MAX_CENTRAL,
             }
         )
 

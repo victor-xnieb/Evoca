@@ -727,7 +727,7 @@ class MemoryAffinityTests(SimpleTestCase):
         self.assertEqual(reason, "")
 
     def test_sensations_weigh_more_than_emotion_and_emotion_more_than_tags(self):
-        # Con etiquetas (distintas) en los dos, cuentan los tres pesos: 0,5 + 0,3 + 0,2.
+        # Con etiquetas en los dos y sin vectores de significado: 0,4 + 0,25 + 0,1 sobre 0,75.
         sensations = memory_map.affinity(
             self.node("a", "alegria", ("aroma",), ("x",)), self.node("b", "miedo", ("aroma",), ("y",))
         )[0]
@@ -738,32 +738,32 @@ class MemoryAffinityTests(SimpleTestCase):
             self.node("a", "alegria", ("aroma",), ("lluvia",)), self.node("b", "miedo", ("place",), ("lluvia",))
         )[0]
 
-        self.assertEqual((sensations, emotion, tags), (0.5, 0.3, 0.2))
+        self.assertEqual((sensations, emotion, tags), (0.53, 0.33, 0.13))
 
     def test_without_tags_the_score_is_normalized_over_the_other_parts(self):
         same = memory_map.affinity(self.node("a", "calma", ("aroma",)), self.node("b", "calma", ("aroma",)))[0]
         emotion_only = memory_map.affinity(self.node("a", "calma", ("aroma",)), self.node("b", "calma", ("place",)))[0]
 
         self.assertEqual(same, 1.0)
-        self.assertEqual(emotion_only, 0.37)  # 0,3 / 0,8: no llega al umbral de 0,4
+        self.assertEqual(emotion_only, 0.38)  # 0,25 / 0,65: no llega al umbral de 0,4
 
     def test_an_emotion_of_the_same_tone_counts_half(self):
         score, reason = memory_map.affinity(self.node("a", "tristeza", ("song",)), self.node("b", "nostalgia", ("color",)))
 
-        self.assertEqual(score, 0.19)  # 0,15 / 0,8
+        self.assertEqual(score, 0.19)  # 0,125 / 0,65
         self.assertEqual(reason, "Comparten un tono melancólico")
 
     def test_shared_sensations_count_by_overlap(self):
-        """Comparten 1 de 3 sensaciones distintas y la emoción: (0,5 × 1/3 + 0,3) / 0,8."""
+        """Comparten 1 de 3 sensaciones distintas y la emoción: (0,4 × 1/3 + 0,25) / 0,65."""
         score, reason = memory_map.affinity(
             self.node("a", "calma", ("aroma", "color")), self.node("b", "calma", ("aroma", "song"))
         )
 
-        self.assertEqual(score, 0.58)
+        self.assertEqual(score, 0.59)
         self.assertEqual(reason, "Comparten aromas y calma")
 
     def test_pairs_under_the_threshold_are_discarded(self):
-        nodes = [self.node("a", "calma", ("aroma",)), self.node("b", "calma", ("place",))]  # 0,375
+        nodes = [self.node("a", "calma", ("aroma",)), self.node("b", "calma", ("place",))]  # 0,385
 
         self.assertEqual(memory_map.build_edges(nodes, min_affinity=0.4, max_links=4), [])
         self.assertEqual(len(memory_map.build_edges(nodes, min_affinity=0.37, max_links=4)), 1)
@@ -1012,7 +1012,7 @@ class MemoryMapTests(APITestCase):
 
         started = clock.perf_counter()
         # Dos consultas sin importar cuántos recuerdos haya: los recuerdos y sus huellas.
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(3):
             response = self.client.get(self.url)
         elapsed = clock.perf_counter() - started
 
@@ -2401,3 +2401,81 @@ class LastWeekTests(SimpleTestCase):
             with self.subTest(today=today):
                 self.assertEqual(weekly.last_week(today), (date(2026, 11, 16), date(2026, 11, 22)))
         self.assertEqual(weekly.last_week(date(2026, 11, 30)), (date(2026, 11, 23), date(2026, 11, 29)))
+
+
+@override_settings(EVOCA_MAP_MEANING_LOW=0.78, EVOCA_MAP_MEANING_HIGH=0.90, EVOCA_AI_EMBEDDING_DIMENSIONS=4)
+class MemoryMeaningAffinityTests(APITestCase):
+    """HU15 (acordado en HU10): el significado parecido de las huellas suma a la afinidad del mapa."""
+
+    def node(self, name, emotion, sensations, meaning=None):
+        return memory_map.Node(id=name, emotion=emotion, sensations=frozenset(sensations), meaning=meaning)
+
+    def test_the_four_weights(self):
+        same = (1.0, 0.0, 0.0, 0.0)
+        far = (0.0, 1.0, 0.0, 0.0)
+        # Nada en común salvo el significado: 0,25 / 0,9.
+        score, reason = memory_map.affinity(self.node("a", "alegria", ("aroma",), same), self.node("b", "miedo", ("place",), same))
+        self.assertEqual((score, reason), (0.28, "Hablan de cosas parecidas"))
+        # Iguales en todo: 1.
+        self.assertEqual(memory_map.affinity(self.node("a", "calma", ("aroma",), same), self.node("b", "calma", ("aroma",), same))[0], 1.0)
+        # Significado lejano: suma 0 pero sí cuenta en el total (0,4 / 0,9).
+        score, reason = memory_map.affinity(self.node("a", "alegria", ("aroma",), same), self.node("b", "miedo", ("aroma",), far))
+        self.assertEqual((score, reason), (0.44, "Comparten aromas"))
+
+    def test_the_similarity_is_scaled_between_low_and_high(self):
+        def vector(cosine):
+            return (cosine, (1 - cosine**2) ** 0.5, 0.0, 0.0)
+
+        base = self.node("a", "calma", ("aroma",), (1.0, 0.0, 0.0, 0.0))
+        for cosine, part in [(0.7, 0.0), (0.78, 0.0), (0.84, 0.5), (0.9, 1.0), (0.95, 1.0)]:
+            with self.subTest(cosine=cosine):
+                self.assertAlmostEqual(memory_map.meaning_part(base, self.node("b", "calma", ("aroma",), vector(cosine))), part, places=2)
+
+    def test_the_reason_mentions_meaning_only_when_it_is_close(self):
+        same = (1.0, 0.0, 0.0, 0.0)
+        near = (0.85, (1 - 0.85**2) ** 0.5, 0.0, 0.0)
+        middle = (0.82, (1 - 0.82**2) ** 0.5, 0.0, 0.0)
+        self.assertEqual(memory_map.affinity(self.node("a", "calma", ("aroma",), same), self.node("b", "calma", ("aroma",), near))[1],
+                         "Comparten aromas y calma y hablan de cosas parecidas")
+        self.assertEqual(memory_map.affinity(self.node("a", "calma", ("aroma",), same), self.node("b", "calma", ("aroma",), middle))[1],
+                         "Comparten aromas y calma")
+
+    def test_without_vectors_the_meaning_does_not_count(self):
+        same = (1.0, 0.0, 0.0, 0.0)
+        with_one = memory_map.affinity(self.node("a", "calma", ("aroma",), same), self.node("b", "calma", ("place",)))[0]
+        without = memory_map.affinity(self.node("a", "calma", ("aroma",)), self.node("b", "calma", ("place",)))[0]
+        self.assertEqual(with_one, without)
+
+    def test_a_memory_vector_is_the_normalized_average_of_its_traces(self):
+        vector = memory_map.memory_vector([(1.0, 0.0, 0.0, 0.0), (0.0, 1.0, 0.0, 0.0)])
+        self.assertAlmostEqual(vector[0], 0.7071, places=3)
+        self.assertAlmostEqual(vector[1], 0.7071, places=3)
+        self.assertIsNone(memory_map.memory_vector([]))
+
+    def test_the_map_uses_the_stored_vectors_and_never_calls_the_ai(self):
+        user = User.objects.create_user(email="mapa@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        self.client.force_authenticate(user)
+
+        def memory(name, sensory_type, emotion, vector):
+            trace = Trace.objects.create(user=user, sensory_type=sensory_type, note=name, emotion=emotion, mood_intensity=3)
+            TraceEmbedding.objects.create(
+                trace=trace, model=settings.EVOCA_AI_EMBEDDING_MODEL, text_hash="x", vector=array("f", vector).tobytes()
+            )
+            item = Memory.objects.create(user=user, name=name, status=Memory.Status.ACCEPTED)
+            MemoryTrace.objects.create(memory=item, trace=trace)
+            return item
+
+        rain = memory("Olor a lluvia sobre el pasto", "aroma", "alegria", [1.0, 0.0, 0.0, 0.0])
+        storm = memory("La tormenta de anoche", "place", "miedo", [1.0, 0.0, 0.0, 0.0])
+        memory("Un examen difícil", "texture", "enojo", [0.0, 1.0, 0.0, 0.0])
+
+        def fail(*args, **kwargs):
+            raise AssertionError("El mapa no debe llamar a la IA")
+
+        with mock.patch.dict(search.PROVIDERS, {"gemini": fail}), override_settings(EVOCA_MAP_MIN_AFFINITY=0.25):
+            graph = self.client.get("/api/v1/memories/").data
+
+        self.assertEqual(
+            [(edge["source"], edge["target"], edge["reason"]) for edge in graph["edges"]],
+            [tuple(sorted((str(rain.pk), str(storm.pk)))) + ("Hablan de cosas parecidas",)],
+        )

@@ -22,3 +22,5 @@ PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 # Las pruebas nunca llaman a la IA real: cada prueba simula la respuesta.
 EVOCA_AI_API_KEY = ""
 
+# Clave Fernet solo para pruebas (HU17): no protege nada real.
+EVOCA_DIARY_KEY = "D2VPMwY1M7-auENZXVlVGxrrBQVFw_-wlILQX-kGs8U="

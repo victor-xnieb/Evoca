@@ -20,9 +20,9 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
 
-from . import ai, memory_ai, memory_map, search, stats, weekly
+from . import ai, islands, memory_ai, memory_map, search, stats, weekly
 from .management.commands.suggestion_stats import acceptance_stats
-from .models import Memory, MemoryTrace, Trace, TraceElement, TraceEmbedding, WeeklySummary
+from .models import Island, Memory, MemoryTrace, Trace, TraceElement, TraceEmbedding, WeeklySummary
 from .mood import mood_score
 
 
@@ -2479,3 +2479,236 @@ class MemoryMeaningAffinityTests(APITestCase):
             [(edge["source"], edge["target"], edge["reason"]) for edge in graph["edges"]],
             [tuple(sorted((str(rain.pk), str(storm.pk)))) + ("Hablan de cosas parecidas",)],
         )
+
+
+def islands_answer(*groups):
+    return json.dumps({"islands": [{"name": name, "explanation": f"Por qué: {name}.", "memories": numbers} for name, numbers in groups]})
+
+
+@override_settings(EVOCA_AI_API_KEY="test-key", EVOCA_AI_PROVIDER="gemini")
+class IslandsTests(APITestCase):
+    """HU15: mis islas (grandes temas de mis recuerdos, con su peso)."""
+
+    url = "/api/v1/islands/"
+    calculate_url = "/api/v1/islands/calculate/"
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(email="islas@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        self.client.force_authenticate(self.user)
+        self.calls = []
+        self.answer = islands_answer(("Familia", [1, 2, 3, 4, 5]), ("Amigos", [6, 7, 8, 9, 10]), ("Calma", [11, 12, 13, 14, 15]))
+
+    def provider(self, answer=None, error=None):
+        def ask(text):
+            self.calls.append(text)
+            if error:
+                raise error
+            return answer if answer is not None else self.answer
+
+        return mock.patch.dict(islands.PROVIDERS, {"gemini": ask})
+
+    def memory(self, name, traces=1, user=None, status_value=Memory.Status.ACCEPTED, note="Una nota"):
+        owner = user or self.user
+        memory = Memory.objects.create(user=owner, name=name, status=status_value)
+        for index in range(traces):
+            trace = Trace.objects.create(user=owner, sensory_type="aroma", note=f"{note} {index}", emotion="calma", mood_intensity=4)
+            MemoryTrace.objects.create(memory=memory, trace=trace)
+        return memory
+
+    def fifteen(self, traces=(1,) * 15):
+        return [self.memory(f"Recuerdo {index + 1:02d}", count) for index, count in enumerate(traces)]
+
+    def calculate(self, **provider):
+        with self.provider(**provider):
+            return self.client.post(self.calculate_url)
+
+    def island(self, data, name):
+        return next(item for item in data["islands"] + data["hidden"] if item["ai_name"] == name)
+
+    # Escenario 1
+    def test_scenario_1_with_15_memories_the_ai_proposes_islands_with_name_and_weight(self):
+        self.fifteen(traces=[2] * 5 + [1] * 10)
+
+        pending = self.client.get(self.url).data
+        self.assertEqual((pending["status"], pending["memory_count"]), ("pending", 15))
+        self.assertEqual(self.calls, [])
+
+        data = self.calculate().data
+
+        self.assertEqual(data["status"], "ready")
+        # Peso por huellas: Familia 10 de 20, Amigos 5, Calma 5.
+        self.assertEqual([(item["name"], item["weight"]) for item in data["islands"]], [("Familia", 50), ("Amigos", 25), ("Calma", 25)])
+        self.assertEqual(sum(item["weight"] for item in data["islands"]), 100)
+        self.assertFalse(data["outdated"])
+
+    def test_scenario_1_islands_are_kept_and_not_recalculated_when_opened(self):
+        self.fifteen()
+        self.calculate()
+        self.calls.clear()
+        self.assertEqual(self.client.get(self.url).data["status"], "ready")
+        self.assertEqual(self.calls, [])
+
+    def test_with_fewer_than_15_memories_it_says_how_many_are_missing(self):
+        for index in range(14):
+            self.memory(f"Recuerdo {index}")
+        self.memory("Sugerido", status_value=Memory.Status.SUGGESTED)
+        self.memory("Sin huellas", traces=0)
+
+        data = self.calculate().data
+
+        self.assertEqual((data["status"], data["memory_count"], data["missing"], data["required"]), ("too_few", 14, 1, 15))
+        self.assertEqual(self.calls, [])
+
+    def test_scenario_1_between_2_and_6_valid_islands(self):
+        self.fifteen()
+        many = islands_answer(*[(f"Isla {index}", [2 * index + 1, 2 * index + 2]) for index in range(7)])
+        self.assertEqual(len(self.calculate(answer=many).data["islands"]), 6)
+
+    def test_invalid_islands_are_dropped_and_with_fewer_than_2_nothing_is_saved(self):
+        self.fifteen()
+        answer = islands_answer(("Una sola", [1]), ("Inventada", [40, 41]), ("Buena", [2, 3]), ("Repite", [2, 3]))
+        self.assertEqual(self.calculate(answer=answer).data["status"], "unavailable")
+        self.assertFalse(Island.objects.exists())
+        answer = islands_answer(("Buena", [2, 3, 4]), ("Comparte uno", [4, 5, 6]))
+        data = self.calculate(answer=answer).data
+        self.assertEqual([len(item["memories"]) for item in data["islands"]], [3, 2])
+
+    def test_the_ai_reads_memories_but_not_notes(self):
+        self.memory("Tardes en la finca", 2, note="Una nota secreta")
+        for index in range(14):
+            self.memory(f"Recuerdo {index}")
+        self.calculate()
+        sent = self.calls[0]
+        self.assertIn("1. Tardes en la finca · Calma · Aroma · etiquetas: ninguna · 2 huellas", sent)
+        self.assertNotIn("secreta", sent)
+        self.assertNotIn("islas@example.com", sent)
+
+    def test_only_my_memories(self):
+        other = User.objects.create_user(email="otra@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        for index in range(15):
+            self.memory(f"Ajeno {index}", user=other)
+        self.assertEqual(self.client.get(self.url).data["status"], "too_few")
+
+    # Escenario 2
+    def test_scenario_2_an_island_shows_its_memories_and_why(self):
+        memories = self.fifteen(traces=[3, 1] + [1] * 13)
+        family = self.island(self.calculate().data, "Familia")
+        self.assertEqual(family["explanation"], "Por qué: Familia.")
+        self.assertEqual([item["name"] for item in family["memories"]][:2], ["Recuerdo 01", "Recuerdo 02"])
+        self.assertEqual(family["memories"][0], {"id": str(memories[0].pk), "name": "Recuerdo 01", "emotion": "calma", "trace_count": 3})
+
+    # Escenario 3
+    def test_scenario_3_a_renamed_island_keeps_its_name_when_recalculated(self):
+        self.fifteen()
+        family = self.island(self.calculate().data, "Familia")
+        renamed = self.client.patch(f"{self.url}{family['id']}/", {"name": "Mi gente"}, format="json").data
+        self.assertEqual((self.island(renamed, "Familia")["name"], self.island(renamed, "Familia")["renamed"]), ("Mi gente", True))
+
+        # La IA recalcula con otro nombre y un recuerdo menos: sigue siendo la misma isla.
+        answer = islands_answer(("Los míos", [1, 2, 3, 4]), ("Amigos", [6, 7, 8, 9, 10]), ("Calma", [11, 12, 13, 14, 15]))
+        data = self.calculate(answer=answer).data
+
+        island = self.island(data, "Los míos")
+        self.assertEqual((island["id"], island["name"], island["renamed"]), (family["id"], "Mi gente", True))
+        self.assertIn("«Mi gente»: #1, #2, #3, #4, #5", self.calls[-1])
+
+    def test_scenario_3_a_hidden_island_stays_hidden_when_recalculated(self):
+        self.fifteen(traces=[2] * 5 + [1] * 10)
+        calm = self.island(self.calculate().data, "Calma")
+
+        data = self.client.patch(f"{self.url}{calm['id']}/", {"hidden": True}, format="json").data
+
+        self.assertEqual([item["name"] for item in data["hidden"]], ["Calma"])
+        self.assertIsNone(data["hidden"][0]["weight"])
+        # El peso se reparte entre las visibles: 10 y 5 de 15 huellas.
+        self.assertEqual([item["weight"] for item in data["islands"]], [67, 33])
+        data = self.calculate().data
+        self.assertEqual([item["id"] for item in data["hidden"]], [calm["id"]])
+
+        shown = self.client.patch(f"{self.url}{calm['id']}/", {"hidden": False}, format="json").data
+        self.assertEqual(shown["hidden"], [])
+
+    def test_an_island_that_changes_a_lot_is_a_new_one(self):
+        self.fifteen()
+        family = self.island(self.calculate().data, "Familia")
+        self.client.patch(f"{self.url}{family['id']}/", {"name": "Mi gente"}, format="json")
+        answer = islands_answer(("Otra cosa", [1, 6, 11]), ("Amigos", [7, 8, 9, 10]), ("Calma", [12, 13, 14, 15]))
+        data = self.calculate(answer=answer).data
+        self.assertNotIn(family["id"], [item["id"] for item in data["islands"]])
+        self.assertFalse(Island.objects.filter(pk=family["id"]).exists())
+
+    def test_an_empty_name_goes_back_to_the_ai_name(self):
+        self.fifteen()
+        family = self.island(self.calculate().data, "Familia")
+        self.client.patch(f"{self.url}{family['id']}/", {"name": "Mi gente"}, format="json")
+        data = self.client.patch(f"{self.url}{family['id']}/", {"name": ""}, format="json").data
+        self.assertEqual((self.island(data, "Familia")["name"], self.island(data, "Familia")["renamed"]), ("Familia", False))
+
+    def test_the_change_must_say_something_and_be_mine(self):
+        other = User.objects.create_user(email="otra@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        theirs = Island.objects.create(user=other, name="Ajena")
+        self.assertEqual(self.client.patch(f"{self.url}{theirs.pk}/", {"hidden": True}, format="json").status_code, status.HTTP_404_NOT_FOUND)
+        self.fifteen()
+        family = self.island(self.calculate().data, "Familia")
+        self.assertEqual(self.client.patch(f"{self.url}{family['id']}/", {}, format="json").status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.client.patch(f"{self.url}{family['id']}/", {"name": "x" * 61}, format="json").status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_it_warns_when_memories_changed_since_the_calculation(self):
+        memories = self.fifteen()
+        self.calculate()
+        self.memory("Uno nuevo")
+        self.assertTrue(self.client.get(self.url).data["outdated"])
+        self.calculate()
+        self.assertFalse(self.client.get(self.url).data["outdated"])
+        memories[0].delete()
+        data = self.client.get(self.url).data
+        self.assertTrue(data["outdated"])
+        # El recuerdo borrado ya no aparece en su isla.
+        self.assertNotIn("Recuerdo 01", [item["name"] for island in data["islands"] for item in island["memories"]])
+
+    # Fallos de la IA
+    def test_when_the_ai_fails_it_says_so_and_keeps_the_previous_islands(self):
+        self.fifteen()
+        failures = [
+            urllib.error.URLError("sin red"),
+            TimeoutError(),
+            urllib.error.HTTPError("https://ai.example", 429, "Too Many Requests", {}, None),
+            ai.SuggestionUnavailable("respuesta sin contenido"),
+        ]
+        for error in failures:
+            with self.subTest(error=type(error).__name__), self.assertLogs("apps.traces.islands", "WARNING") as logs:
+                self.assertEqual(self.calculate(error=error).data["status"], "unavailable")
+                self.assertNotIn("Recuerdo", " ".join(logs.output))
+        self.assertFalse(Island.objects.exists())
+        self.calculate()
+        cache.clear()  # Cinco cálculos por minuto: se reinicia el límite para el último.
+        with self.assertLogs("apps.traces.islands", "WARNING"):
+            data = self.calculate(error=TimeoutError()).data
+        self.assertEqual(data["status"], "unavailable")
+        self.assertEqual(Island.objects.filter(user=self.user).count(), 3)
+
+    @override_settings(EVOCA_AI_API_KEY="")
+    def test_without_a_key_it_is_unavailable(self):
+        self.fifteen()
+        self.assertEqual(self.calculate().data["status"], "unavailable")
+        self.assertEqual(self.calls, [])
+
+    def test_needs_a_session(self):
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.get(self.url).status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(self.client.post(self.calculate_url).status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_limits_calculations_per_person(self):
+        with self.provider():
+            codes = [self.client.post(self.calculate_url).status_code for _ in range(6)]
+        self.assertEqual(codes[:5], [status.HTTP_200_OK] * 5)
+        self.assertEqual(codes[5], status.HTTP_429_TOO_MANY_REQUESTS)
+
+
+class IslandWeightTests(SimpleTestCase):
+    def test_weights_are_whole_percentages_that_add_up_to_100(self):
+        self.assertEqual(islands.weights([1, 1, 1]), [34, 33, 33])
+        self.assertEqual(islands.weights([10, 5, 5]), [50, 25, 25])
+        self.assertEqual(sum(islands.weights([7, 3, 2, 9, 11])), 100)
+        self.assertEqual(islands.weights([0, 0]), [0, 0])

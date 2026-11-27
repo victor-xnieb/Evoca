@@ -27,19 +27,30 @@ trabajo sigue la prioridad del Jira.
 
 ## HU10 · Explorar mi mapa de recuerdos con esferas de color (SCRUM-20)
 
-**Historia.** Como usuario, quiero ver mis recuerdos como esferas del color de su emoción en un
-mapa sin orden cronológico, para encontrarlos por lo que sentí y no por la fecha.
+**Historia.** Como usuario, quiero ver mis recuerdos como esferas del color de su emoción,
+conectadas entre sí según lo que tienen en común, en un mapa sin orden cronológico, para
+encontrarlos y relacionarlos por lo que sentí y no por la fecha.
 
-**Escenarios**
+**Escenarios** (los cinco de Jira)
 
-1. Dado que tengo recuerdos, cuando abro el mapa, entonces los veo como esferas sin orden
+1. Dado que tengo recuerdos, cuando abro el mapa, entonces los veo como esferas (nodos) sin orden
    cronológico, y el color es el de su emoción y el tamaño depende de la cantidad de huellas.
-2. Dado que veo el mapa, cuando toco una esfera o aplico un filtro por sensación o emoción,
-   entonces veo las huellas del recuerdo, o solo las esferas que coinciden con el filtro.
-3. Dado que tengo hasta 200 recuerdos, cuando abro el mapa, entonces abre en menos de 3 segundos.
+2. Dado que veo el mapa, cuando miro las esferas, entonces están conectadas por líneas según su
+   afinidad (sensaciones compartidas, misma emoción o del mismo tono, y otros atributos en común),
+   cada esfera tiene como máximo 4 conexiones, un recuerdo sin afinidad suficiente queda sin
+   conexiones, y el grosor o la opacidad de la línea indica la fuerza de la afinidad.
+3. Dado que veo el mapa, cuando toco una esfera o una conexión, entonces veo las huellas del
+   recuerdo y se resaltan sus conexiones, y al tocar una conexión veo el motivo (por ejemplo,
+   «Comparten aromas y nostalgia»).
+4. Dado que veo el mapa, cuando aplico un filtro por sensación o emoción, entonces se atenúan las
+   esferas que no coinciden y las conexiones se limitan a las esferas que coinciden.
+5. Dado que tengo hasta 200 recuerdos, cuando abro el mapa, entonces abre en menos de 3 segundos.
 
 **Interpretación del equipo.** El mapa es un **grafo**: cada recuerdo es un nodo (esfera) y los
-recuerdos afines se unen con líneas. La afinidad se calcula sin IA, con reglas fijas.
+recuerdos afines se unen con líneas. Al crearse, la afinidad se calculaba con reglas fijas, sin
+IA. Desde HU15, por acuerdo del equipo, también suma el significado parecido (peso 0,25) con los
+vectores de Gemini que ya guardó la búsqueda de HU12: abrir el mapa no llama a la IA, y si a un
+recuerdo le faltan vectores, esa parte no cuenta.
 
 **Subtareas:** Backend SCRUM-54 · Interfaz SCRUM-55 · Pruebas SCRUM-56.
 
@@ -88,9 +99,14 @@ recuerdos afines se unen con líneas. La afinidad se calcula sin IA, con reglas 
 
 | Escenario | Prueba automática | Estado |
 | --- | --- | --- |
-| 1 · Esferas sin orden cronológico, color de su emoción y tamaño por huellas | `apps/traces/tests.py` (`MemoryMapTests`: `test_scenario_1_*`, `test_a_tie_follows_the_calendar_rule`, `test_affine_memories_are_linked_with_score_and_reason`); `MemoryAffinityTests` (pesos, tono, umbral, máximo de 4, recuerdos solos); `frontend/src/app/hu10.test.tsx` (escenario 1); `frontend/src/lib/force-layout.test.ts` | Cumplido |
-| 2 · Tocar una esfera muestra sus huellas; el filtro deja solo las que coinciden | `MemoryMapTests` (`test_scenario_2_*`, `test_nobody_else_can_open_my_memory`); `hu10.test.tsx` (escenario 2: esfera, línea, teclado, panel, filtros); `frontend/e2e/hu10-mapa.spec.ts` | Cumplido (los filtros atenúan lo que no coincide) |
-| 3 · 200 recuerdos en menos de 3 s | `test_scenario_3_two_hundred_memories_open_in_under_three_seconds` (2 consultas, máximo 4 conexiones); `hu10-mapa.spec.ts` (navegador real, CPU 4 veces más lenta, mediana de 3 aperturas) | Cumplido |
+| 1 · Esferas sin orden cronológico, color de su emoción y tamaño por huellas | `apps/traces/tests.py` (`MemoryMapTests`: `test_scenario_1_*`, `test_a_tie_follows_the_calendar_rule`); `frontend/src/app/hu10.test.tsx` (color, nombre y huellas; tamaño; sin fechas); `frontend/src/lib/force-layout.test.ts` | Cumplido |
+| 2 · Conectadas por afinidad, máximo 4, sin afinidad quedan solas, línea según la fuerza | `MemoryAffinityTests` (pesos, tono, umbral, `test_no_memory_gets_more_than_four_links`, `test_edges_are_added_from_the_strongest`, `test_a_memory_without_enough_affinity_is_left_alone`); `MemoryMapTests` (`test_affine_memories_are_linked_with_score_and_reason`, `test_no_node_has_more_than_four_links`, `test_the_threshold_is_respected`); `hu10.test.tsx` (una línea por conexión, más marcada cuanto más afín, y el que no tiene queda solo) | Cumplido |
+| 3 · Tocar una esfera o una conexión: huellas, conexiones resaltadas y motivo | `test_scenario_2_touching_a_node_shows_its_traces`, `test_nobody_else_can_open_my_memory`; `hu10.test.tsx` (tocar una esfera resalta sus conexiones y muestra sus huellas; tocar o pasar el mouse por una línea muestra el motivo; teclado; panel) | Cumplido |
+| 4 · El filtro atenúa lo que no coincide y limita las conexiones | `test_scenario_2_filter_by_sensation_dims_the_rest_and_links_only_matches`, `test_scenario_2_filter_by_emotion_uses_the_color_of_the_node`, `test_scenario_2_filters_can_be_combined`; `hu10.test.tsx` (filtro y sin coincidencias); `frontend/e2e/hu10-mapa.spec.ts` | Cumplido |
+| 5 · 200 recuerdos en menos de 3 s | `test_scenario_3_two_hundred_memories_open_in_under_three_seconds` (2 consultas, máximo 4 conexiones); `hu10-mapa.spec.ts` (navegador real, CPU 4 veces más lenta, mediana de 3 aperturas) | Cumplido |
+
+Las pruebas conservan los nombres de la primera versión de la HU (tres escenarios): `scenario_2`
+cubre lo que en Jira son los escenarios 3 y 4, y `scenario_3` el 5.
 
 **Rendimiento medido** (200 recuerdos y 400 conexiones): unos 1,0 s en el navegador de un
 computador y una mediana de 1,7 a 1,9 s simulando un teléfono de gama media. La primera apertura

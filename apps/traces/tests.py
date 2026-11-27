@@ -9,6 +9,7 @@ from unittest import mock
 
 from django.conf import settings
 from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.db import connection
 from django.test import SimpleTestCase, override_settings
@@ -22,7 +23,7 @@ from apps.accounts.models import User
 
 from . import ai, islands, memory_ai, memory_map, search, stats, weekly
 from .management.commands.suggestion_stats import acceptance_stats
-from .models import Island, Memory, MemoryTrace, Trace, TraceElement, TraceEmbedding, WeeklySummary
+from .models import Island, Memory, MemoryTrace, Trace, TraceElement, TraceEmbedding, VoiceNote, WeeklySummary
 from .mood import mood_score
 
 
@@ -2712,3 +2713,143 @@ class IslandWeightTests(SimpleTestCase):
         self.assertEqual(islands.weights([10, 5, 5]), [50, 25, 25])
         self.assertEqual(sum(islands.weights([7, 3, 2, 9, 11])), 100)
         self.assertEqual(islands.weights([0, 0]), [0, 0])
+
+
+WEBM = b"\x1a\x45\xdf\xa3" + b"\x00" * 400
+OGG = b"OggS" + b"\x00" * 400
+MP4 = b"\x00\x00\x00\x20ftypM4A " + b"\x00" * 400
+
+
+class VoiceNoteTests(APITestCase):
+    """HU16: grabar una nota de voz en la huella (hasta 60 segundos)."""
+
+    url = "/api/v1/traces/with-voice/"
+
+    def setUp(self):
+        self.user = User.objects.create_user(email="voz@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        self.client.force_authenticate(self.user)
+
+    def fields(self, **extra):
+        return {"sensory_type": "song", "emotion": "nostalgia", "mood_intensity": 4, "note": "", **extra}
+
+    def upload(self, audio=WEBM, content_type="audio/webm;codecs=opus", duration="42.4", **fields):
+        data = {"data": json.dumps(self.fields(**fields))}
+        if audio is not None:
+            data["audio"] = SimpleUploadedFile("nota.webm", audio, content_type=content_type)
+        if duration is not None:
+            data["duration"] = duration
+        return self.client.post(self.url, data, format="multipart")
+
+    # Escenario 2
+    def test_scenario_2_a_voice_note_is_saved_as_a_trace_with_type_emotion_and_intensity(self):
+        response = self.upload()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            {key: response.data[key] for key in ("sensory_type", "emotion", "mood_intensity", "note", "voice_duration")},
+            {"sensory_type": "song", "emotion": "nostalgia", "mood_intensity": 4, "note": "", "voice_duration": 42.4},
+        )
+        trace = Trace.objects.get(pk=response.data["id"], user=self.user)
+        self.assertEqual((bytes(trace.voice_note.audio), trace.voice_note.content_type), (WEBM, "audio/webm"))
+
+    def test_scenario_2_the_voice_note_can_go_with_a_written_note_and_tags(self):
+        response = self.upload(note="  La canción del bus  ", tags=["Música"])
+        self.assertEqual((response.data["note"], response.data["tags"]), ("La canción del bus", ["música"]))
+
+    def test_scenario_2_the_trace_fields_are_validated_and_nothing_is_saved(self):
+        response = self.upload(emotion="felicidad")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("emotion", response.data)
+        self.assertFalse(Trace.objects.exists())
+
+    def test_iphone_recordings_are_accepted_too(self):
+        for audio, content_type in [(MP4, "audio/mp4"), (MP4, "audio/x-m4a"), (OGG, "audio/ogg;codecs=opus")]:
+            with self.subTest(content_type=content_type):
+                self.assertEqual(self.upload(audio=audio, content_type=content_type).status_code, status.HTTP_201_CREATED)
+
+    def test_only_real_audio_of_up_to_60_seconds(self):
+        cases = [
+            ({"audio": b"no es audio" * 10}, "audio"),
+            ({"content_type": "application/pdf"}, "audio"),
+            ({"audio": WEBM, "content_type": "audio/ogg"}, "audio"),
+            ({"duration": "75"}, "duration"),
+            ({"duration": "0"}, "duration"),
+            ({"duration": None}, "duration"),
+            ({"audio": None}, "audio"),
+        ]
+        for extra, field in cases:
+            with self.subTest(extra=str(extra)[:40]):
+                response = self.upload(**extra)
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn(field, response.data)
+        self.assertFalse(Trace.objects.exists())
+
+    @override_settings(EVOCA_VOICE_MAX_BYTES=100)
+    def test_a_recording_that_is_too_big_is_rejected(self):
+        response = self.upload()
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Trace.objects.exists())
+
+    def test_the_trace_data_must_be_json(self):
+        response = self.client.post(self.url, {"data": "no es json", "audio": SimpleUploadedFile("n.webm", WEBM, content_type="audio/webm"), "duration": "5"}, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # Escenario 1 (escuchar) y privacidad
+    def test_scenario_1_only_the_owner_can_listen_to_it(self):
+        trace_id = self.upload().data["id"]
+
+        response = self.client.get(f"/api/v1/traces/{trace_id}/voice/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual((response["Content-Type"], response.content), ("audio/webm", WEBM))
+        self.assertIn("private", response["Cache-Control"])
+
+        other = User.objects.create_user(email="otra@example.com", password="UnaClaveSegura!2026", date_of_birth=date(1990, 1, 1))
+        self.client.force_authenticate(other)
+        self.assertEqual(self.client.get(f"/api/v1/traces/{trace_id}/voice/").status_code, status.HTTP_404_NOT_FOUND)
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.get(f"/api/v1/traces/{trace_id}/voice/").status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_a_trace_without_voice_has_none(self):
+        trace = Trace.objects.create(user=self.user, sensory_type="aroma", note="Café", emotion="calma", mood_intensity=3)
+        self.assertEqual(self.client.get(f"/api/v1/traces/{trace.pk}/voice/").status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIsNone(self.client.get(f"/api/v1/traces/{trace.pk}/").data["voice_duration"])
+
+    # Escenario 3: sin voz, la nota escrita sigue siendo necesaria
+    def test_scenario_3_without_voice_the_written_note_is_required(self):
+        response = self.client.post("/api/v1/traces/", self.fields(note="   "), format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("graba una nota de voz", str(response.data["note"]))
+        self.assertEqual(self.client.post("/api/v1/traces/", self.fields(note="Escrita"), format="json").status_code, status.HTTP_201_CREATED)
+
+    def test_a_voice_only_trace_can_be_edited_without_a_written_note(self):
+        trace_id = self.upload().data["id"]
+        response = self.client.patch(f"/api/v1/traces/{trace_id}/", {"emotion": "alegria", "note": ""}, format="json")
+        self.assertEqual((response.status_code, response.data["emotion"]), (status.HTTP_200_OK, "alegria"))
+
+        written = Trace.objects.create(user=self.user, sensory_type="aroma", note="Café", emotion="calma", mood_intensity=3)
+        response = self.client.patch(f"/api/v1/traces/{written.pk}/", {"note": ""}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_the_list_brings_the_duration_without_loading_the_audio(self):
+        for _ in range(5):
+            self.upload()
+        Trace.objects.create(user=self.user, sensory_type="aroma", note="Café", emotion="calma", mood_intensity=3)
+        with CaptureQueriesContext(connection) as queries:
+            results = self.client.get("/api/v1/traces/").data["results"]
+        self.assertEqual(sorted(str(item["voice_duration"]) for item in results), ["42.4"] * 5 + ["None"])
+        self.assertLessEqual(len(queries), 3)
+        self.assertFalse(any("audio" in query["sql"] for query in queries.captured_queries))
+
+    def test_deleting_the_trace_deletes_its_voice(self):
+        trace_id = self.upload().data["id"]
+        self.client.delete(f"/api/v1/traces/{trace_id}/")
+        self.assertFalse(VoiceNote.objects.exists())
+
+    def test_a_voice_only_trace_counts_in_stats_but_is_not_sent_to_the_ai(self):
+        for index in range(9):
+            Trace.objects.create(user=self.user, sensory_type="aroma", note=f"Café {index}", emotion="calma", mood_intensity=3)
+        self.upload()
+        data = self.client.get("/api/v1/traces/stats/").data
+        song = next(item for item in data["types"] if item["type"] == "song")
+        self.assertEqual((song["count"], data["pending"]), (1, 9))

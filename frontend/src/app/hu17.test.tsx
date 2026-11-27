@@ -70,7 +70,8 @@ beforeAll(async () => {
   Range.prototype.getClientRects = emptyRects
   Range.prototype.getBoundingClientRect = noRect
   if (!document.elementFromPoint) document.elementFromPoint = () => null
-  if (!Text.prototype.getClientRects) (Text.prototype as unknown as { getClientRects: () => DOMRectList }).getClientRects = emptyRects
+  const text = Text.prototype as unknown as { getClientRects?: () => DOMRectList }
+  if (!text.getClientRects) text.getClientRects = emptyRects
   await import("@/pages/diary/NotebookPage")
   await import("@/pages/DiaryPage")
 }, 60_000)
@@ -202,7 +203,8 @@ describe("HU17 · Escenario 3: una palabra de riesgo abre la ayuda de inmediato"
     await new Promise((resolve) => setTimeout(resolve, 50))
 
     await user.click(box)
-    await user.keyboard(" suicidio")
+    // jsdom deja el cursor al inicio: la palabra va seguida de un espacio para quedar completa.
+    await user.keyboard("suicidio ")
 
     const help = await screen.findByRole("dialog", {}, { timeout: 4000 })
     expect(help).toHaveTextContent("Puedes hablar con alguien ahora")

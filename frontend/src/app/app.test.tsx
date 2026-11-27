@@ -23,7 +23,7 @@ describe("App", () => {
     expect(await screen.findByRole("link", { name: "Registrar mi primera huella" })).toHaveAttribute("href", "/nueva-huella")
   })
 
-  it("tiene la navegación inferior con las 6 secciones acordadas (Recuerdos llega con HU10)", () => {
+  it("tiene la navegación inferior con las 7 secciones acordadas (Recuerdos llega con HU10 y Cuadernillo con HU17)", () => {
     renderApp()
     const nav = screen.getByRole("navigation", { name: "Navegación principal" })
     const links = within(nav).getAllByRole("link")
@@ -33,6 +33,7 @@ describe("App", () => {
       "Mis huellas",
       "Recuerdos",
       "Ánimo",
+      "Cuadernillo",
       "Ajustes",
     ])
     expect(within(nav).getByRole("link", { name: "Inicio" })).toHaveAttribute("aria-current", "page")

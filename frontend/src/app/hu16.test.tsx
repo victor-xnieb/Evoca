@@ -32,8 +32,12 @@ class FakeRecorder {
   ondataavailable: ((event: { data: Blob }) => void) | null = null
   onstop: (() => void) | null = null
   stream: unknown
-  constructor(stream: unknown) {
+  options: MediaRecorderOptions | undefined
+  static last: FakeRecorder | null = null
+  constructor(stream: unknown, options?: MediaRecorderOptions) {
     this.stream = stream
+    this.options = options
+    FakeRecorder.last = this
   }
   start() {
     this.state = "recording"
@@ -76,6 +80,22 @@ function openNewTrace() {
 const voiceSection = () => screen.findByRole("region", { name: "Nota de voz" }, { timeout: 5000 })
 
 describe("HU16 · Escenario 1: grabar hasta 60 segundos y escucharla antes de guardar", () => {
+  it("pide el micrófono para voz, sin recortar la voz baja, y graba con buena calidad", async () => {
+    const getUserMedia = allowMicrophone()
+    mockApi({ "GET traces/catalog/": CATALOG })
+    const user = userEvent.setup()
+    openNewTrace()
+    const section = await voiceSection()
+
+    await user.click(within(section).getByRole("button", { name: "Grabar nota de voz" }))
+    await within(section).findByRole("status")
+
+    expect(getUserMedia).toHaveBeenCalledWith({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true, channelCount: 1 },
+    })
+    expect(FakeRecorder.last?.options).toEqual({ audioBitsPerSecond: 64_000, mimeType: "audio/webm;codecs=opus" })
+  })
+
   it("graba, se detiene y deja escuchar la nota antes de guardar", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     allowMicrophone()

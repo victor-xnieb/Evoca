@@ -160,6 +160,8 @@ class ExportView(APIView):
             ],
             # HU17: el Cuadernillo, descifrado (es de la persona).
             "diary": diary_export(user),
+            # HU19: las cartas a mi yo del futuro, completas (también las selladas: son de la persona).
+            "letters": letters_export(user),
         }
         filename = f"evoca-mis-datos-{timezone.localdate().isoformat()}.json"
         return Response(data, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
@@ -195,12 +197,31 @@ def diary_export(user):
                     "ink": page.ink,
                     "text": content.plain_text(content.load(page.content)),
                     "content": content.load(page.content),
+                    "reply_to": str(page.reply_to_id) if page.reply_to_id else None,
                     "updated_at": page.updated_at,
                 }
                 for page in notebook.pages.all()
             ],
         }
         for notebook in Notebook.objects.filter(user=user).prefetch_related("pages")
+    ]
+
+
+def letters_export(user):
+    from apps.diary.models import Letter
+
+    return [
+        {
+            "id": str(letter.id),
+            "opens_on": letter.opens_on,
+            "opened_at": letter.opened_at,
+            "font": letter.font,
+            "ink": letter.ink,
+            "content": letter.content,
+            "follows": str(letter.follows_id) if letter.follows_id else None,
+            "created_at": letter.created_at,
+        }
+        for letter in Letter.objects.filter(user=user)
     ]
 
 

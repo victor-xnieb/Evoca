@@ -1,7 +1,6 @@
-"""Cuadernillo (HU17): cuadernos y páginas de la persona autenticada, nunca los de otra."""
+"""Cuadernillo (HU17): cuadernos, páginas y cartas (HU19) de la persona autenticada, nunca los de otra."""
 
-from collections import defaultdict
-from datetime import timedelta
+import uuid
 
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Count
@@ -12,33 +11,12 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
-from apps.traces.models import Trace
-from apps.traces.views import dominant_emotion, local_start, with_moment
-
 from . import crypto, evoke
-from .models import Notebook, Page
-from .serializers import NotebookSerializer, PageSerializer
+from .moments import day_emotions
+from .models import Letter, Notebook, Page
+from .serializers import LetterSerializer, NotebookSerializer, PageSerializer
 
 NOT_CONFIGURED = {"detail": "El Cuadernillo no está disponible ahora. Inténtalo más tarde."}
-
-
-def day_emotions(user, days):
-    """{día: emoción dominante de sus huellas} para los días dados (la misma regla del calendario)."""
-    days = sorted(set(days))
-    if not days:
-        return {}
-    rows = (
-        with_moment(Trace.objects.filter(user=user))
-        .filter(at__gte=local_start(days[0]), at__lt=local_start(days[-1] + timedelta(days=1)))
-        .values_list("at", "emotion", "mood_intensity")
-    )
-    by_day = defaultdict(list)
-    wanted = set(days)
-    for moment, emotion, intensity in rows:
-        day = timezone.localtime(moment).date()
-        if day in wanted:
-            by_day[day].append((moment, emotion, intensity))
-    return {day: dominant_emotion(entries) for day, entries in by_day.items()}
 
 
 class DiaryErrors:
@@ -165,3 +143,70 @@ class PageViewSet(DiaryErrors, mixins.RetrieveModelMixin, mixins.UpdateModelMixi
         serializer.save()
         # El día pudo cambiar: la emoción se recalcula.
         serializer.context["emotions"] = day_emotions(self.request.user, [serializer.instance.day])
+
+
+class LetterViewSet(DiaryErrors, mixins.ListModelMixin, mixins.CreateModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    """
+    HU19: mis cartas a mi yo del futuro. Se escriben y quedan selladas: no se editan. La lista y el
+    detalle dicen cuándo se abre cada una, sin su contenido hasta que se abre el sobre.
+    """
+
+    serializer_class = LetterSerializer
+    pagination_class = None
+    http_method_names = ["get", "post"]
+
+    def get_queryset(self):
+        return Letter.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def open(self, request, pk=None):
+        """HU19 · Escenario 2: abre el sobre si ya llegó su fecha y entrega la carta."""
+        letter = self.get_object()
+        if not letter.ready:
+            return Response(
+                {"detail": f"Esta carta sigue sellada hasta el {letter.opens_on.strftime('%d/%m/%Y')}."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not letter.opened_at:
+            letter.opened_at = timezone.now()
+            letter.save(update_fields=["opened_at"])
+        return Response(self.get_serializer(letter).data)
+
+    @action(detail=True, methods=["post"])
+    def reply(self, request, pk=None):
+        """
+        HU19: «Escribir una respuesta» a una carta ya abierta: una página de hoy en el cuaderno
+        elegido (`notebook`), o en el último en que escribí (o «Mi diario» si no tengo ninguno),
+        enlazada a la carta. Si ya le respondí, devuelve esa página.
+        """
+        letter = self.get_object()
+        if not letter.is_open:
+            return Response({"detail": "Abre la carta antes de responderla."}, status=status.HTTP_403_FORBIDDEN)
+        page = getattr(letter, "reply", None)
+        created = page is None
+        if created:
+            notebook = self.reply_notebook(request.user, request.data.get("notebook"))
+            page = Page.objects.create(notebook=notebook, user=request.user, reply_to=letter)
+        return Response(
+            {"page": str(page.id), "notebook": str(page.notebook_id)},
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+    @staticmethod
+    def reply_notebook(user, notebook_id):
+        notebooks = Notebook.objects.filter(user=user)
+        if notebook_id:
+            try:
+                notebook = notebooks.filter(pk=uuid.UUID(str(notebook_id))).first()
+            except ValueError:
+                notebook = None
+            if notebook is None:
+                raise ValidationError({"notebook": ["Ese cuaderno no existe."]})
+            return notebook
+        last = Page.objects.filter(user=user).order_by("-updated_at").select_related("notebook").first()
+        if last:
+            return last.notebook
+        return notebooks.order_by("-created_at").first() or Notebook.objects.create(user=user, title="Mi diario")

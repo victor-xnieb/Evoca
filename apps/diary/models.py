@@ -68,6 +68,8 @@ class Page(models.Model):
     font = models.CharField(max_length=10, choices=Font.choices, default=Font.CAVEAT)
     ink = models.CharField(max_length=10, choices=Ink.choices, default=Ink.SEPIA)
     content = EncryptedTextField(blank=True, default="")
+    # HU19: si la página es la respuesta a una carta a mi yo del futuro.
+    reply_to = models.OneToOneField("Letter", null=True, blank=True, on_delete=models.SET_NULL, related_name="reply")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -106,3 +108,39 @@ class PageMemory(models.Model):
 
     memory = models.OneToOneField("traces.Memory", on_delete=models.CASCADE, primary_key=True, related_name="born_in")
     page = models.ForeignKey(Page, on_delete=models.CASCADE, related_name="memories")
+
+
+class Letter(models.Model):
+    """
+    HU19: una carta a mi yo del futuro. Se escribe una vez y queda sellada hasta `opens_on`: antes
+    de esa fecha el servidor no entrega su contenido. Se guarda cifrada, como las páginas.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="letters")
+    content = EncryptedTextField()
+    font = models.CharField(max_length=10, choices=Page.Font.choices, default=Page.Font.CAVEAT)
+    ink = models.CharField(max_length=10, choices=Page.Ink.choices, default=Page.Ink.SEPIA)
+    opens_on = models.DateField()
+    # Cuándo la persona abrió el sobre (null = sin abrir).
+    opened_at = models.DateTimeField(null=True, blank=True)
+    # La carta que se escribió al terminar de leer otra («Sellar otra carta»): forman una cadena.
+    follows = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="followed_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["opens_on", "created_at"]
+        indexes = [models.Index(fields=["user", "opens_on"], name="diary_letter_user_opens_idx")]
+
+    def __str__(self):
+        return f"Carta · {self.opens_on}"
+
+    @property
+    def ready(self):
+        """Llegó su fecha: ya se puede abrir."""
+        return self.opens_on <= timezone.localdate()
+
+    @property
+    def is_open(self):
+        """Ya se abrió el sobre (y llegó su fecha): su contenido se puede leer."""
+        return bool(self.ready and self.opened_at)

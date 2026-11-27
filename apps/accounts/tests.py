@@ -588,6 +588,13 @@ class SeedDemoTests(TestCase):
         self.assertEqual(notebooks, {"Mi diario": 3, "Viajes": 0})
         self.assertIn("café", Notebook.objects.get(title="Mi diario").pages.last().content)
 
+    def test_maria_has_a_letter_that_arrives_today_and_one_still_sealed(self):
+        """HU19: una carta llega hoy (aviso en Inicio) y otra sigue sellada."""
+        self.run_seed()
+        letters = self.client_for("maria.demo@example.com").get("/api/v1/diary/letters/").data
+        self.assertEqual([letter["ready"] for letter in letters], [True, False])
+        self.assertTrue(all("content" not in letter for letter in letters))
+
     @override_settings(EVOCA_DIARY_KEY="", DEBUG=False)
     def test_without_the_diary_key_the_seed_skips_the_notebook(self):
         from apps.diary.models import Notebook

@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/input"
 import { COVERS, diaryApi, PAPERS, type Cover, type Notebook, type Paper } from "@/lib/diary"
 import { cn } from "@/lib/utils"
 
+import { LettersSection } from "./diary/LettersSection"
+
 import "@/styles/diary.css"
 
 type ShelfState = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; notebooks: Notebook[] }
@@ -103,7 +105,7 @@ function NewNotebookDialog({ open, onOpenChange, onCreated }: { open: boolean; o
   )
 }
 
-/** HU17: «Cuadernillo», la estantería de mis cuadernos. */
+/** HU17: «Cuadernillo», la estantería de mis cuadernos (y, HU19, mis cartas al futuro). */
 export function DiaryPage() {
   const navigate = useNavigate()
   const [state, setState] = useState<ShelfState>({ status: "loading" })
@@ -201,6 +203,9 @@ export function DiaryPage() {
           </ul>
         </section>
       )}
+
+      {/* HU19: las cartas a mi yo del futuro (cuántas y cuándo se abre cada una). */}
+      {state.status !== "loading" && <LettersSection />}
 
       <NewNotebookDialog
         open={creating}

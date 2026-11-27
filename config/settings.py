@@ -163,7 +163,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
     # Cada sugerencia de IA consume cuota del proveedor: límite por persona.
-    "DEFAULT_THROTTLE_RATES": {"ai_suggest": "20/min", "ai_memories": "5/min", "ai_search": "30/min", "ai_elements": "10/min"},
+    "DEFAULT_THROTTLE_RATES": {"ai_suggest": "20/min", "ai_memories": "5/min", "ai_search": "30/min", "ai_elements": "10/min", "ai_weekly": "5/min"},
 }
 
 EVOCA_TERMS_VERSION = os.getenv("EVOCA_TERMS_VERSION", "draft-v1")
@@ -195,6 +195,8 @@ EVOCA_SEARCH_SPREAD = float(os.getenv("EVOCA_SEARCH_SPREAD", "0.1"))
 # llamada); cada pedido de la app reconoce como mucho estas huellas, y espera esto por llamada.
 EVOCA_STATS_EXTRACT_PER_REQUEST = int(os.getenv("EVOCA_STATS_EXTRACT_PER_REQUEST", "80"))
 EVOCA_AI_ELEMENTS_TIMEOUT = float(os.getenv("EVOCA_AI_ELEMENTS_TIMEOUT", "15.0"))
+# Patrones de la semana (HU14): leer hasta 80 huellas tarda como agrupar recuerdos.
+EVOCA_AI_WEEKLY_TIMEOUT = float(os.getenv("EVOCA_AI_WEEKLY_TIMEOUT", "15.0"))
 
 # Mapa de recuerdos (HU10): afinidad mínima (0 a 1) para unir dos recuerdos con una línea y
 # máximo de conexiones por recuerdo, para que el grafo siga siendo legible.

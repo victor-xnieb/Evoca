@@ -147,3 +147,39 @@ class MemoryTrace(models.Model):
     def __str__(self):
         return f"{self.memory_id} - {self.trace_id}"
 
+
+class WeeklySummaryPreference(models.Model):
+    """HU14 · Escenario 3: si la persona quiere recibir el resumen semanal (sí, por defecto)."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, primary_key=True, related_name="weekly_summary_preference"
+    )
+    enabled = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user_id}: {'activo' if self.enabled else 'desactivado'}"
+
+
+class WeeklySummary(models.Model):
+    """
+    Resumen semanal (HU14): de 1 a 3 patrones entre las huellas y el ánimo de una semana
+    (lunes a domingo), escritos por la IA como observaciones. Se prepara una sola vez por
+    semana y se guarda; cada patrón dice con qué huellas se calculó (sus id).
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="weekly_summaries")
+    week_start = models.DateField()
+    # [{"text": "...", "trace_ids": ["uuid", ...]}, ...]
+    patterns = models.JSONField(default=list)
+    trace_count = models.PositiveSmallIntegerField()
+    model = models.CharField(max_length=80)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["user", "week_start"], name="one_summary_per_week")]
+        ordering = ["-week_start"]
+
+    def __str__(self):
+        return f"{self.user_id} · semana del {self.week_start}"

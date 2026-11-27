@@ -20,7 +20,7 @@ trabajo sigue la prioridad del Jira.
 | 7 | HU15 · Descubrir mis islas | SCRUM-25 | Low | SCRUM-69 | SCRUM-70 | SCRUM-71 | `feature/hu15-islas` | En dev |
 | 8 | HU16 · Grabar una nota de voz en la huella | SCRUM-26 | Lowest | SCRUM-72 | SCRUM-73 | SCRUM-74 | `feature/hu16-nota-de-voz` | En dev |
 | 9 | HU17 · Escribir en mi Cuadernillo | SCRUM-76 | Highest | SCRUM-79 | SCRUM-80 | SCRUM-81 | `feature/hu17-cuadernillo` | En dev |
-| 10 | HU18 · Evocar recuerdos a partir de lo que escribo | SCRUM-77 | High | SCRUM-82 | SCRUM-83 | SCRUM-84 | `feature/hu18-evocar` | Pendiente |
+| 10 | HU18 · Evocar recuerdos a partir de lo que escribo | SCRUM-77 | High | SCRUM-82 | SCRUM-83 | SCRUM-84 | `feature/hu18-evocar` | En rama, por aprobar |
 | 11 | HU19 · Escribir cartas a mi yo del futuro | SCRUM-78 | Medium | SCRUM-85 | SCRUM-86 | SCRUM-87 | `feature/hu19-cartas-futuro` | Pendiente |
 
 ---
@@ -580,6 +580,73 @@ e `indie-flower` 5.3.0 (letras manuscritas guardadas en la app, como las demás 
 
 **Prueba de punta a punta en Chrome:** María abre «Mi diario», escribe, resalta una palabra,
 recarga y todo se conserva; al escribir «suicidio» se abre la ayuda de inmediato.
+
+---
+
+## HU18 · Evocar recuerdos a partir de lo que escribo (SCRUM-77)
+
+**Historia.** Como usuario, quiero que la IA lea lo que escribí en mi cuadernillo y me sugiera
+huellas y recuerdos, para que lo que cuento se convierta en recuerdos sin organizarlos a mano.
+
+**Escenarios**
+
+1. Dado que escribí en una página, cuando toco «Evocar», entonces la IA propone huellas sacadas
+   del texto (tipo, emoción e intensidad) agrupadas en uno o varios recuerdos sugeridos, cada uno
+   con nombre y explicación de por qué se agruparon, y las palabras de donde salió cada huella se
+   iluminan en la página con el color de su emoción.
+2. Dado que veo un recuerdo sugerido desde mi página, cuando lo acepto, lo renombro, quito una de
+   sus huellas o lo descarto, entonces solo se guarda lo que acepto, y aparece como esfera en mi
+   mapa.
+3. Dado que acepté un recuerdo que nació de una página, cuando toco su esfera en el mapa, entonces
+   puedo abrir la página donde nació, y desde la página las palabras iluminadas me llevan al
+   recuerdo.
+
+**Subtareas:** Backend SCRUM-82 · Interfaz SCRUM-83 · Pruebas SCRUM-84.
+
+**Sin librerías nuevas.** Las luces usan Motion y las palabras iluminadas son decoraciones de
+ProseMirror (ya incluido con TipTap); el texto de la página no se modifica.
+
+### Qué se hizo
+
+- **Backend (SCRUM-82):**
+  - `apps/diary/evoke.py`: Gemini, llamado solo desde el backend, recibe únicamente el texto de la
+    página y responde JSON con huellas (tipo, nota, emoción, intensidad y frase exacta) y hasta 3
+    recuerdos (nombre, explicación y sus huellas).
+  - Se valida todo: tipos y emociones del catálogo, intensidad 1–5, frases que existan en el texto
+    (si no, la huella queda sin iluminar) y se descartan nombres, notas o explicaciones con
+    términos clínicos.
+  - No se envían páginas de menos de 8 palabras ni con palabras de riesgo. Si la IA falla (sin red,
+    tiempo agotado, sin clave o respuesta inválida), responde `unavailable` y el Cuadernillo sigue
+    igual; los registros no llevan texto de la persona. Límite de 5 evocaciones por minuto.
+  - Modelos `Evocation` (la sugerencia, cifrada), `EvokedTrace` (huella ↔ página, con la frase
+    cifrada) y `PageMemory` (recuerdo ↔ página); migración `diary/0002_evocations`.
+  - Aceptar crea las huellas (en el día de la página) y el recuerdo aceptado; descartar crea un
+    recuerdo descartado solo para la tasa de aceptación de HU9. Volver a evocar conserva lo ya
+    decidido.
+  - El detalle del recuerdo trae `diary_page` (cuaderno, página y día) si nació de una página.
+- **Interfaz (SCRUM-83):**
+  - Botón «Evocar» en la barra de la página; las frases se iluminan con el color de su emoción y
+    unas luces vuelan hasta «Recuerdos» en la barra (sin animación con «reducir movimiento»).
+  - Panel «Recuerdos evocados de esta página»: cada sugerencia con borde punteado y esfera del
+    color de su emoción, sus huellas (con «Quitar» / «Volver a poner»), «Aceptar», «Renombrar» y
+    «Descartar». Lo aceptado pasa a borde continuo con «Ver en el mapa».
+  - Las palabras de un recuerdo aceptado quedan subrayadas y llevan a él; el panel del recuerdo en
+    el mapa muestra «Abrir la página donde nació».
+  - Mensajes claros si la página es corta, tiene palabras de riesgo o la IA no responde.
+
+### Evidencia
+
+| Escenario | Prueba automática | Estado |
+| --- | --- | --- |
+| 1 · Evocar propone huellas en recuerdos y las ilumina | `apps/diary/test_evoke.py` (`test_scenario_1_*`, `test_a_short_page_or_one_with_risk_words…`); `frontend/src/app/hu18.test.tsx` (escenario 1: panel, explicación, palabras iluminadas; estados corta, riesgo y sin IA) | Cumplido |
+| 2 · Solo se guarda lo aceptado y aparece en el mapa | `test_scenario_2_*`, `test_evoking_again_keeps_what_was_decided`; `hu18.test.tsx` (escenario 2: aceptar renombrado y sin una huella, no aceptar sin huellas, descartar) | Cumplido |
+| 3 · Del recuerdo a su página y de la palabra al recuerdo | `test_scenario_3_*`, `test_a_deleted_memory_stops_shining_in_the_page`; `hu18.test.tsx` (escenario 3: enlace a la página, recuerdo sin página) | Cumplido |
+| Formato de la IA, sin diagnósticos y fallos (subtarea de pruebas) | `test_scenario_1_invalid_or_clinical_parts_are_dropped`, `test_when_the_ai_fails_the_diary_works_the_same`, `test_without_a_key_it_is_unavailable`, `test_only_my_pages_and_the_suggestion_is_stored_encrypted`, `test_limits_evocations_per_person` | Cumplido |
+
+**Prueba de punta a punta en Chrome con Gemini real:** en la página de María, «Evocar» respondió
+en unos 2 s, iluminó 3 frases y propuso «Mañana en casa» y «Salsa con mi hermana». Al aceptar el
+primero con otro nombre, sus palabras pasaron a ser enlaces; «Ver en el mapa» abrió el recuerdo,
+«Abrir la página donde nació» volvió a la hoja y tocar una palabra iluminada llevó al recuerdo.
 
 ---
 

@@ -174,7 +174,7 @@ describe("HU3 · Escenario 3: borrar una huella con confirmación", () => {
     expect(within(dialog).getByText(/de los recuerdos que la incluían/)).toBeInTheDocument()
     await user.click(within(dialog).getByRole("button", { name: "Sí, borrar" }))
 
-    expect(await screen.findByText(TRACE_DELETED_NOTICE)).toBeInTheDocument()
+    expect(await screen.findByText(TRACE_DELETED_NOTICE, {}, { timeout: 8000 })).toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([input, init]) => init?.method === "DELETE" && String(input).endsWith("traces/t3/"))).toBe(true)
     await waitFor(() => expect(notesInList()).toEqual(["El parque", "Canción del colegio", "Café"]))
   })

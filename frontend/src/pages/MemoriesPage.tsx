@@ -45,7 +45,8 @@ export function MemoriesPage() {
   const filtered = Boolean(type || emotion)
   const [graph, setGraph] = useState<GraphState>({ status: "loading" })
   const [attempt, setAttempt] = useState(0)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  // HU18: ?recuerdo=<id> abre ese recuerdo (por ejemplo, desde una palabra iluminada del Cuadernillo).
+  const [selectedId, setSelectedId] = useState<string | null>(() => params.get("recuerdo"))
   // En el teléfono el mapa es lo primero: los filtros se despliegan a pedido.
   const [showFilterPanel, setShowFilterPanel] = useState(filtered)
   const panel = useRef<HTMLDivElement>(null)

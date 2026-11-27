@@ -28,10 +28,12 @@ class PageSerializer(serializers.ModelSerializer):
     text = serializers.SerializerMethodField()
     paper = serializers.ChoiceField(choices=Paper.choices, allow_blank=True, required=False)
     day_emotion = serializers.SerializerMethodField()
+    # HU18: recuerdos sugeridos desde esta página y las frases que se iluminan.
+    evocation = serializers.SerializerMethodField()
 
     class Meta:
         model = Page
-        fields = ("id", "notebook", "day", "paper", "font", "ink", "content", "text", "day_emotion", "created_at", "updated_at")
+        fields = ("id", "notebook", "day", "paper", "font", "ink", "content", "text", "day_emotion", "evocation", "created_at", "updated_at")
         read_only_fields = ("id", "notebook", "created_at", "updated_at")
 
     def validate_content(self, value):
@@ -44,6 +46,11 @@ class PageSerializer(serializers.ModelSerializer):
 
     def get_text(self, page):
         return content.plain_text(content.load(page.content))
+
+    def get_evocation(self, page):
+        from .evoke import view
+
+        return view(page)
 
     def get_day_emotion(self, page):
         return self.context.get("emotions", {}).get(page.day)

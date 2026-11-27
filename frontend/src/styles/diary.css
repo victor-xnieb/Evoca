@@ -122,3 +122,27 @@
     0 22px 36px -20px rgba(0, 0, 0, 0.55),
     inset 0 0 0 1px rgba(0, 0, 0, 0.12);
 }
+
+/* HU18: palabras evocadas, iluminadas con el color de su emoción. */
+.diary-writing .diary-evoked {
+  border-radius: 0.3em;
+  background: color-mix(in oklab, var(--glow) 32%, transparent);
+  box-shadow: 0 0 0.6em color-mix(in oklab, var(--glow) 45%, transparent);
+  animation: evoke-glow 1.6s ease-out;
+}
+.diary-writing .diary-evoked-link {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 0.25em;
+}
+@keyframes evoke-glow {
+  from {
+    background: color-mix(in oklab, var(--glow) 75%, transparent);
+    box-shadow: 0 0 1.4em var(--glow);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .diary-writing .diary-evoked {
+    animation: none;
+  }
+}

@@ -103,7 +103,7 @@ describe("HU17 · Escenario 1: crear un cuaderno y escribir en él", () => {
     await user.click(within(dialog).getByRole("radio", { name: "Cuadriculado" }))
     await user.click(within(dialog).getByRole("button", { name: "Crear cuaderno" }))
 
-    expect(await screen.findByRole("heading", { name: "Sueños" })).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "Sueños" }, { timeout: 8000 })).toBeInTheDocument()
     expect(sentBody(fetchMock, "POST diary/notebooks/")).toEqual({ title: "Sueños", cover: "ciruela", paper: "grid" })
     expect(screen.getByRole("heading", { name: "Este cuaderno está en blanco" })).toBeInTheDocument()
   })

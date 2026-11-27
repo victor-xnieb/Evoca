@@ -18,6 +18,45 @@ export interface Notebook {
   updated_at: string
 }
 
+/** HU18: una huella que la IA sacó de la página, con la frase de donde salió. */
+export interface EvokedTrace {
+  index: number
+  sensory_type: string
+  note: string
+  emotion: string
+  intensity: number
+  /** Palabras exactas de la página (vacío si la IA no las encontró tal cual). */
+  quote: string
+}
+
+export type SuggestionStatus = "suggested" | "accepted" | "discarded"
+
+/** HU18: un recuerdo sugerido desde la página. */
+export interface EvokedMemory {
+  index: number
+  name: string
+  explanation: string
+  status: SuggestionStatus
+  /** Al aceptarlo, el recuerdo del mapa. */
+  memory_id: string | null
+  traces: EvokedTrace[]
+}
+
+/** Frase que se ilumina en la página; si el recuerdo se aceptó, lleva a él. */
+export interface Highlight {
+  quote: string
+  emotion: string
+  memory_id: string | null
+}
+
+export interface Evocation {
+  memories: EvokedMemory[]
+  highlights: Highlight[]
+}
+
+/** «ok», o por qué no hubo sugerencias. */
+export type EvokeStatus = "ok" | "too_short" | "risk" | "unavailable"
+
 /** Una página: lo escrito es un documento del editor; `text` es su texto plano. */
 export interface DiaryPage {
   id: string
@@ -32,6 +71,8 @@ export interface DiaryPage {
   text: string
   /** Emoción dominante de las huellas de ese día (o null): tiñe el marcador de la página. */
   day_emotion: string | null
+  /** HU18: recuerdos sugeridos desde esta página y frases que se iluminan. */
+  evocation?: Evocation
   created_at: string
   updated_at: string
 }
@@ -93,4 +134,9 @@ export const diaryApi = {
   createPage: (notebookId: string, fields: PageChanges = {}) => api.post<DiaryPage>(`diary/notebooks/${notebookId}/pages/`, fields),
   updatePage: (id: string, changes: PageChanges) => api.patch<DiaryPage>(`diary/pages/${id}/`, changes),
   deletePage: (id: string) => api.delete(`diary/pages/${id}/`),
+  /** HU18: la IA lee la página y propone huellas y recuerdos. */
+  evoke: (id: string) => api.post<{ status: EvokeStatus; page: DiaryPage }>(`diary/pages/${id}/evoke/`),
+  acceptSuggestion: (pageId: string, index: number, changes: { name?: string; traces?: number[] }) =>
+    api.post<{ memory_id: string; page: DiaryPage }>(`diary/pages/${pageId}/evocation/${index}/accept/`, changes),
+  discardSuggestion: (pageId: string, index: number) => api.post<{ page: DiaryPage }>(`diary/pages/${pageId}/evocation/${index}/discard/`),
 }

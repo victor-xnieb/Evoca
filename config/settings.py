@@ -164,7 +164,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
     # Cada sugerencia de IA consume cuota del proveedor: límite por persona.
-    "DEFAULT_THROTTLE_RATES": {"ai_suggest": "20/min", "ai_memories": "5/min", "ai_search": "30/min", "ai_elements": "10/min", "ai_weekly": "5/min", "ai_islands": "5/min"},
+    "DEFAULT_THROTTLE_RATES": {"ai_suggest": "20/min", "ai_memories": "5/min", "ai_search": "30/min", "ai_elements": "10/min", "ai_weekly": "5/min", "ai_islands": "5/min", "ai_evoke": "5/min"},
 }
 
 EVOCA_TERMS_VERSION = os.getenv("EVOCA_TERMS_VERSION", "draft-v1")
@@ -205,6 +205,8 @@ EVOCA_VOICE_MAX_BYTES = int(os.getenv("EVOCA_VOICE_MAX_BYTES", str(1_500_000)))
 # Cuadernillo (HU17): clave Fernet con la que se cifran las páginas y las cartas. Obligatoria en
 # producción; no se debe perder ni cambiar (sin ella, lo escrito no se puede leer).
 EVOCA_DIARY_KEY = os.getenv("EVOCA_DIARY_KEY", "")
+# Evocar (HU18): espera máxima para que la IA lea una página y proponga huellas y recuerdos.
+EVOCA_AI_EVOKE_TIMEOUT = float(os.getenv("EVOCA_AI_EVOKE_TIMEOUT", "15.0"))
 
 # Mapa de recuerdos (HU10): afinidad mínima (0 a 1) para unir dos recuerdos con una línea y
 # máximo de conexiones por recuerdo, para que el grafo siga siendo legible.

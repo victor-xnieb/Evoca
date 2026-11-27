@@ -248,6 +248,9 @@ en la orientación de Mateo, que la pausa 7 días).
 | GET/POST | `/api/v1/diary/notebooks/` | HU17: mis cuadernos (con `page_count`) o un cuaderno nuevo (`title`, `cover`, `paper`). PATCH y DELETE en `/api/v1/diary/notebooks/{id}/` |
 | GET/POST | `/api/v1/diary/notebooks/{id}/pages/` | HU17: las páginas del cuaderno o una página nueva (de hoy si no se indica `day`) |
 | GET/PATCH/DELETE | `/api/v1/diary/pages/{id}/` | HU17: una página: `content` (documento del editor), `text`, `paper`, `font`, `ink`, `day` y `day_emotion` (emoción dominante de las huellas de ese día) |
+| POST | `/api/v1/diary/pages/{id}/evoke/` | HU18: la IA lee la página y propone huellas agrupadas en recuerdos sugeridos. Responde `{status, page}` con `status` `ok`, `too_short`, `risk` o `unavailable`; la página trae `evocation` (`memories`, `highlights`). Máximo 5 por minuto |
+| POST | `/api/v1/diary/pages/{id}/evocation/{n}/accept/` | HU18: acepta el recuerdo sugerido `n` (opcional `name` y `traces`, los índices de las huellas que se quedan); crea las huellas y el recuerdo. Responde `{memory_id, page}` |
+| POST | `/api/v1/diary/pages/{id}/evocation/{n}/discard/` | HU18: descarta la sugerencia `n` (no guarda nada; cuenta para la tasa de aceptación) |
 | GET | `/api/v1/weekly-summary/` | HU14: resumen de la semana pasada (lunes a domingo). `status`: `disabled`, `too_few` (menos de 5 huellas; `missing`), `pending` (aún no se prepara), `unavailable` o `ready` con `patterns` (`text`, `trace_count` y `traces` con fecha, tipo, emoción, intensidad, ánimo y nota). No llama a la IA |
 | POST | `/api/v1/weekly-summary/generate/` | HU14: prepara el resumen con la IA si hace falta (una sola vez por semana; 5 pedidos por minuto) y responde lo mismo que el GET |
 | GET/PUT | `/api/v1/weekly-summary/settings/` | HU14: si la persona recibe el resumen semanal (`enabled`, activo por defecto) |
@@ -333,6 +336,22 @@ grisáceo) y la tinta, clara.
   desarrollo se deriva de `DJANGO_SECRET_KEY`). Sin clave, el Cuadernillo responde 503 sin datos.
 - El Cuadernillo entra en la exportación de datos y se borra con la cuenta (Ley 1581).
 - En la demo, María tiene «Mi diario» con 3 páginas recientes y «Viajes» vacío.
+
+### Evocar recuerdos desde el Cuadernillo (HU18)
+
+En una página, **Evocar** envía solo el texto de la página a Gemini (desde el backend), que
+propone huellas (tipo, emoción, intensidad y la frase exacta de donde salió) agrupadas en
+recuerdos sugeridos con nombre y explicación. Las frases se iluminan en la hoja con el color de
+su emoción y unas luces viajan hasta «Recuerdos». Cada sugerencia (borde punteado) se acepta,
+se renombra, se le quitan huellas o se descarta: solo lo aceptado se guarda como huellas y
+recuerdo del mapa. Las palabras de un recuerdo aceptado llevan a él, y el panel del recuerdo
+tiene «Abrir la página donde nació».
+
+- La respuesta de la IA se valida (tipos y emociones del catálogo, intensidad 1–5, frase que
+  exista en el texto) y se descartan términos clínicos. La sugerencia se guarda cifrada.
+- Páginas con menos de 8 palabras o con palabras de riesgo no se envían; si la IA falla, el
+  Cuadernillo sigue igual y lo dice. En los registros no queda texto de la persona.
+- Descartar crea un recuerdo descartado solo para la tasa de aceptación (`suggestion_stats`).
 
 ### Nota de voz (HU16)
 

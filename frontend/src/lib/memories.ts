@@ -62,6 +62,8 @@ export type MemoryStatus = "suggested" | "accepted" | "discarded"
 export interface MemoryDetail extends MemorySphere {
   status: MemoryStatus
   traces: Trace[]
+  /** HU18: la página del Cuadernillo donde nació, si nació de una. */
+  diary_page?: { id: string; notebook: string; day: string } | null
 }
 
 /** Un recuerdo que propuso la IA y la persona aún no revisó (HU9). */
